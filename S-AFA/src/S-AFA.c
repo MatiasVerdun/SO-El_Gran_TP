@@ -134,6 +134,65 @@ int main(void)
 			printf("%s",(char*)getConfig(token,"S-AFA.txt",0));
 
 		}
+
+		if(!strncmp(linea,"ejecutar ",9))
+		{
+			char** split;
+			char path[256];
+			split = string_split(linea, " ");
+
+			strcpy(path, split[1]);
+			printf("La ruta del Escriptorio a ejecutar es: %s\n",path);
+
+		}
+
+		if(!strncmp(linea,"status",6))
+		{
+			char** split;
+			char idS[3]; //Asumiendo que como maximo es 999
+			int id = -1;
+			split = string_split(linea, " ");
+
+			if(split[1] == NULL){
+				printf("Se mostrara el estado de las colas y la informacion complementaria\n");
+			} else {
+				strcpy(idS, split[1]);
+				id = atoi(idS);
+				printf("Se mostrara todos los datos almacenados en el DTB con ID: %d\n",id);
+			}
+		}
+
+		if(!strncmp(linea,"finalizar ",10))
+		{
+			char** split;
+			char idS[3]; //Asumiendo que como maximo es 999
+			int id = -1;;
+			split = string_split(linea, " ");
+
+			strcpy(idS,"0");
+
+			strcpy(idS, split[1]);
+			id = atoi(idS);
+			printf("Se manda al DTB con ID %d a la cola de EXIT\n",id);
+
+		}
+
+		if(!strncmp(linea,"metricas",8))
+		{
+			char** split;
+			char idS[3]; //Asumiendo que como maximo es 999
+			int id = -1;
+			split = string_split(linea, " ");
+
+			if(split[1] == NULL){
+				printf("Se mostraran las metricas\n");
+			} else {
+				strcpy(idS, split[1]);
+				id = atoi(idS);
+				printf("Se mostraran las metricas para el DTB con ID: %d\n",id);
+			}
+		}
+
 		free(linea);
 	}
 	return EXIT_SUCCESS;

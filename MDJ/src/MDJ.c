@@ -29,7 +29,11 @@ void mostrarConfig(){
 
 void gestionarConexionDAM()
 {
-
+	/*El Proceso MDJ será un proceso de tipo servidor, es decir, que estará a la espera de las conexiones
+	de peticiones del DAM, validando por medio de un Handshake del protocolo la operación a realizar.
+	Además, el File System deberá atender las peticiones de manera concurrente.*/
+	/*Esto quiere decir que cuando reciba una peticion del DAM va a abrir hilos por cada peticion que le llegue,
+	para poder atenderlas concurrentemente*/
 }
 
 void* connectionDAM()
