@@ -10,7 +10,6 @@
 #include <conexiones/mySockets.h>
 #include <commons/string.h>
 #include <console/myConsole.h>
-#include <sentencias/sentencias.h>
 #include <commons/collections/list.h>
 
 

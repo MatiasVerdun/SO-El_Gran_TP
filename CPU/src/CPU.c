@@ -10,8 +10,6 @@
 #include <commons/collections/list.h>
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
-#include <sentencias/sentencias.h>
-
 
 void mostrarConfig(){
 

@@ -10,7 +10,6 @@
 #include <conexiones/mySockets.h>
 #include <commons/string.h>
 #include <console/myConsole.h>
-#include <sentencias/sentencias.h>
 #include <commons/collections/list.h>
 
 
@@ -133,9 +132,6 @@ int main(void)
 			strcpy(token, split[1]);
 			printf("%s",(char*)getConfig(token,"S-AFA.txt",0));
 
-		}
-		else{
-			printf("Comando invalido\n");
 		}
 		free(linea);
 	}

@@ -10,7 +10,6 @@
 #include <commons/collections/list.h>
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
-#include <sentencias/sentencias.h>
 
 typedef struct datosProceso {
 	char nombreServidor[50];

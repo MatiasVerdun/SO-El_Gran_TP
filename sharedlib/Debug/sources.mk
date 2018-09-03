@@ -17,5 +17,4 @@ commons \
 commons/collections \
 conexiones \
 console \
-sentencias \
 
