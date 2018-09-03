@@ -4,7 +4,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <parsi/parser.h>
 #include <commons/log.h>
 #include <commons/config.h>
 #include <commons/collections/list.h>

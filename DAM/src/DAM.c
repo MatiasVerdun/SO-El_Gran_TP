@@ -4,7 +4,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <parsi/parser.h>
 #include <commons/log.h>
 #include <commons/config.h>
 #include <commons/collections/list.h>
@@ -119,14 +118,14 @@ void connectionMDJ(){
 }
 
 int main() {
-	pthread_t hiloConnectionSAFA;
 	pthread_t hiloConnectionCPU;
+	pthread_t hiloConnectionSAFA;
 	pthread_t hiloConnectionFM9;
 	pthread_t hiloConnectionMDJ;
 
-	//pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
-    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
-    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+	pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
 
     mostrarConfig();
