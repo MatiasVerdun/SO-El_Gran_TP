@@ -6,6 +6,7 @@
 #include <semaphore.h>
 #include <commons/log.h>
 #include <commons/config.h>
+#include <commons/string.h>
 #include <commons/collections/list.h>
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
@@ -26,24 +27,40 @@ void mostrarConfig(){
     free(myText);
 }
 
+void gestionarConexionSAFA(int socketSAFA){
+	while(1){
+		if(gestionarDesconexion((int)socketSAFA,"SAFA")!=0)
+			break;
+	}
+}
+
+void gestionarConexionDAM(int socketDAM){
+	while(1){
+		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
+			break;
+	}
+}
+
 void* connectionDAM(){
-	u_int32_t result,sock;
+	u_int32_t result,socketDAM;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
 	strcpy(IP_ESCUCHA,(char*)getConfig("DAM_IP","CPU.txt",0));
 	PUERTO_ESCUCHA=(int)getConfig("DAM_PUERTO","CPU.txt",1);
 
-	result=myEnlazarCliente((int*)&sock,IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketDAM,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el DAM para conectarse.\n");
 		exit(1);
 	}
+
+	gestionarConexionDAM((int) socketDAM);
 	return 0;
 }
 
 void* connectionSAFA(){
-	u_int32_t result,sock;
+	u_int32_t result,socketSAFA;
 
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
@@ -51,15 +68,18 @@ void* connectionSAFA(){
 	strcpy(IP_ESCUCHA,(char*)getConfig("S-AFA_IP","CPU.txt",0));
 	PUERTO_ESCUCHA=(int)getConfig("S-AFA_PUERTO","CPU.txt",1);
 
-	result=myEnlazarCliente((int*)&sock,IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketSAFA,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el S-AFA para conectarse.\n");
 		exit(1);
 	}
+
+	gestionarConexionSAFA((int)socketSAFA);
 	return 0;
 }
 
 int main() {
+	system("clear");
 	pthread_t hiloConnectionDAM;
 	pthread_t hiloConnectionSAFA;
 

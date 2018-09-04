@@ -27,6 +27,6 @@ int my_AtenderClientesEnHilos(int *sock_Servidor, char *nombreServidor, char *no
 int myRecibirDatosFijos(int descriptorSocket, const void* buffer, const unsigned int bytesPorRecibir);
 int myEnviarDatosFijos(int descriptorSocket, const void* buffer, const unsigned int bytesPorEnviar);
 
-void* getConfig(char* token,char* nombreConfig,int tipo);
+int gestionarDesconexion(int socket,char* nombreProceso);
 
 #endif /* CONEXIONES_MYSOCKETS_H_ */

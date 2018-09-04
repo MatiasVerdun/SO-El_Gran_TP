@@ -5,12 +5,17 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <commons/config.h>
+#include <commons/string.h>
+#include <commons/collections/list.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <conexiones/mySockets.h>
-#include <commons/string.h>
 #include <console/myConsole.h>
-#include <commons/collections/list.h>
+
+static sem_t semCPU;
+static sem_t semDAM;
+static bool conectionDAM;
+static int conectionCPU=0;
 
 void mostrarConfig(){
 
@@ -36,14 +41,26 @@ void mostrarConfig(){
     free(myText);
 }
 
-void gestionarConexionCPU()
-{
-
+void inicializarSemaforos(){
+	sem_init(&semCPU,0,0);
+	sem_init(&semDAM,0,0);
 }
 
-void gestionarConexionDAM()
-{
+void gestionarConexionCPU(){
+	conectionCPU++;
+	if(conectionDAM==true && conectionCPU>0)
+		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
+}
 
+void gestionarConexionDAM(int socketDAM){
+	conectionDAM=true;
+	if(conectionDAM==true && conectionCPU>0)
+		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
+	while(1){
+		if(gestionarDesconexion((int)socketDAM,"DAM")!=0){
+			break;
+		}
+	}
 }
 
 void* connectionCPU() {
@@ -56,7 +73,6 @@ void* connectionCPU() {
 
 	strcpy(IP_ESCUCHA,(char*) getConfig("IP_ESCUCHA","S-AFA.txt",0));
 	PUERTO_ESCUCHA=(int) getConfig("CPU_PUERTO","S-AFA.txt",1);
-
 
 	result = myEnlazarServidor((int*) &servidor, &direccionServidor,IP_ESCUCHA,PUERTO_ESCUCHA); // Obtener socket a la escucha
 	if (result != 0) {
@@ -78,7 +94,7 @@ void* connectionDAM(){
 	struct sockaddr_in direccionServidor; // Direccion del servidor
 	u_int32_t result;
 	u_int32_t servidor; // Descriptor de socket a la escucha
-	int sock_Cliente;
+	int socketDAM;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
@@ -92,19 +108,20 @@ void* connectionDAM(){
 		exit(1);
 	}
 
-	result = myAtenderCliente((int*)&servidor, "S-AFA", "DAM", &sock_Cliente);
+	result = myAtenderCliente((int*)&servidor, "S-AFA", "DAM", &socketDAM);
 	if (result != 0) {
 		myPuts("No fue posible atender requerimientos de DAM");
 		exit(1);
 	}
 
-	gestionarConexionDAM();
+	gestionarConexionDAM((int) socketDAM);
 
 	return 0;
 }
 
 int main(void)
 {
+	system("clear");
 	char *linea;
 	pthread_t hiloConnectionCPU; //Nombre de Hilo a crear
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
@@ -193,6 +210,18 @@ int main(void)
 			}
 		}
 
+		if(!strncmp(linea,"estado",6))
+		{
+			if(conectionDAM==true && conectionCPU>0){
+				myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
+			}else{
+				myPuts("El proceso S-AFA esta en un estado CORRUPTO\n");
+			}
+		}
+		if(!strncmp(linea,"exit",4))
+		{
+			exit(1);
+		}
 		free(linea);
 	}
 	return EXIT_SUCCESS;

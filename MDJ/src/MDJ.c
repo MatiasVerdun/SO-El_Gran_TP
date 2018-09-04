@@ -27,13 +27,13 @@ void mostrarConfig(){
 
 }
 
-void gestionarConexionDAM()
+void gestionarConexionDAM(int socketDAM)
 {
-	/*El Proceso MDJ será un proceso de tipo servidor, es decir, que estará a la espera de las conexiones
-	de peticiones del DAM, validando por medio de un Handshake del protocolo la operación a realizar.
-	Además, el File System deberá atender las peticiones de manera concurrente.*/
-	/*Esto quiere decir que cuando reciba una peticion del DAM va a abrir hilos por cada peticion que le llegue,
-	para poder atenderlas concurrentemente*/
+	while(1){
+		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
+			break;
+	}
+
 }
 
 void* connectionDAM()
@@ -41,7 +41,7 @@ void* connectionDAM()
 	struct sockaddr_in direccionServidor; // Direccion del servidor
 	u_int32_t result;
 	u_int32_t servidor; // Descriptor de socket a la escucha
-	int sock_Cliente;
+	int socketDAM;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
@@ -55,18 +55,19 @@ void* connectionDAM()
 		exit(1);
 	}
 
-	result = myAtenderCliente((int*)&servidor, "MDJ", "DAM", &sock_Cliente);
+	result = myAtenderCliente((int*)&servidor, "MDJ", "DAM", &socketDAM);
 	if (result != 0) {
 		myPuts("No fue posible atender requerimientos de DAM");
 		exit(1);
 	}
 
-	gestionarConexionDAM();
+	gestionarConexionDAM((int)socketDAM);
 
 	return 0;
 }
 
 int main(void) {
+	system("clear");
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
 
 	mostrarConfig();

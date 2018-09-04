@@ -6,6 +6,7 @@
 #include <semaphore.h>
 #include <commons/log.h>
 #include <commons/config.h>
+#include <commons/string.h>
 #include <commons/collections/list.h>
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
@@ -42,6 +43,27 @@ void gestionarConexionCPU(){
 
 }
 
+void gestionarConexionSAFA(int socketSAFA){
+	while(1){
+		if(gestionarDesconexion((int)socketSAFA,"SAFA")!=0)
+			break;
+	}
+}
+
+void gestionarConexionFM9(int socketFM9){
+	while(1){
+		if(gestionarDesconexion((int)socketFM9,"FM9")!=0)
+			break;
+	}
+}
+
+void gestionarConexionMDJ(int socketMDJ){
+	while(1){
+		if(gestionarDesconexion((int)socketMDJ,"MDJ")!=0)
+			break;
+	}
+}
+
 void* connectionCPU() {
 
 	struct sockaddr_in direccionServidor; // Direccion del servidor
@@ -70,63 +92,68 @@ void* connectionCPU() {
 }
 
 void connectionSAFA(){
-	u_int32_t result,sock;
+	u_int32_t result,socketSAFA;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
 	strcpy(IP_ESCUCHA,(char*)getConfig("S-AFA_IP","DAM.txt",0));
 	PUERTO_ESCUCHA=(int)getConfig("S-AFA_PUERTO","DAM.txt",1);
 
-	result=myEnlazarCliente((int*)&sock,IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketSAFA,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el S-AFA para conectarse.\n");
 		exit(1);
 	}
 
+	gestionarConexionSAFA((int) socketSAFA);
+
 }
 
 void connectionFM9(){
-	u_int32_t result,sock;
+	u_int32_t result,socketFM9;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
 	strcpy(IP_ESCUCHA,(char*)getConfig("FM9_IP","DAM.txt",0));
 	PUERTO_ESCUCHA=(int)getConfig("FM9_PUERTO","DAM.txt",1);
 
-	result=myEnlazarCliente((int*)&sock,IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketFM9,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el FM9 para conectarse.\n");
 		exit(1);
 	}
 
+	gestionarConexionFM9((int)socketFM9);
 }
 
 void connectionMDJ(){
-	u_int32_t result,sock;
+	u_int32_t result,socketMDJ;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
 	strcpy(IP_ESCUCHA,(char*)getConfig("MDJ_IP","DAM.txt",0));
 	PUERTO_ESCUCHA=(int)getConfig("MDJ_PUERTO","DAM.txt",1);
 
-	result=myEnlazarCliente((int*)&sock,IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketMDJ,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el MDJ para conectarse.\n");
 		exit(1);
 	}
 
+	gestionarConexionMDJ((int)socketMDJ);
 }
 
 int main() {
+	system("clear");
 	pthread_t hiloConnectionCPU;
 	pthread_t hiloConnectionSAFA;
 	pthread_t hiloConnectionFM9;
 	pthread_t hiloConnectionMDJ;
 
-	pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
-    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);   
     pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

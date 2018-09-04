@@ -1,4 +1,5 @@
 #include "mySockets.h"
+#include "../console/myConsole.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -25,6 +26,7 @@ int my_EnlazarCliente(int *sock,char* IP_CLIENTE, int PUERTO_CLIENTE,int useHand
 	{
 	    char handshake[50];
 //	    strset(handshake,'\0');
+
 		if ((numbytes=recv(*sock, handshake, sizeof(handshake), 0)) == -1) {
 			perror("myEnlazarServidor -  No pudo hacer recv de handshake");
 			return 1;
@@ -65,6 +67,7 @@ int myEnlazarServidor(int *sock_Servidor,struct sockaddr_in *miDireccion,char* I
 int myAtenderCliente(int *sock_Servidor, char *nombreServidor, char *nombreCliente, int *sock_Cliente){
 	return my_AtenderCliente(sock_Servidor, nombreServidor, nombreCliente, sock_Cliente, 1);		// Por defecto usa Handshake
 }
+
 int my_AtenderCliente(int *sock_Servidor, char *nombreServidor, char *nombreCliente, int *sock_Cliente, int useHandshake){
 	struct sockaddr_in direccionCliente;
 	int socket_cliente;
@@ -90,7 +93,7 @@ int my_AtenderCliente(int *sock_Servidor, char *nombreServidor, char *nombreClie
             return 1;
         }
 
-		myPuts("Recibí una conexión en %d de un proceso %s!!\n", socket_cliente, nombreCliente);
+		myPuts("Recibí una conexión de un proceso %s!!\n", nombreCliente);
 
 		if (useHandshake!=0)
     	{
@@ -105,7 +108,6 @@ int my_AtenderCliente(int *sock_Servidor, char *nombreServidor, char *nombreClie
 
 	return 0;
 }
-
 
 int myAtenderClientesEnHilos(int *sock_Servidor, char *nombreServidor, char *nombreCliente, void (*funcHiloCliente)(int*)){
 	return my_AtenderClientesEnHilos(sock_Servidor, nombreServidor, nombreCliente, funcHiloCliente, 1);		// Por defecto usa Handshake
@@ -161,7 +163,6 @@ int my_AtenderClientesEnHilos(int *sock_Servidor, char *nombreServidor, char *no
 	return 0;
 }
 
-
 int myRecibirDatosFijos(int descriptorSocket, const void* buffer, const unsigned int bytesPorRecibir){
 	int retorno=-1;
 	int bytesRecibidos=0;
@@ -212,5 +213,18 @@ int myEnviarDatosFijos(int descriptorSocket, const void* buffer, const unsigned 
 		bytesEnviados += retorno;
 	}
 
+	return 0;
+}
+
+int gestionarDesconexion(int socket,char* nombreProceso){
+	char buff[3];
+	int rta=0;
+	rta=recv((int)socket,buff,sizeof(buff),0);//
+	while(1){
+		if(rta<=0){
+			myPuts(RED "Se desconecto el proceso %s" COLOR_RESET "\n",nombreProceso);
+			return 1;
+		}
+	}
 	return 0;
 }
