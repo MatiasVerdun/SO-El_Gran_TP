@@ -46,21 +46,37 @@ void inicializarSemaforos(){
 	sem_init(&semDAM,0,0);
 }
 
-void gestionarConexionCPU(){
+void gestionarConexionCPU(int* sock){
+	int socketCPU = *(int*)sock;
 	conectionCPU++;
 	if(conectionDAM==true && conectionCPU>0)
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
+
+	//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
+		char buffer[5];
+		strcpy(buffer,"hola");
+		buffer[4]='\0';
+		myEnviarDatosFijos(socketCPU,buffer,5);
 }
 
-void gestionarConexionDAM(int socketDAM){
+void gestionarConexionDAM(int *sock_cliente){
+	int socketDAM = *(int*)sock_cliente;
+
 	conectionDAM=true;
 	if(conectionDAM==true && conectionCPU>0)
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
-	while(1){
+
+	//A modo de prueba, apra que a futuro se realice lo del reenvio de mensajes
+	char buffer[5];
+	strcpy(buffer,"hola");
+	buffer[4]='\0';
+	myEnviarDatosFijos(socketDAM,buffer,5);
+
+	/*while(1){
 		if(gestionarDesconexion((int)socketDAM,"DAM")!=0){
 			break;
 		}
-	}
+	}*/
 }
 
 void* connectionCPU() {
@@ -80,7 +96,7 @@ void* connectionCPU() {
 		exit(1);
 	}
 
-	myAtenderClientesEnHilos((int*) &servidor, "S-AFA", "CPU", gestionarConexionCPU);
+	result = myAtenderClientesEnHilos((int*) &servidor, "S-AFA", "CPU", gestionarConexionCPU);
 
 	if (result != 0) {
 		myPuts("No fue posible atender requerimientos de CPU");
@@ -108,13 +124,11 @@ void* connectionDAM(){
 		exit(1);
 	}
 
-	result = myAtenderCliente((int*)&servidor, "S-AFA", "DAM", &socketDAM);
+	result = myAtenderClientesEnHilos((int*) &servidor, "S-AFA", "CPU", gestionarConexionDAM);
 	if (result != 0) {
 		myPuts("No fue posible atender requerimientos de DAM");
 		exit(1);
 	}
-
-	gestionarConexionDAM((int) socketDAM);
 
 	return 0;
 }

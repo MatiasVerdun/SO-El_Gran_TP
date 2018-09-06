@@ -27,14 +27,20 @@ void mostrarConfig(){
     free(myText);
 }
 
-void gestionarConexionSAFA(int socketSAFA){
-	while(1){
+void gestionarConexionSAFA(int *socketSAFA){
+
+	//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
+	char buffer[5];
+	myRecibirDatosFijos(socketSAFA,buffer,5);
+	printf("El buffer que recibi por socket es %s\n",buffer);
+
+	/*while(1){
 		if(gestionarDesconexion((int)socketSAFA,"SAFA")!=0)
 			break;
-	}
+	}*/
 }
 
-void gestionarConexionDAM(int socketDAM){
+void gestionarConexionDAM(int *socketDAM){
 	while(1){
 		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
 			break;
@@ -68,7 +74,7 @@ void* connectionSAFA(){
 	strcpy(IP_ESCUCHA,(char*)getConfig("S-AFA_IP","CPU.txt",0));
 	PUERTO_ESCUCHA=(int)getConfig("S-AFA_PUERTO","CPU.txt",1);
 
-	result=myEnlazarCliente((int*)&socketSAFA,IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketSAFA,&IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el S-AFA para conectarse.\n");
 		exit(1);
@@ -85,7 +91,7 @@ int main() {
 
 	mostrarConfig();
 
-    pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+    //pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
 
     while(1)

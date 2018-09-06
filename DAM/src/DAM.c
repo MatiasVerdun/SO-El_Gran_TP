@@ -39,25 +39,31 @@ void mostrarConfig(){
     free(myText);
 }
 
-void gestionarConexionCPU(){
+void gestionarConexionCPU(int *sock_cliente){
+	int socketCPU = *(int*)sock_cliente;
 
 }
 
-void gestionarConexionSAFA(int socketSAFA){
-	while(1){
+void gestionarConexionSAFA(int *socketSAFA){
+	//A modo de prueba, apra que a futuro se realice lo del reenvio de mensajes
+	char buffer[5];
+	myRecibirDatosFijos(socketSAFA,buffer,5);
+	printf("El buffer que recibi por socket es %s\n",buffer);
+
+	/*while(1){
 		if(gestionarDesconexion((int)socketSAFA,"SAFA")!=0)
 			break;
-	}
+	}*/
 }
 
-void gestionarConexionFM9(int socketFM9){
+void gestionarConexionFM9(int *socketFM9){
 	while(1){
 		if(gestionarDesconexion((int)socketFM9,"FM9")!=0)
 			break;
 	}
 }
 
-void gestionarConexionMDJ(int socketMDJ){
+void gestionarConexionMDJ(int *socketMDJ){
 	while(1){
 		if(gestionarDesconexion((int)socketMDJ,"MDJ")!=0)
 			break;
@@ -151,9 +157,9 @@ int main() {
 	pthread_t hiloConnectionMDJ;
 
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);   
-    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
-    pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    //pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

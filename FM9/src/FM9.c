@@ -30,7 +30,8 @@ void mostrarConfig(){
     free(myText);
 }
 
-void gestionarConexionDAM(int socketDAM){
+void gestionarConexionDAM(int sock){
+	int socketDAM = *(int*)sock;
 	while(1){
 		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
 			break;
@@ -56,13 +57,11 @@ void* connectionDAM()
 		exit(1);
 	}
 
-	result = myAtenderCliente((int*)&servidor, "FM9", "DAM", &socketDAM);
+	result = myAtenderClientesEnHilos((int*) &servidor, "FM9", "DAM", gestionarConexionDAM);
 	if (result != 0) {
 		myPuts("No fue posible atender requerimientos de DAM");
 		exit(1);
 	}
-
-	gestionarConexionDAM((int)socketDAM);
 
 	return 0;
 }
