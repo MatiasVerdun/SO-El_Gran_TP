@@ -12,6 +12,8 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+	///FUNCIONES DE CONFIG///
+
 void mostrarConfig(){
 
     char* myText = string_from_format("DAM -> IP: %s - Puerto: %s \0", (char*)getConfig("IP_ESCUCHA","MDJ.txt",0),(char*)getConfig("DAM_PUERTO","MDJ.txt",0) );
@@ -27,6 +29,8 @@ void mostrarConfig(){
 
 }
 
+	///GESTION DE CONEXIONES///
+
 void gestionarConexionDAM(int sock)
 {
 	int socketDAM = *(int*)sock;
@@ -36,6 +40,8 @@ void gestionarConexionDAM(int sock)
 	}
 
 }
+
+	///FUNCIONES DE CONEXION///
 
 void* connectionDAM()
 {
@@ -64,6 +70,8 @@ void* connectionDAM()
 
 	return 0;
 }
+
+	///MAIN///
 
 int main(void) {
 	system("clear");

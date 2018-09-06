@@ -18,6 +18,8 @@ typedef struct datosProceso {
 	int PUERTO_ESCUCHA;
 } thDatos;
 
+	///FUNCIONES DE CONFIG///
+
 void mostrarConfig(){
 
     char* myText = string_from_format("CPU   -> IP: %s - Puerto: %s \0", getConfig("IP_ESCUCHA","DAM.txt",0), getConfig("CPU_PUERTO","DAM.txt",0) );
@@ -38,6 +40,8 @@ void mostrarConfig(){
 	displayBoxClose(50);
     free(myText);
 }
+
+	///GESTION DE CONEXIONES///
 
 void gestionarConexionCPU(int *sock_cliente){
 	int socketCPU = *(int*)sock_cliente;
@@ -70,7 +74,9 @@ void gestionarConexionMDJ(int *socketMDJ){
 	}
 }
 
-void* connectionCPU() {
+	///FUNCIONES DE CONEXION///
+
+void *connectionCPU() {
 
 	struct sockaddr_in direccionServidor; // Direccion del servidor
 	u_int32_t result;
@@ -97,7 +103,7 @@ void* connectionCPU() {
 	return 0;
 }
 
-void connectionSAFA(){
+void *connectionSAFA(){
 	u_int32_t result,socketSAFA;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
@@ -112,10 +118,10 @@ void connectionSAFA(){
 	}
 
 	gestionarConexionSAFA((int) socketSAFA);
-
+	return 0;
 }
 
-void connectionFM9(){
+void *connectionFM9(){
 	u_int32_t result,socketFM9;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
@@ -130,9 +136,10 @@ void connectionFM9(){
 	}
 
 	gestionarConexionFM9((int)socketFM9);
+	return 0;
 }
 
-void connectionMDJ(){
+void *connectionMDJ(){
 	u_int32_t result,socketMDJ;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
@@ -147,7 +154,10 @@ void connectionMDJ(){
 	}
 
 	gestionarConexionMDJ((int)socketMDJ);
+	return 0;
 }
+
+	///MAIN///
 
 int main() {
 	system("clear");

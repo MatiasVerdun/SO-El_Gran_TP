@@ -11,6 +11,8 @@
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
 
+	///FUNCIONES DE CONFIG///
+
 void mostrarConfig(){
 
     char* myText = string_from_format("DAM   -> IP: %s - Puerto: %s\0",(char*)getConfig("DAM_IP","CPU.txt",0), (char*)getConfig("DAM_PUERTO","CPU.txt",0) );
@@ -27,7 +29,9 @@ void mostrarConfig(){
     free(myText);
 }
 
-void gestionarConexionSAFA(int *socketSAFA){
+	///GESTION DE CONEXIONES///
+
+void gestionarConexionSAFA(int socketSAFA){
 
 	//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
 	char buffer[5];
@@ -40,12 +44,14 @@ void gestionarConexionSAFA(int *socketSAFA){
 	}*/
 }
 
-void gestionarConexionDAM(int *socketDAM){
+void gestionarConexionDAM(int socketDAM){
 	while(1){
 		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
 			break;
 	}
 }
+
+	///FUNCIONES DE CONEXION///
 
 void* connectionDAM(){
 	u_int32_t result,socketDAM;
@@ -61,7 +67,7 @@ void* connectionDAM(){
 		exit(1);
 	}
 
-	gestionarConexionDAM((int) socketDAM);
+	gestionarConexionDAM(socketDAM);
 	return 0;
 }
 
@@ -74,7 +80,7 @@ void* connectionSAFA(){
 	strcpy(IP_ESCUCHA,(char*)getConfig("S-AFA_IP","CPU.txt",0));
 	PUERTO_ESCUCHA=(int)getConfig("S-AFA_PUERTO","CPU.txt",1);
 
-	result=myEnlazarCliente((int*)&socketSAFA,&IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketSAFA,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el S-AFA para conectarse.\n");
 		exit(1);
@@ -84,6 +90,8 @@ void* connectionSAFA(){
 	return 0;
 }
 
+	///MAIN///
+
 int main() {
 	system("clear");
 	pthread_t hiloConnectionDAM;
@@ -91,7 +99,7 @@ int main() {
 
 	mostrarConfig();
 
-    //pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+    pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
 
     while(1)

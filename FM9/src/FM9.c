@@ -11,6 +11,8 @@
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
 
+	///FUNCIONES DE CONFIG///
+
 void mostrarConfig(){
 
     char* myText = string_from_format("DAM -> IP: %s - Puerto: %s ", (char*)getConfig("IP_ESCUCHA","FM9.txt",0), (char*)getConfig("DAM_PUERTO","FM9.txt",0) );
@@ -30,6 +32,8 @@ void mostrarConfig(){
     free(myText);
 }
 
+	///GESTION DE CONEXIONES///
+
 void gestionarConexionDAM(int sock){
 	int socketDAM = *(int*)sock;
 	while(1){
@@ -37,6 +41,8 @@ void gestionarConexionDAM(int sock){
 			break;
 	}
 }
+
+	///FUNCIONES DE CONEXION///
 
 void* connectionDAM()
 {
@@ -65,6 +71,8 @@ void* connectionDAM()
 
 	return 0;
 }
+
+	///MAIN///
 
 int main() {
 	system("clear");

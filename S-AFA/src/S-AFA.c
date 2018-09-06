@@ -7,15 +7,58 @@
 #include <commons/config.h>
 #include <commons/string.h>
 #include <commons/collections/list.h>
+#include <commons/collections/queue.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <conexiones/mySockets.h>
 #include <console/myConsole.h>
 
+int IDGlobal = -1;
+
+typedef struct DT_Block {
+	int ID_GDT;
+	char Escriptorio[256]; //El valor despues hay que velo bien cuando nos den un ejemplo de Sript
+	int PC;
+	int Flag_EstadoGDT;
+	t_list *tablaArchivosAbiertos;
+} DTB;
+
+t_queue *colaNEW;
+t_queue *colaREADY;
+t_queue *colaEXEC;
+t_queue *colaBLOCK;
+t_queue *colaEXIT;
+
 static sem_t semCPU;
 static sem_t semDAM;
 static bool conectionDAM;
 static int conectionCPU=0;
+
+	///PLANIFICACION A LARGO PLAZO///
+
+void PLP(char *rutaSript){
+	DTB *miDTB;
+	miDTB = malloc(sizeof(DTB));
+
+	miDTB->ID_GDT = IDGlobal + 1;
+	strcpy(miDTB->Escriptorio,rutaSript);
+	miDTB->PC = 0;
+	miDTB->Flag_EstadoGDT = 0;
+	miDTB->tablaArchivosAbiertos = list_create();
+
+	queue_push(colaNEW,miDTB);
+
+	/* Ahora el PLP PLP lo tiene que administrar cuando lo permita el grado de multiprogramación. Luego, el PLP se
+	comunicará con CPU para comenzar la ejecución del DTB dummy de Iniciar Escriptorio */
+}
+
+	///PLANIFICACION A CORTO PLAZO///
+
+void PCP(){
+
+}
+
+	///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
 
@@ -41,10 +84,22 @@ void mostrarConfig(){
     free(myText);
 }
 
+	///FUNCIONES DE INICIALIZACION///
+
 void inicializarSemaforos(){
 	sem_init(&semCPU,0,0);
 	sem_init(&semDAM,0,0);
 }
+
+void creacionDeColas(){
+	colaNEW = queue_create();
+	colaREADY = queue_create();
+	colaEXEC = queue_create();
+	colaBLOCK = queue_create();
+	colaEXIT = queue_create();
+}
+
+	///GESTION DE CONEXIONES///
 
 void gestionarConexionCPU(int* sock){
 	int socketCPU = *(int*)sock;
@@ -79,6 +134,9 @@ void gestionarConexionDAM(int *sock_cliente){
 	}*/
 }
 
+	///FUNCIONES DE CONEXION///
+
+	///FUNCIONES DE CONEXION///
 void* connectionCPU() {
 
 	struct sockaddr_in direccionServidor; // Direccion del servidor
@@ -106,11 +164,11 @@ void* connectionCPU() {
 	return 0;
 }
 
+
 void* connectionDAM(){
 	struct sockaddr_in direccionServidor; // Direccion del servidor
 	u_int32_t result;
 	u_int32_t servidor; // Descriptor de socket a la escucha
-	int socketDAM;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
@@ -133,6 +191,8 @@ void* connectionDAM(){
 	return 0;
 }
 
+	///MAIN///
+
 int main(void)
 {
 	system("clear");
@@ -140,6 +200,7 @@ int main(void)
 	pthread_t hiloConnectionCPU; //Nombre de Hilo a crear
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
 
+	creacionDeColas();
 
 	pthread_create(&hiloConnectionDAM,NULL,(void*) &connectionDAM,NULL);
 	pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
@@ -174,6 +235,7 @@ int main(void)
 
 			strcpy(path, split[1]);
 			printf("La ruta del Escriptorio a ejecutar es: %s\n",path);
+			PLP(path);
 
 		}
 
