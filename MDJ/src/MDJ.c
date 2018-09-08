@@ -19,6 +19,7 @@
 #define tamMaxDirectorios tamDirectorio*100
 
 
+
 t_config *configMDJ;
 
 typedef struct tablaDirectory {
@@ -80,10 +81,7 @@ int leerArchivoDirectorio(struct tablaDirectory *t_directorios,int numeroDirecto
 		strcpy(t_directorios->nombre,split[1]);
 		t_directorios->padre=atoi(split[2]);
 
-		free(split[0]);
-		free(split[1]);
-		free(split[2]);
-		free(split);
+		liberarSplit(split);
 	}
     //buffer[i+1]='\0';
     // Don't forget to free the mmapped memory
@@ -321,13 +319,8 @@ int crearDirectorio(struct tablaDirectory *t_directorios,char* pathDir){
 	    mkdir(rutaDirMD, 0700);
 	}
 	printf("Se creo el directorio <%s> correctamente \n",nombresDirectorios[i]);
-	free(splitaux[0]);
-	free(splitaux[1]);
-	free(splitaux);
-	for(int indice=0;indice<i;indice++){
-		free (nombresDirectorios[indice]);
-	}
-	free(nombresDirectorios);
+	liberarSplit(splitaux);
+	liberarSplit(nombresDirectorios);
 	free(rutaDirMD);
 	return 0;
 }
@@ -395,19 +388,19 @@ void listarPadresDir(struct tablaDirectory *t_directorios,int i){
 }
 
 void listarDirectorios(struct tablaDirectory *t_directorios,int i,int nivel){
-	int j=1,aux;
+	int j=1;
 	if(i==0)
 		printf(CYAN"root(/)" COLOR_RESET "\n");
 	if(i<100){
 		while(j<=99){
 			if(t_directorios[j].padre==i){
-				for(aux=0;aux<nivel;aux++){
+				for(int aux=0;aux<nivel;aux++){
 					printf(CYAN "|"COLOR_RESET);
-					printf(CYAN "%s" COLOR_RESET,(char *)string_repeat(' ',5));
+					printf(CYAN "-----" COLOR_RESET);
 
 				}
 				printf(CYAN "|" COLOR_RESET);
-				printf(CYAN "%s" COLOR_RESET,(char *) string_repeat('-',3));
+				printf(CYAN "---" COLOR_RESET);
 				if(t_directorios[j].padre!=0){
 					listarPadresDir(t_directorios,j);
 				}
@@ -425,8 +418,8 @@ int validarPathDir(char* pathDir){
 	char** nombresDirectorios,**splitaux;
 	int i=0,j=0;
 	splitaux= (char**)string_split(pathDir,":");
-	if(strcmp("yamafs",splitaux[0])!=0){
-		printf("Error: El path del directorio debe ser de la forma yamafs: ... \n");
+	if(strcmp("fifa",splitaux[0])!=0){
+		printf("Error: El path del directorio debe ser de la forma fifa: ... \n");
 		return -1;
 	}else{
 		nombresDirectorios = (char**)string_split(splitaux[1],"/");
@@ -457,14 +450,15 @@ int validarPathDir(char* pathDir){
 		}
 
 	}
-	free(splitaux);
+	liberarSplit(splitaux);
+	liberarSplit(nombresDirectorios);
 	return 0;
 }
 
 int borrarDirectorio(struct tablaDirectory *t_directorios,char* pathDir){
 	int i,j,k,resultado,resultadoAux;
 	char **nombresDirectorios,**splitaux;
-	i=resultado=j=0;
+	i=resultado=j=k=resultadoAux=0;
 	tableDirectory t_directorio,t_directorioAux;
 	splitaux= (char**)string_split(pathDir,":");
 	nombresDirectorios =(char**) string_split(splitaux[1],"/");
@@ -500,7 +494,8 @@ int borrarDirectorio(struct tablaDirectory *t_directorios,char* pathDir){
 	else{
 		printf("Se borro el directorio <%s> correctamente \n",nombresDirectorios[k]);
 	}
-	free(splitaux);
+	liberarSplit(splitaux);
+	liberarSplit(nombresDirectorios);
 	return 0;
 }
 
@@ -508,25 +503,25 @@ int borrarDirectorio(struct tablaDirectory *t_directorios,char* pathDir){
 //CONSOLA//
 
 void mkdirr(char* linea,struct tablaDirectory *t_directorios){
-		char *pathDirectorioFifaFS;
+		char *pathDirectorioFIFAFS;
 		char **split;
 		split=(char**)string_split(linea," ");
-		pathDirectorioFifaFS=malloc(strlen(split[1])+1);
+		pathDirectorioFIFAFS=malloc(strlen(split[1])+1);
 		cargarStructDirectorio(t_directorios);
-		strcpy(pathDirectorioFifaFS,split[1]);
+		strcpy(pathDirectorioFIFAFS,split[1]);
 
-		if(crearDirectorio(t_directorios,pathDirectorioFifaFS)==0)
+		if(crearDirectorio(t_directorios,pathDirectorioFIFAFS)==0)
 			actualizarArchivoDirectorio(t_directorios);
 		free(split[0]);
 		free(split[1]);
 		free(split);
-		free(pathDirectorioFifaFS);
+		free(pathDirectorioFIFAFS);
 }
 
 void rm (char* linea,struct tablaDirectory *t_directorios){
 	cargarStructDirectorio(t_directorios);
 	//char *pathArchivo=string_new();
-	char *pathDirectorioYamaFS=(char*)string_new();
+	char *pathDirectorioFIFAFS=(char*)string_new();
 	//char *numeroBloque= string_new();
 	//char *numeroCopia= string_new();
 	char **split;
@@ -534,9 +529,9 @@ void rm (char* linea,struct tablaDirectory *t_directorios){
 	if(split[2]!=NULL){
 		if(strcmp(split[1],"-d")==0)
 		{
-			string_append(&pathDirectorioYamaFS,split[2]);
-			if(validarPathDir(pathDirectorioYamaFS)==0){
-				if(borrarDirectorio(t_directorios,pathDirectorioYamaFS)==0)
+			string_append(&pathDirectorioFIFAFS,split[2]);
+			if(validarPathDir(pathDirectorioFIFAFS)==0){
+				if(borrarDirectorio(t_directorios,pathDirectorioFIFAFS)==0)
 					actualizarArchivoDirectorio(t_directorios);
 			}
 		}
@@ -555,6 +550,11 @@ void rm (char* linea,struct tablaDirectory *t_directorios){
 		printf("Error: el comando rm debe ser usado con el parametro -d para borrar un directorio. \n");
 	}
 
+	free(pathDirectorioFIFAFS);
+	free(split[0]);
+	free(split[1]);
+	free(split[2]);
+	free(split);
 }
 
 void listarDirectorioIndice(char* linea,struct tablaDirectory *t_directorios){

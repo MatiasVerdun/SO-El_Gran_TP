@@ -280,3 +280,14 @@ char** _string_split(char* text, char* separator, bool(*condition)(char*, int)) 
 	free(text_to_iterate);
 	return substrings;
 }
+
+void liberarSplit(char** split){
+	int i=0;
+	while(NULL!=split[i]){ //Agarro el ultimo nombre de directorio
+		i++;
+	}
+	for(int j=0;j<i;j++){
+		free(split[j]);
+	}
+	free(split);
+}

@@ -249,4 +249,11 @@
 	 */
 	bool	string_contains(char* text, char *substring);
 
+	/**
+	 * @NAME: liberarSplit
+	 * @DESC: Libera el char** creado con string_split
+	 */
+
+	void liberarSplit(char** split);
+
 #endif /* STRING_UTILS_H_ */
