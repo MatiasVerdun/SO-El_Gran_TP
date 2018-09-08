@@ -14,31 +14,34 @@
 u_int32_t socketGFM9;
 u_int32_t socketGMDJ;
 
-typedef struct datosProceso {
+#define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAM.txt"
+t_config *configDAM;
+
+/*typedef struct datosProceso {
 	char nombreServidor[50];
 	char nombreCliente[50];
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
-} thDatos;
+} thDatos;*/
 
 	///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
 
-    char* myText = string_from_format("CPU   -> IP: %s - Puerto: %s \0", getConfig("IP_ESCUCHA","DAM.txt",0), getConfig("CPU_PUERTO","DAM.txt",0) );
+    char* myText = string_from_format("CPU   -> IP: %s - Puerto: %s \0", getConfigR("IP_ESCUCHA",0,configDAM), getConfigR("CPU_PUERTO",0,configDAM) );
 	displayBoxTitle(50,"CONFIGURACION");
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("S-AFA -> IP: %s - Puerto: %s \0", getConfig("S-AFA_IP","DAM.txt",0), getConfig("S-AFA_PUERTO","DAM.txt",0) );
+	myText = string_from_format("S-AFA -> IP: %s - Puerto: %s \0", getConfigR("S-AFA_IP",0,configDAM), getConfigR("S-AFA_PUERTO",0,configDAM) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("FM9   -> IP: %s - Puerto: %s \0", getConfig("FM9_IP","DAM.txt",0), getConfig("FM9_PUERTO","DAM.txt",0) );
+	myText = string_from_format("FM9   -> IP: %s - Puerto: %s \0", getConfigR("FM9_IP",0,configDAM), getConfigR("FM9_PUERTO",0,configDAM) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("MDJ   -> IP: %s - Puerto: %s \0", getConfig("MDJ_IP","DAM.txt",0), getConfig("MDJ_PUERTO","DAM.txt",0) );
+	myText = string_from_format("MDJ   -> IP: %s - Puerto: %s \0", getConfigR("MDJ_IP",0,configDAM), getConfigR("MDJ_PUERTO",0,configDAM) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("Transfer size: %s\0" COLOR_RESET , getConfig("TSIZE","DAM.txt",0) );
+	myText = string_from_format("Transfer size: %s\0" COLOR_RESET , getConfigR("TSIZE",0,configDAM) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
     free(myText);
@@ -51,7 +54,7 @@ void gestionarConexionCPU(int *sock_cliente){
 
 }
 
-void gestionarConexionSAFA(int *socketSAFA){
+void gestionarConexionSAFA(int socketSAFA){
 
 }
 
@@ -59,11 +62,8 @@ void gestionarConexionFM9(){
 
 }
 
-void gestionarConexionMDJ(int *socketMDJ){
-	while(1){
-		if(gestionarDesconexion((int)socketMDJ,"MDJ")!=0)
-			break;
-	}
+void gestionarConexionMDJ(){
+
 }
 
 	///FUNCIONES DE CONEXION///
@@ -76,8 +76,8 @@ void *connectionCPU() {
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*) getConfig("IP_ESCUCHA","DAM.txt",0));
-	PUERTO_ESCUCHA=(int) getConfig("CPU_PUERTO","DAM.txt",1);
+	strcpy(IP_ESCUCHA,(char*) getConfigR("IP_ESCUCHA",0,configDAM));
+	PUERTO_ESCUCHA=(int) getConfigR("CPU_PUERTO",1,configDAM);
 
 	result = myEnlazarServidor((int*) &servidor, &direccionServidor,IP_ESCUCHA, PUERTO_ESCUCHA); // Obtener socket a la escucha
 	if (result != 0) {
@@ -100,8 +100,8 @@ void *connectionSAFA(){
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*)getConfig("S-AFA_IP","DAM.txt",0));
-	PUERTO_ESCUCHA=(int)getConfig("S-AFA_PUERTO","DAM.txt",1);
+	strcpy(IP_ESCUCHA,(char*)getConfigR("S-AFA_IP",0,configDAM));
+	PUERTO_ESCUCHA=(int)getConfigR("S-AFA_PUERTO",1,configDAM);
 
 	result=myEnlazarCliente((int*)&socketSAFA,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
@@ -109,7 +109,7 @@ void *connectionSAFA(){
 		exit(1);
 	}
 
-	gestionarConexionSAFA((int*) socketSAFA);
+	gestionarConexionSAFA(socketSAFA);
 	return 0;
 }
 
@@ -118,8 +118,8 @@ void *connectionFM9(){
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*)getConfig("FM9_IP","DAM.txt",0));
-	PUERTO_ESCUCHA=(int)getConfig("FM9_PUERTO","DAM.txt",1);
+	strcpy(IP_ESCUCHA,(char*)getConfigR("FM9_IP",0,configDAM));
+	PUERTO_ESCUCHA=(int)getConfigR("FM9_PUERTO",1,configDAM);
 
 	result=myEnlazarCliente((int*)&socketGFM9,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
@@ -135,16 +135,16 @@ void *connectionMDJ(){
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*)getConfig("MDJ_IP","DAM.txt",0));
-	PUERTO_ESCUCHA=(int)getConfig("MDJ_PUERTO","DAM.txt",1);
+	strcpy(IP_ESCUCHA,(char*)getConfigR("MDJ_IP",0,configDAM));
+	PUERTO_ESCUCHA=(int)getConfigR("MDJ_PUERTO",1,configDAM);
 
-	result=myEnlazarCliente((int*)&socketMDJ,IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketGMDJ,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el MDJ para conectarse.\n");
 		exit(1);
 	}
 
-	gestionarConexionMDJ((int*)socketMDJ);
+	gestionarConexionMDJ();
 	return 0;
 }
 
@@ -156,6 +156,8 @@ int main() {
 	pthread_t hiloConnectionSAFA;
 	pthread_t hiloConnectionFM9;
 	pthread_t hiloConnectionMDJ;
+
+	configDAM=config_create(PATHCONFIGDAM);
 
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
     pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);

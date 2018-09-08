@@ -11,19 +11,22 @@
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
 
+#define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt"
+t_config *configCPU;
+
 	///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
 
-    char* myText = string_from_format("DAM   -> IP: %s - Puerto: %s\0",(char*)getConfig("DAM_IP","CPU.txt",0), (char*)getConfig("DAM_PUERTO","CPU.txt",0) );
+    char* myText = string_from_format("DAM   -> IP: %s - Puerto: %s\0",(char*)getConfigR("DAM_IP",0,configCPU), (char*)getConfigR("DAM_PUERTO",0,configCPU) );
 
 	displayBoxTitle(50,"CONFIGURACION");
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("S-AFA -> IP: %s - Puerto: %s\0", (char*)getConfig("S-AFA_IP","CPU.txt",0), (char*)getConfig("S-AFA_PUERTO","CPU.txt",0) );
+	myText = string_from_format("S-AFA -> IP: %s - Puerto: %s\0", (char*)getConfigR("S-AFA_IP",0,configCPU), (char*)getConfigR("S-AFA_PUERTO",0,configCPU) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("Retardo: %s\0" , (char*)getConfig("RETARDO","CPU.txt",0) );
+	myText = string_from_format("Retardo: %s\0" , (char*)getConfigR("RETARDO",0,configCPU) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
     free(myText);
@@ -58,8 +61,8 @@ void* connectionDAM(){
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*)getConfig("DAM_IP","CPU.txt",0));
-	PUERTO_ESCUCHA=(int)getConfig("DAM_PUERTO","CPU.txt",1);
+	strcpy(IP_ESCUCHA,(char*)getConfigR("DAM_IP",0,configCPU));
+	PUERTO_ESCUCHA=(int)getConfigR("DAM_PUERTO",1,configCPU);
 
 	result=myEnlazarCliente((int*)&socketDAM,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
@@ -77,8 +80,8 @@ void* connectionSAFA(){
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*)getConfig("S-AFA_IP","CPU.txt",0));
-	PUERTO_ESCUCHA=(int)getConfig("S-AFA_PUERTO","CPU.txt",1);
+	strcpy(IP_ESCUCHA,(char*)getConfigR("S-AFA_IP",0,configCPU));
+	PUERTO_ESCUCHA=(int)getConfigR("S-AFA_PUERTO",1,configCPU);
 
 	result=myEnlazarCliente((int*)&socketSAFA,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
@@ -96,6 +99,7 @@ int main() {
 	system("clear");
 	pthread_t hiloConnectionDAM;
 	pthread_t hiloConnectionSAFA;
+	configCPU=config_create(PATHCONFIGCPU);
 
 	mostrarConfig();
 

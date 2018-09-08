@@ -187,6 +187,6 @@ int main(void) {
 	pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
 	crearMetadata();
 	consola();
-	config_destroy(configMDJ);
+	config_destroy(configMDJ); //No llega acá porque se queda en el while(1) de la consola
 	return EXIT_SUCCESS;
 }

@@ -46,7 +46,7 @@ void mostrarConfig(){
 
 	///GESTION DE CONEXIONES///
 
-void gestionarConexionDAM(int sock){
+void gestionarConexionDAM(int *sock){
 	int socketDAM = *(int*)sock;
 	while(1){
 		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)

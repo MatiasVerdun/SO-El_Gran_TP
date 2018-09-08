@@ -13,7 +13,16 @@
 #include <conexiones/mySockets.h>
 #include <console/myConsole.h>
 
+#define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
+t_config *configSAFA;
+
 int IDGlobal = -1;
+int DTBenPCP = 0;
+
+char algoPlani[6];
+int quantum;
+int gradoMultiprogramacion;
+int retardoPlani;
 
 typedef struct DT_Block {
 	int ID_GDT;
@@ -36,20 +45,43 @@ static int conectionCPU=0;
 
 	///PLANIFICACION A LARGO PLAZO///
 
-void PLP(char *rutaSript){
+DTB* crearDTB(char *rutaMiScript){
 	DTB *miDTB;
 	miDTB = malloc(sizeof(DTB));
 
 	miDTB->ID_GDT = IDGlobal + 1;
-	strcpy(miDTB->Escriptorio,rutaSript);
+	strcpy(miDTB->Escriptorio,rutaMiScript);
 	miDTB->PC = 0;
-	miDTB->Flag_EstadoGDT = 0;
+	miDTB->Flag_EstadoGDT = 1;
 	miDTB->tablaArchivosAbiertos = list_create();
 
-	queue_push(colaNEW,miDTB);
+	IDGlobal++;
 
-	/* Ahora el PLP PLP lo tiene que administrar cuando lo permita el grado de multiprogramación. Luego, el PLP se
-	comunicará con CPU para comenzar la ejecución del DTB dummy de Iniciar Escriptorio */
+	return miDTB;
+}
+
+void planificarNewReady(){
+	while((!queue_is_empty(colaNEW)) && (DTBenPCP < gradoMultiprogramacion)){
+		DTB *auxDTB;
+
+		auxDTB = queue_pop(colaNEW);
+		//Mandar a CPU y ver si va a READY o EXEC
+		queue_push(colaREADY,auxDTB);
+
+		DTBenPCP++;
+	}
+}
+
+void PLP(char *rutaScript){
+	DTB *elDTB;
+
+	elDTB = crearDTB(rutaScript);
+	queue_push(colaNEW,elDTB);
+	free(elDTB);
+
+	planificarNewReady();
+
+
 }
 
 	///PLANIFICACION A CORTO PLAZO///
@@ -62,26 +94,33 @@ void PCP(){
 
 void mostrarConfig(){
 
-    char* myText = string_from_format("DAM -> IP: %s - Puerto: %s \0", (char*)getConfig("IP_ESCUCHA","S-AFA.txt",0),(char*)getConfig("DAM_PUERTO","S-AFA.txt",0) );
+    char* myText = string_from_format("DAM -> IP: %s - Puerto: %s \0", (char*)getConfigR("IP_ESCUCHA",0,configSAFA),(char*)getConfigR("DAM_PUERTO",0,configSAFA) );
 	displayBoxTitle(50,"CONFIGURACION");
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("CPU -> IP: %s - Puerto: %s \0", (char*)getConfig("IP_ESCUCHA","S-AFA.txt",0),(char*)getConfig("CPU_PUERTO","S-AFA.txt",0) );
+	myText = string_from_format("CPU -> IP: %s - Puerto: %s \0", (char*)getConfigR("IP_ESCUCHA",0,configSAFA),(char*)getConfigR("CPU_PUERTO",0,configSAFA) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("Algoritmo: %s \0", (char*)getConfig("ALGO_PLANI","S-AFA.txt",0) );
+	myText = string_from_format("Algoritmo: %s \0", (char*)getConfigR("ALGO_PLANI",0,configSAFA) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("Grado de multiprogramacion: %s \0", (char*)getConfig("GMP","S-AFA.txt",0) );
+	myText = string_from_format("Grado de multiprogramacion: %s \0", (char*)getConfigR("GMP",0,configSAFA) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("Quantum: %s \0", (char*)getConfig("Q","S-AFA.txt",0) );
+	myText = string_from_format("Quantum: %s \0", (char*)getConfigR("Q",0,configSAFA) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
-	myText = string_from_format("Retardo: %s \0" COLOR_RESET , (char*)getConfig("RETARDO","S-AFA.txt",0) );
+	myText = string_from_format("Retardo: %s \0" COLOR_RESET , (char*)getConfigR("RETARDO",0,configSAFA) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
     free(myText);
+}
+
+void cargarValoresConfig(char* algo,int *q,int *gMp,int *retardo){
+	strcpy(algo,(char*)getConfigR("ALGO_PLANI",0,configSAFA));
+	*q=(int*)getConfigR("Q",0,configSAFA);
+	*gMp=(int*)getConfigR("GMP",0,configSAFA);
+	*retardo=(int*)getConfigR("RETARDO",0,configSAFA);
 }
 
 	///FUNCIONES DE INICIALIZACION///
@@ -121,6 +160,11 @@ void gestionarConexionDAM(int *sock_cliente){
 	if(conectionDAM==true && conectionCPU>0)
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 
+	//A modo de prueba, apra que a futuro se realice lo del reenvio de mensajes
+	char buffer[5];
+	strcpy(buffer,"hola");
+	buffer[4]='\0';
+	myEnviarDatosFijos(socketDAM,buffer,5);
 }
 
 	///FUNCIONES DE CONEXION///
@@ -134,8 +178,8 @@ void* connectionCPU() {
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*) getConfig("IP_ESCUCHA","S-AFA.txt",0));
-	PUERTO_ESCUCHA=(int) getConfig("CPU_PUERTO","S-AFA.txt",1);
+	strcpy(IP_ESCUCHA,(char*) getConfigR("IP_ESCUCHA",0,configSAFA));
+	PUERTO_ESCUCHA=(int) getConfigR("CPU_PUERTO",1,configSAFA);
 
 	result = myEnlazarServidor((int*) &servidor, &direccionServidor,IP_ESCUCHA,PUERTO_ESCUCHA); // Obtener socket a la escucha
 	if (result != 0) {
@@ -153,7 +197,6 @@ void* connectionCPU() {
 	return 0;
 }
 
-
 void* connectionDAM(){
 	struct sockaddr_in direccionServidor; // Direccion del servidor
 	u_int32_t result;
@@ -161,8 +204,8 @@ void* connectionDAM(){
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*) getConfig("IP_ESCUCHA","S-AFA.txt",0));
-	PUERTO_ESCUCHA=(int) getConfig("DAM_PUERTO","S-AFA.txt",1);
+	strcpy(IP_ESCUCHA,(char*) getConfigR("IP_ESCUCHA",0,configSAFA));
+	PUERTO_ESCUCHA=(int) getConfigR("DAM_PUERTO",1,configSAFA);
 
 
 	result = myEnlazarServidor((int*) &servidor, &direccionServidor,IP_ESCUCHA,PUERTO_ESCUCHA); // Obtener socket a la escucha
@@ -189,12 +232,16 @@ int main(void)
 	pthread_t hiloConnectionCPU; //Nombre de Hilo a crear
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
 
+	configSAFA=config_create(PATHCONFIGSAFA);
+
 	creacionDeColas();
+	//cargarValoresConfig(algoPlani, quantum, gradoMultiprogramacion, retardoPlani);
+
 
 	pthread_create(&hiloConnectionDAM,NULL,(void*) &connectionDAM,NULL);
 	pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
-
+//TODO Free de split y thread notify
 	while (1) {
 		linea = readline(">");
 		if (linea)
