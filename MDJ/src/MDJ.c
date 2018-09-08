@@ -74,7 +74,6 @@ void* connectionDAM()
 
 	return 0;
 }
-    ///DIRECTORIOS//
 
 //CONSOLA//
 

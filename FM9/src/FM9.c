@@ -47,7 +47,11 @@ void mostrarConfig(){
 	///GESTION DE CONEXIONES///
 
 void gestionarConexionDAM(int sock){
-
+	int socketDAM = *(int*)sock;
+	while(1){
+		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
+			break;
+	}
 }
 
 	///FUNCIONES DE CONEXION///
@@ -61,7 +65,7 @@ void* connectionDAM()
 	int PUERTO_ESCUCHA;
 
 	strcpy(IP_ESCUCHA,(char*) getConfigR("IP_ESCUCHA",0,configFM9));
-	PUERTO_ESCUCHA=(int) getConfigR("DAM_PUERTO",0,configFM9);
+	PUERTO_ESCUCHA=(int) getConfigR("DAM_PUERTO",1,configFM9);
 
 
 	result = myEnlazarServidor((int*) &socketDAM, &direccionServidor,IP_ESCUCHA,PUERTO_ESCUCHA); // Obtener socket a la escucha
@@ -70,7 +74,7 @@ void* connectionDAM()
 		exit(1);
 	}
 
-	result = myAtenderClientesEnHilos((int*) &socketDAM, "FM9", "DAM", (void*)gestionarConexionDAM);
+	result = myAtenderClientesEnHilos((int*) &socketDAM, "FM9", "DAM",(void*) gestionarConexionDAM);
 	if (result != 0) {
 		myPuts("No fue posible atender requerimientos de DAM");
 		exit(1);
@@ -95,7 +99,7 @@ int main() {
 
     }
 
-    config_destroy(configFM9);
+    //config_destroy(configFM9);
 	return EXIT_SUCCESS;
 }
 

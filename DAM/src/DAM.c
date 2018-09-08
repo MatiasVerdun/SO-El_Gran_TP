@@ -159,8 +159,8 @@ int main() {
 
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
     pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
-    //pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

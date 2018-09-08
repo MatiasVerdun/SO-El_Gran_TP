@@ -171,7 +171,7 @@ void* connectionDAM(){
 		exit(1);
 	}
 
-	result = myAtenderClientesEnHilos((int*) &servidor, "S-AFA", "CPU", gestionarConexionDAM);
+	result = myAtenderClientesEnHilos((int*) &servidor, "S-AFA", "DAM", gestionarConexionDAM);
 	if (result != 0) {
 		myPuts("No fue posible atender requerimientos de DAM");
 		exit(1);

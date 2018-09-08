@@ -8,6 +8,7 @@
 #include <archivos/archivos.h>
 #include <console/myConsole.h>
 #include <commons/string.h>
+
 void escribirDirectorioIndice(char* datos,int indice){//Escribe los datos del directorio en la posicion del indice indicado
    int fd,desplazamiento;
    struct stat mystat;
