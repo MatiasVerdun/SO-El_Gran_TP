@@ -121,17 +121,6 @@ void gestionarConexionDAM(int *sock_cliente){
 	if(conectionDAM==true && conectionCPU>0)
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 
-	//A modo de prueba, apra que a futuro se realice lo del reenvio de mensajes
-	char buffer[5];
-	strcpy(buffer,"hola");
-	buffer[4]='\0';
-	myEnviarDatosFijos(socketDAM,buffer,5);
-
-	/*while(1){
-		if(gestionarDesconexion((int)socketDAM,"DAM")!=0){
-			break;
-		}
-	}*/
 }
 
 	///FUNCIONES DE CONEXION///

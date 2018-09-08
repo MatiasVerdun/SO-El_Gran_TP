@@ -173,7 +173,6 @@ int myRecibirDatosFijos(int descriptorSocket, const void* buffer, const unsigned
 #ifdef TRACE
 	   myPuts("Bytes Recibidos: %d / %d \n", retorno, bytesPorRecibir);
 #endif
-
 	   //Controlo Errores
 	   if( retorno <= 0 ) {
 		  myPuts("Error al recibir Datos (se corto el Paquete Recibido), solo se recibieron %d bytes de los %d bytes totales por recibir\n", bytesRecibidos, (int)bytesPorRecibir);
@@ -186,7 +185,6 @@ int myRecibirDatosFijos(int descriptorSocket, const void* buffer, const unsigned
 
 	return 0;
 }
-
 
 int myEnviarDatosFijos(int descriptorSocket, const void* buffer, const unsigned int bytesPorEnviar){
 	int retorno;

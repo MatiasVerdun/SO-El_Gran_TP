@@ -147,9 +147,20 @@ void* getConfig(char* token,char* nombreConfig,int tipo){
 	t_config *config = config_create(ruta);
 
 	if(tipo==0){
-		return config_get_string_value(config,token);
+		return (char*)config_get_string_value(config,token);
+
 	}else{
 		return (int*) config_get_int_value(config,token);
 	}
-	config_destroy(config);
+
+}
+
+void* getConfigR(char* token,int tipo,t_config *config){
+
+	if(tipo==0){
+		return (char*)config_get_string_value(config,token);
+
+	}else{
+		return (int*) config_get_int_value(config,token);
+	}
 }

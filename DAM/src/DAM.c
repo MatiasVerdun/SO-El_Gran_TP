@@ -11,6 +11,9 @@
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
 
+u_int32_t socketGFM9;
+u_int32_t socketGMDJ;
+
 typedef struct datosProceso {
 	char nombreServidor[50];
 	char nombreCliente[50];
@@ -49,22 +52,11 @@ void gestionarConexionCPU(int *sock_cliente){
 }
 
 void gestionarConexionSAFA(int *socketSAFA){
-	//A modo de prueba, apra que a futuro se realice lo del reenvio de mensajes
-	char buffer[5];
-	myRecibirDatosFijos(socketSAFA,buffer,5);
-	printf("El buffer que recibi por socket es %s\n",buffer);
 
-	/*while(1){
-		if(gestionarDesconexion((int)socketSAFA,"SAFA")!=0)
-			break;
-	}*/
 }
 
-void gestionarConexionFM9(int *socketFM9){
-	while(1){
-		if(gestionarDesconexion((int)socketFM9,"FM9")!=0)
-			break;
-	}
+void gestionarConexionFM9(){
+
 }
 
 void gestionarConexionMDJ(int *socketMDJ){
@@ -117,7 +109,7 @@ void *connectionSAFA(){
 		exit(1);
 	}
 
-	gestionarConexionSAFA((int) socketSAFA);
+	gestionarConexionSAFA((int*) socketSAFA);
 	return 0;
 }
 
@@ -129,13 +121,12 @@ void *connectionFM9(){
 	strcpy(IP_ESCUCHA,(char*)getConfig("FM9_IP","DAM.txt",0));
 	PUERTO_ESCUCHA=(int)getConfig("FM9_PUERTO","DAM.txt",1);
 
-	result=myEnlazarCliente((int*)&socketFM9,IP_ESCUCHA,PUERTO_ESCUCHA);
+	result=myEnlazarCliente((int*)&socketGFM9,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
 		myPuts("No se encuentra disponible el FM9 para conectarse.\n");
 		exit(1);
 	}
-
-	gestionarConexionFM9((int)socketFM9);
+	gestionarConexionFM9();
 	return 0;
 }
 
@@ -153,7 +144,7 @@ void *connectionMDJ(){
 		exit(1);
 	}
 
-	gestionarConexionMDJ((int)socketMDJ);
+	gestionarConexionMDJ((int*)socketMDJ);
 	return 0;
 }
 
@@ -166,8 +157,8 @@ int main() {
 	pthread_t hiloConnectionFM9;
 	pthread_t hiloConnectionMDJ;
 
-    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);   
-    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     //pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
     //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
