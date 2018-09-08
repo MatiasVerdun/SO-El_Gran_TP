@@ -12,6 +12,7 @@ RM := rm -rf
 -include conexiones/subdir.mk
 -include commons/collections/subdir.mk
 -include commons/subdir.mk
+-include archivos/subdir.mk
 -include subdir.mk
 -include objects.mk
 
