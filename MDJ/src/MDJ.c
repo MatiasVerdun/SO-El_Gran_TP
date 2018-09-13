@@ -13,11 +13,12 @@
 #include <readline/history.h>
 #include <archivos/archivos.h>
 #include "filesystemFIFA.h"
+#include "interfaz.h"
 
 
 t_config *configMDJ;
 
-	///FUNCIONES DE CONFIG///
+///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
 
@@ -34,19 +35,132 @@ void mostrarConfig(){
 
 }
 
-	///GESTION DE CONEXIONES///
+///GESTION DE CONEXIONES///
+void gestionArchivos(int socketDAM,int operacion){
+	char path[50];
+	u_int32_t respuesta;
+	myRecibirDatosFijos(socketDAM,(char*)path,50);
 
-void gestionarConexionDAM(int sock)
-{
-	int socketDAM = *(int*)sock;
-	while(1){
-		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
+	switch(operacion){
+		case(1):
+			printf(BLUE "Validando si existe el archivo '%s'" ,path);
+			loading(1);
+			if(validarArchivo(path)==0){
+				myPuts(BOLDGREEN"Archivo existente" COLOR_RESET "\n");
+				respuesta=htonl(0);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+			}
+			else{
+				myPuts(RED "Archivo inexistente" COLOR_RESET "\n");
+				respuesta=htonl(1);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+			}
+			break;
+		case(2):
+			printf(BLUE "Creando archivo '%s'" ,path);
+			loading(1);
+			if(crearArchivo(path)==0){
+				myPuts(GREEN"Archivo creado" COLOR_RESET "\n");
+				respuesta=htonl(0);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+			}
+			else{
+				myPuts(RED "No se pudo crear el archivo" COLOR_RESET "\n");
+				respuesta=htonl(1);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+			}
 			break;
 	}
 
 }
 
-	///FUNCIONES DE CONEXION///
+void gestionDatos(int socketDAM, int operacion){
+	char path[50];
+	char datosDummy[30];
+	u_int32_t offset,size,respuesta;
+	offset=size=respuesta=0;
+
+	myRecibirDatosFijos(socketDAM,(char*)path,50);
+
+	switch(operacion){
+		case(3):
+			printf(BLUE "Validando si existe el archivo '%s'" ,path);
+			loading(1);
+			if(validarArchivo(path)==0){
+				myPuts(BOLDGREEN"Archivo existente" COLOR_RESET "\n");
+				respuesta=htonl(0);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t)); //Le indico al DAM que el archivo existe para que siga operando
+
+				myRecibirDatosFijos(socketDAM,(u_int32_t*)&offset,sizeof(u_int32_t)); //Recibo el offset
+				myRecibirDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t)); //Recibo el size
+				myPuts(GREEN "Offset: %d\nSize: %d" COLOR_RESET "\n",ntohl(offset),ntohl(size));
+
+				memcpy(datosDummy,"Datos de prueba",16);
+				myEnviarDatosFijos(socketDAM,(char*)datosDummy,sizeof(datosDummy)); //TODO Enviar bien los datos *Envio los datos pedidos
+			}
+			else{
+				myPuts(RED "Archivo inexistente" COLOR_RESET "\n");
+				respuesta=htonl(1);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+			}
+			break;
+		case(4):
+			printf(BLUE "Validando si existe el archivo '%s'" ,path);
+			loading(1);
+			if(validarArchivo(path)==0){
+				myPuts(BOLDGREEN"Archivo existente" COLOR_RESET "\n");
+				respuesta=htonl(0);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t)); //Le indico al DAM que el archivo existe para que siga operando
+
+				myRecibirDatosFijos(socketDAM,(u_int32_t*)&offset,sizeof(u_int32_t)); //Recibo el offset
+				myRecibirDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t)); //Recibo el size
+				myPuts(GREEN "Offset: %d\nSize: %d" COLOR_RESET "\n",ntohl(offset),ntohl(size));
+				myRecibirDatosFijos(socketDAM,(char*)datosDummy,sizeof(datosDummy));
+				myPuts(GREEN "Datos recibidos: %s" COLOR_RESET "\n");
+			}
+			else{
+				myPuts(RED "Archivo inexistente" COLOR_RESET "\n");
+				respuesta=htonl(1);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+			}
+			break;
+	}
+
+}
+
+void gestionarConexionDAM(int sock)
+{
+	int socketDAM = *(int*)sock;
+	u_int32_t buffer=0,operacion=0;
+	while(1){
+
+		if(myRecibirDatosFijos(socketDAM,(u_int32_t*)&buffer,sizeof(u_int32_t))==0){
+			operacion=ntohl(buffer);
+
+			switch(operacion){
+				case(1):
+					gestionArchivos(socketDAM,1);
+					break;
+				case(2):
+					gestionArchivos(socketDAM,2);
+					break;
+				case(3):
+					gestionDatos(socketDAM,3);
+					break;
+				case(4):
+					gestionDatos(socketDAM,4);
+					break;
+			}
+		}else{
+			myPuts(RED "Se desconecto el proceso DAM" COLOR_RESET "\n");
+			break;
+		}
+
+	}
+
+}
+
+///FUNCIONES DE CONEXION///
 
 void* connectionDAM()
 {
@@ -87,9 +201,7 @@ void mkdirr(char* linea,struct tablaDirectory *t_directorios){
 
 		if(crearDirectorio(t_directorios,pathDirectorioFIFAFS)==0)
 			actualizarArchivoDirectorio(t_directorios);
-		free(split[0]);
-		free(split[1]);
-		free(split);
+		liberarSplit(split);
 		free(pathDirectorioFIFAFS);
 }
 
@@ -126,10 +238,7 @@ void rm (char* linea,struct tablaDirectory *t_directorios){
 	}
 
 	free(pathDirectorioFIFAFS);
-	free(split[0]);
-	free(split[1]);
-	free(split[2]);
-	free(split);
+	liberarSplit(split);
 }
 
 void listarDirectorioIndice(char* linea,struct tablaDirectory *t_directorios){
@@ -141,7 +250,7 @@ void listarDirectorioIndice(char* linea,struct tablaDirectory *t_directorios){
 	printf("Indice directorio: %d\n",t_directorios[atoi(num)].index);
 	printf("Nombre directorio: %s\n",t_directorios[atoi(num)].nombre);
 	printf("Padre directorio: %d\n",t_directorios[atoi(num)].padre);
-	free(split);
+	liberarSplit(split);
 }
 
 void consola(){
@@ -189,4 +298,5 @@ int main(void) {
 	consola();
 	config_destroy(configMDJ); //No llega acá porque se queda en el while(1) de la consola
 	return EXIT_SUCCESS;
+
 }

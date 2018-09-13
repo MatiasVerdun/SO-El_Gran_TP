@@ -148,7 +148,7 @@ int my_AtenderClientesEnHilos(int *sock_Servidor, char *nombreServidor, char *no
 		}
 
 		pthread_t hiloCliente;
-		new_sock = malloc(1);
+		new_sock = malloc(4);
 		*new_sock = sock_cliente;
 
 		if( pthread_create( &hiloCliente, NULL,  funcHiloCliente , (int*) new_sock) < 0)
@@ -175,7 +175,7 @@ int myRecibirDatosFijos(int descriptorSocket, const void* buffer, const unsigned
 #endif
 	   //Controlo Errores
 	   if( retorno <= 0 ) {
-		  myPuts("Error al recibir Datos (se corto el Paquete Recibido), solo se recibieron %d bytes de los %d bytes totales por recibir\n", bytesRecibidos, (int)bytesPorRecibir);
+		  //myPuts("Error al recibir Datos (se corto el Paquete Recibido), solo se recibieron %d bytes de los %d bytes totales por recibir\n", bytesRecibidos, (int)bytesPorRecibir);
 		  bytesRecibidos = retorno;
 		  return 1;
 	   }

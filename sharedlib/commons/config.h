@@ -41,6 +41,7 @@
 	* 		tipo - tipo de el valor del token (0->String,1->Int)
 	*/
 	void*    getConfig(char* token,char* nombreConfig,int tipo);
+
 	void* getConfigR(char* token,int tipo,t_config *config);
 	/**
 	* @NAME: config_has_property

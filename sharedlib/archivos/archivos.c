@@ -267,7 +267,7 @@ void recibirArchivoM(int *sock,struct sockaddr_in *miDireccion,char* nombreServi
 		//printf("%s \n",buffer+sizeof(u_int32_t)+*((u_int32_t*)buffer));
 		strcpy(datosRecibidos->nombre,buffer+sizeof(u_int32_t)+*((u_int32_t*)buffer));
 	}
-	escribirArchivo("/home/utnso/git/tp-2017-2c-Rafaga-de-amor-/Worker/Archivos recibidos/nuevoArchivoRecibido.txt",datosRecibidos->contenido);
+	//escribirArchivo("/home/utnso/git/tp-2017-2c-Rafaga-de-amor-/Worker/Archivos recibidos/nuevoArchivoRecibido.txt",datosRecibidos->contenido);
 	strcpy(nuevoNombre,datosRecibidos->nombre);
 	strcat(ruta,nuevoNombre);
 

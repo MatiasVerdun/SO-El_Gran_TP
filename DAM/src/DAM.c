@@ -17,14 +17,108 @@ u_int32_t socketGMDJ;
 #define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAM.txt"
 t_config *configDAM;
 
+
 /*typedef struct datosProceso {
 	char nombreServidor[50];
 	char nombreCliente[50];
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 } thDatos;*/
+	///INTERFAZ CON MDJ///
 
-	///FUNCIONES DE CONFIG///
+void validarArchivo(char* path){
+
+	u_int32_t respuesta=0;
+	u_int32_t operacion = htonl(1);
+
+	myPuts(BLUE "Validando archivo '%s' ",path);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,50);
+	loading(1);
+	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+
+	if(ntohl(respuesta)==0){
+		myPuts(BOLDGREEN"El archivo especificado existe" COLOR_RESET "\n");
+	}else{
+		myPuts(RED "El archivo especificado no existe" COLOR_RESET "\n");
+	}
+
+}
+
+void crearArchivo(char* path){
+
+	u_int32_t respuesta=0;
+	u_int32_t operacion = htonl(2);
+
+	myPuts(BLUE "Creando '%s' ",path);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,50);
+	loading(1);
+	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+
+	if(ntohl(respuesta)==0){
+		myPuts(GREEN"El archivo fue creado correctamente" COLOR_RESET "\n");
+	}else{
+		myPuts(RED "El archivo no pudo ser creado" COLOR_RESET "\n");
+	}
+
+}
+
+void obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
+
+	u_int32_t respuesta=0;
+	char *buffer=malloc(size);
+	u_int32_t operacion= htonl(3);
+	u_int32_t tempOffset = htonl(offset);
+	u_int32_t tempSize = htonl(size);
+
+	myPuts(BLUE "Obteniendo datos '%s' ",path);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,50);
+	loading(1);
+	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+
+	if(ntohl(respuesta)==0){
+		myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempOffset,sizeof(u_int32_t));
+		myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempSize,sizeof(u_int32_t));
+
+		myRecibirDatosFijos(socketGMDJ,(char*)buffer,30);//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
+		memset(buffer+30,'\0',1);
+		myPuts("Los datos recibidos son: %s\n",buffer);
+	}else{
+		myPuts(RED "El archivo solicitado no existe" COLOR_RESET "\n");
+	}
+
+	free(buffer);
+}
+
+void guardarDatos(char* path,u_int32_t offset, u_int32_t size,char* buffer){
+
+	u_int32_t respuesta=0;
+	char datosDummy[30];
+	u_int32_t operacion= htonl(4);
+	u_int32_t tempOffset = htonl(offset);
+	u_int32_t tempSize = htonl(size);
+
+	myPuts(BLUE "Guardando datos '%s' ",path);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,50);
+	loading(1);
+	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+
+	if(ntohl(respuesta)==0){
+		myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempOffset,sizeof(u_int32_t));
+		myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempSize,sizeof(u_int32_t));
+
+		//memcpy(datosDummy,buffer,strlen(buffer));
+		strcpy(datosDummy,buffer);
+		myEnviarDatosFijos(socketGMDJ,(char*)datosDummy,sizeof(datosDummy));//TODO Hacer que envie bien los datos (Indicar al MDJ los bytes a enviar para luego enviarlos)
+	}else{
+		myPuts(RED "El archivo solicitado no existe" COLOR_RESET "\n");
+	}
+
+}
+///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
 
@@ -50,7 +144,7 @@ void mostrarConfig(){
 	///GESTION DE CONEXIONES///
 
 void gestionarConexionCPU(int *sock_cliente){
-	int socketCPU = *(int*)sock_cliente;
+	//int socketCPU = *(int*)sock_cliente;
 
 }
 
@@ -64,6 +158,10 @@ void gestionarConexionFM9(){
 
 void gestionarConexionMDJ(){
 
+	//validarArchivo("root/fifa/jugadores/bou.txt");
+	//crearArchivo("root/fifa/jugadores/bou.txt");
+	//obtenerDatos("root/fifa/jugadores/bou.txt",40,100);
+	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
 }
 
 	///FUNCIONES DE CONEXION///
@@ -114,7 +212,7 @@ void *connectionSAFA(){
 }
 
 void *connectionFM9(){
-	u_int32_t result,socketFM9;
+	u_int32_t result;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
@@ -131,7 +229,7 @@ void *connectionFM9(){
 }
 
 void *connectionMDJ(){
-	u_int32_t result,socketMDJ;
+	u_int32_t result;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
@@ -159,10 +257,10 @@ int main() {
 
 	configDAM=config_create(PATHCONFIGDAM);
 
-    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
-    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

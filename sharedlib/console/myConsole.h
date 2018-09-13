@@ -1,10 +1,16 @@
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include "commons/string.h"
 
 #ifndef CONSOLE_MYCONSOLE_H_
 #define CONSOLE_MYCONSOLE_H_
-
+#define MICROSEC 1000000
 #define BLACK     "\x1b[30m"
 #define RED     "\x1b[31m"
-#define GREEN   "\x1b[32m"
+#define GREEN   "\e[0;32m"
 #define YELLOW  "\x1b[33m"
 #define BLUE    "\e[0;94m"
 #define MAGENTA "\x1b[35m"
@@ -25,5 +31,6 @@ void displayC(char character,int times);
 void displayBoxTitle(int longitud,char* texto);
 void displayBoxBody(int longitud,char* texto);
 void displayBoxClose(int longitud);
+void loading(int timesec);
 
 #endif /* CONSOLE_MYCONSOLE_H_ */

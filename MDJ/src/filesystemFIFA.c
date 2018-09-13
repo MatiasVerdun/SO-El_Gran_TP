@@ -216,9 +216,9 @@ void crearMetadata(){
 	if((existeArchivo(PATHD))==1){
 		crearArchivoDirectorio();
 		inicializarDir(t_directorios);
-		printf("Se creo el directorios.dat \n");
+		//printf("Se creo el directorios.dat \n");
 	}else{
-		printf("directorios.dat ya creado\n");
+		//printf("directorios.dat ya creado\n");
 	}
 
 }

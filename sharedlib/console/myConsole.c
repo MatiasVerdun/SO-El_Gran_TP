@@ -1,8 +1,4 @@
 #include "myConsole.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include "commons/string.h"
 
 void displayC(char character,int times){
 	for (int i=0;i<times;i++){
@@ -46,3 +42,22 @@ void myPuts(const char* format, ...) {
 	fputs(nuevo, stdout);
 	free(nuevo);
 }
+
+void loading(int timesec)
+{
+    int num=0,time=0;
+    while (time!=timesec*2) {
+        for (num = 1; num <= 3; num++) {
+            putchar('.');
+            fflush(stdout);
+            usleep(0.275*MICROSEC);
+        }
+        printf("\b\b\b");
+        putchar(' ');
+        putchar(' ');
+        putchar(' ');
+        printf("\b\b\b");
+        time++;
+    }
+    myPuts(COLOR_RESET"\n");
+ }
