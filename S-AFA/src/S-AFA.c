@@ -12,17 +12,27 @@
 #include <readline/history.h>
 #include <conexiones/mySockets.h>
 #include <console/myConsole.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/inotify.h>
 
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
-t_config *configSAFA;
+//t_config *configSAFA;
 
 int IDGlobal = -1;
 int DTBenPCP = 0;
 
-char algoPlani[6];
-int quantum;
-int gradoMultiprogramacion;
-int retardoPlani;
+typedef struct ModiConfig {
+	char IP_ESCUCHA[15];
+	int PUERTO_DAM;
+	int PUERTO_CPU;
+	char algoPlani[6];
+	int quantum;
+	int gradoMultiprogramacion;
+	int retardoPlani;
+} ModiConfig;
+
+ModiConfig configModificable;
 
 typedef struct DT_Block {
 	int ID_GDT;
@@ -61,7 +71,7 @@ DTB* crearDTB(char *rutaMiScript){
 }
 
 void planificarNewReady(){
-	while((!queue_is_empty(colaNEW)) && (DTBenPCP < gradoMultiprogramacion)){
+	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
 		DTB *auxDTB;
 
 		auxDTB = queue_pop(colaNEW);
@@ -94,33 +104,101 @@ void PCP(){
 
 void mostrarConfig(){
 
-    char* myText = string_from_format("DAM -> IP: %s - Puerto: %s \0", (char*)getConfigR("IP_ESCUCHA",0,configSAFA),(char*)getConfigR("DAM_PUERTO",0,configSAFA) );
-	displayBoxTitle(50,"CONFIGURACION");
-	displayBoxBody(50,myText);
-	displayBoxClose(50);
-	myText = string_from_format("CPU -> IP: %s - Puerto: %s \0", (char*)getConfigR("IP_ESCUCHA",0,configSAFA),(char*)getConfigR("CPU_PUERTO",0,configSAFA) );
-	displayBoxBody(50,myText);
-	displayBoxClose(50);
-	myText = string_from_format("Algoritmo: %s \0", (char*)getConfigR("ALGO_PLANI",0,configSAFA) );
-	displayBoxBody(50,myText);
-	displayBoxClose(50);
-	myText = string_from_format("Grado de multiprogramacion: %s \0", (char*)getConfigR("GMP",0,configSAFA) );
-	displayBoxBody(50,myText);
-	displayBoxClose(50);
-	myText = string_from_format("Quantum: %s \0", (char*)getConfigR("Q",0,configSAFA) );
-	displayBoxBody(50,myText);
-	displayBoxClose(50);
-	myText = string_from_format("Retardo: %s \0" COLOR_RESET , (char*)getConfigR("RETARDO",0,configSAFA) );
-	displayBoxBody(50,myText);
-	displayBoxClose(50);
-    free(myText);
+	char* myText = string_from_format("DAM -> IP: %s - Puerto: %d \0", configModificable.IP_ESCUCHA,configModificable.PUERTO_DAM);
+		displayBoxTitle(50,"CONFIGURACION");
+		displayBoxBody(50,myText);
+		displayBoxClose(50);
+		myText = string_from_format("CPU -> IP: %s - Puerto: %d \0", configModificable.IP_ESCUCHA,configModificable.PUERTO_CPU);
+		displayBoxBody(50,myText);
+		displayBoxClose(50);
+		myText = string_from_format("Algoritmo: %s \0", configModificable.algoPlani);
+		displayBoxBody(50,myText);
+		displayBoxClose(50);
+		myText = string_from_format("Grado de multiprogramacion: %d \0", configModificable.gradoMultiprogramacion);
+		displayBoxBody(50,myText);
+		displayBoxClose(50);
+		myText = string_from_format("Quantum: %d \0", configModificable.quantum);
+		displayBoxBody(50,myText);
+		displayBoxClose(50);
+		myText = string_from_format("Retardo: %d \0" COLOR_RESET , configModificable.retardoPlani);
+		displayBoxBody(50,myText);
+		displayBoxClose(50);
+	    free(myText);
 }
 
-void cargarValoresConfig(char* algo,int *q,int *gMp,int *retardo){
-	strcpy(algo,(char*)getConfigR("ALGO_PLANI",0,configSAFA));
-	*q=(int*)getConfigR("Q",0,configSAFA);
-	*gMp=(int*)getConfigR("GMP",0,configSAFA);
-	*retardo=(int*)getConfigR("RETARDO",0,configSAFA);
+void actualizarConfig(){
+	t_config *configAux= config_create(PATHCONFIGSAFA);
+
+	strcpy(configModificable.algoPlani,config_get_string_value(configAux,"ALGO_PLANI"));
+	configModificable.quantum=config_get_int_value(configAux,"Q");
+	configModificable.gradoMultiprogramacion=config_get_int_value(configAux,"GMP");
+	configModificable.retardoPlani=config_get_int_value(configAux,"RETARDO");
+
+	config_destroy(configAux);
+}
+
+void cargarConfig(){
+	t_config *configSAFA= config_create(PATHCONFIGSAFA);
+
+	strcpy(configModificable.IP_ESCUCHA,config_get_string_value(configSAFA,"IP_ESCUCHA"));
+	configModificable.PUERTO_DAM=config_get_int_value(configSAFA,"DAM_PUERTO");
+	configModificable.PUERTO_CPU=config_get_int_value(configSAFA,"CPU_PUERTO");
+
+	config_destroy(configSAFA);
+
+	actualizarConfig();
+
+}
+
+/*MONITOR DE MODIFICACION DE CONFIG*/
+void notifyConfig(){
+
+#define EVENT_SIZE  ( sizeof (struct inotify_event) + 16 )
+#define BUF_LEN     ( 1024 * EVENT_SIZE )
+
+	char buffer[BUF_LEN];
+	int file_descriptor = inotify_init();
+	if (file_descriptor < 0) {
+		perror("inotify_init");
+	}
+
+	int watch_descriptor = inotify_add_watch(file_descriptor, "../../Config", IN_MODIFY | IN_CREATE | IN_DELETE);
+
+	while (1){
+			int length = read(file_descriptor, buffer, BUF_LEN);
+			if (length < 0) {
+				perror("read");
+			}
+
+			int offset = 0;
+
+			// Luego del read buffer es un array de n posiciones donde cada posición contiene
+			// un eventos ( inotify_event ) junto con el nombre de este.
+			while (offset < length) {
+
+				// El buffer es de tipo array de char, o array de bytes. Esto es porque como los
+				// nombres pueden tener nombres mas cortos que 24 caracteres el tamaño va a ser menor
+				// a sizeof( struct inotify_event ) + 24.
+				struct inotify_event *event = (struct inotify_event *) &buffer[offset];
+
+				// El campo "len" nos indica la longitud del tamaño del nombre
+				if (event->len) {
+					// Dentro de "mask" tenemos el evento que ocurrio y sobre donde ocurrio
+					// sea un archivo o un directorio
+					if (event->mask & IN_MODIFY) {
+						if (!(event->mask & IN_ISDIR)) {
+							if(strcmp(event->name,"S-AFA.txt") == 0){
+								printf("Se modifico el archivo %s.\n", event->name);
+								actualizarConfig();
+							}
+						}
+					}
+				}
+				offset += sizeof (struct inotify_event) + event->len;
+			}
+		}
+		inotify_rm_watch(file_descriptor, watch_descriptor);
+		close(file_descriptor);
 }
 
 	///FUNCIONES DE INICIALIZACION///
@@ -175,13 +253,8 @@ void* connectionCPU() {
 	struct sockaddr_in direccionServidor; // Direccion del servidor
 	u_int32_t result;
 	u_int32_t servidor; // Descriptor de socket a la escucha
-	char IP_ESCUCHA[15];
-	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*) getConfigR("IP_ESCUCHA",0,configSAFA));
-	PUERTO_ESCUCHA=(int) getConfigR("CPU_PUERTO",1,configSAFA);
-
-	result = myEnlazarServidor((int*) &servidor, &direccionServidor,IP_ESCUCHA,PUERTO_ESCUCHA); // Obtener socket a la escucha
+	result = myEnlazarServidor((int*) &servidor, &direccionServidor,configModificable.IP_ESCUCHA,configModificable.PUERTO_CPU); // Obtener socket a la escucha
 	if (result != 0) {
 		myPuts("No fue posible conectarse con los procesos CPU");
 		exit(1);
@@ -201,14 +274,8 @@ void* connectionDAM(){
 	struct sockaddr_in direccionServidor; // Direccion del servidor
 	u_int32_t result;
 	u_int32_t servidor; // Descriptor de socket a la escucha
-	char IP_ESCUCHA[15];
-	int PUERTO_ESCUCHA;
 
-	strcpy(IP_ESCUCHA,(char*) getConfigR("IP_ESCUCHA",0,configSAFA));
-	PUERTO_ESCUCHA=(int) getConfigR("DAM_PUERTO",1,configSAFA);
-
-
-	result = myEnlazarServidor((int*) &servidor, &direccionServidor,IP_ESCUCHA,PUERTO_ESCUCHA); // Obtener socket a la escucha
+	result = myEnlazarServidor((int*) &servidor, &direccionServidor,configModificable.IP_ESCUCHA,configModificable.PUERTO_DAM); // Obtener socket a la escucha
 	if (result != 0) {
 		myPuts("No fue posible conectarse con los procesos DAM");
 		exit(1);
@@ -231,15 +298,17 @@ int main(void)
 	char *linea;
 	pthread_t hiloConnectionCPU; //Nombre de Hilo a crear
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
+	//pthread_t hiloNotifyConfig; //Nombre de Hilo a crear
 
-	configSAFA=config_create(PATHCONFIGSAFA);
+	//configSAFA=config_create(PATHCONFIGSAFA);
 
 	creacionDeColas();
-	//cargarValoresConfig(algoPlani, quantum, gradoMultiprogramacion, retardoPlani);
+	cargarConfig();
 
 
 	pthread_create(&hiloConnectionDAM,NULL,(void*) &connectionDAM,NULL);
 	pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+	//pthread_create(&hiloNotifyConfig,NULL,(void*)&notifyConfig,NULL);
 
 //TODO Free de split y thread notify
 	while (1) {
