@@ -54,7 +54,31 @@ void gestionarConexionDAM(int socketDAM){
 	}
 }
 
+void gestionarConexionFM9(int socketFM9){
+	while(1){
+		if(gestionarDesconexion((int)socketFM9,"FM9")!=0)
+			break;
+	}
+}
 	///FUNCIONES DE CONEXION///
+
+void* connectionFM9(){
+	u_int32_t result,socketFM9;
+	char IP_ESCUCHA[15];
+	int PUERTO_ESCUCHA;
+
+	strcpy(IP_ESCUCHA,(char*)getConfigR("FM9_IP",0,configCPU));
+	PUERTO_ESCUCHA=(int)getConfigR("FM9_PUERTO",1,configCPU);
+
+	result=myEnlazarCliente((int*)&socketFM9,IP_ESCUCHA,PUERTO_ESCUCHA);
+	if(result==1){
+		myPuts("No se encuentra disponible el DAM para conectarse.\n");
+		exit(1);
+	}
+
+	gestionarConexionFM9(socketFM9);
+	return 0;
+}
 
 void* connectionDAM(){
 	u_int32_t result,socketDAM;
@@ -99,12 +123,15 @@ int main() {
 	system("clear");
 	pthread_t hiloConnectionDAM;
 	pthread_t hiloConnectionSAFA;
+	pthread_t hiloConnectionFM9;
+
 	configCPU=config_create(PATHCONFIGCPU);
 
 	mostrarConfig();
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
 
     while(1)
     {

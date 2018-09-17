@@ -54,6 +54,14 @@ void gestionarConexionDAM(int *sock){
 	}
 }
 
+void gestionarConexionCPU(int *sock){
+	int socketCPU = *(int*)sock;
+	while(1){
+		if(gestionarDesconexion((int)socketCPU,"CPU")!=0)
+			break;
+	}
+}
+
 	///FUNCIONES DE CONEXION///
 
 void* connectionDAM()
@@ -83,16 +91,46 @@ void* connectionDAM()
 	return 0;
 }
 
+void* connectionCPU()
+{
+	struct sockaddr_in direccionServidor; // Direccion del servidor
+	u_int32_t result;
+	u_int32_t socketCPU; // Descriptor de socket a la escucha
+	char IP_ESCUCHA[15];
+	int PUERTO_ESCUCHA;
+
+	strcpy(IP_ESCUCHA,(char*) getConfigR("IP_ESCUCHA",0,configFM9));
+	PUERTO_ESCUCHA=(int) getConfigR("CPU_PUERTO",1,configFM9);
+
+
+	result = myEnlazarServidor((int*) &socketCPU, &direccionServidor,IP_ESCUCHA,PUERTO_ESCUCHA); // Obtener socket a la escucha
+	if (result != 0) {
+		myPuts("No fue posible conectarse con los procesos DAM");
+		exit(1);
+	}
+
+	result = myAtenderClientesEnHilos((int*) &socketCPU, "FM9", "DAM",(void*) gestionarConexionDAM);
+	if (result != 0) {
+		myPuts("No fue posible atender requerimientos de DAM");
+		exit(1);
+	}
+
+	return 0;
+}
+
 	///MAIN///
 
 int main() {
 	system("clear");
 	pthread_t hiloConnectionDAM;
+	pthread_t hiloConnectionCPU;
+
 	configFM9=config_create(PATHCONFIGFM9);
 
 	mostrarConfig();
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     while(1)
     {
