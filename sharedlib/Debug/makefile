@@ -8,6 +8,7 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include dtbSerializacion/subdir.mk
 -include console/subdir.mk
 -include conexiones/subdir.mk
 -include commons/collections/subdir.mk

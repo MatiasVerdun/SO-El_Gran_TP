@@ -10,9 +10,42 @@
 #include <commons/collections/list.h>
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
+#include <dtbSerializacion/dtbSerializacion.h>
 
 #define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt"
 t_config *configCPU;
+
+
+void recibirDTB(int socket){
+	DTB *miDTB;
+	int resultRecv;
+	int lenLista;
+	char buffer[1024];
+	char strLenLista[4];
+
+	resultRecv = myRecibirDatosFijos(socket,buffer,264);
+	if (resultRecv!=0)
+	{
+		myPuts("Se deconecto el S-AFA!!!\n");
+		exit(1);
+	}
+
+	strncpy(strLenLista,buffer + 261,3);
+	strLenLista[4] = '\0';
+	lenLista = atoi(strLenLista);
+	if (lenLista != 0){
+		resultRecv = myRecibirDatosFijos(socket,buffer + 264,lenLista * (128 + 10));
+		if (resultRecv!=0)
+		{
+			myPuts("Se deconecto el S-AFA!!!\n");
+			exit(1);
+		}
+	}
+	miDTB = DTBString2Struct(buffer);
+
+	myPuts("El DTB que se recibio es:\n");
+	imprimirDTB(miDTB);
+}
 
 	///FUNCIONES DE CONFIG///
 
@@ -36,15 +69,17 @@ void mostrarConfig(){
 
 void gestionarConexionSAFA(int socketSAFA){
 
-	//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
-	char buffer[5];
-	myRecibirDatosFijos(socketSAFA,buffer,5);
-	printf("El buffer que recibi por socket es %s\n",buffer);
+	recibirDTB(socketSAFA);
 
 	/*while(1){
 		if(gestionarDesconexion((int)socketSAFA,"SAFA")!=0)
 			break;
 	}*/
+
+	/*//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
+	char buffer[5];
+	myRecibirDatosFijos(socketSAFA,buffer,5);
+	printf("El buffer que recibi por socket es %s\n",buffer);*/
 }
 
 void gestionarConexionDAM(int socketDAM){

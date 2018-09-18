@@ -15,12 +15,16 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/inotify.h>
+#include <dtbSerializacion/dtbSerializacion.h>
 
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 //t_config *configSAFA;
 
 int IDGlobal = -1;
 int DTBenPCP = 0;
+
+int GsocketCPU;
+int GsocketDAM;
 
 typedef struct ModiConfig {
 	char IP_ESCUCHA[15];
@@ -33,14 +37,6 @@ typedef struct ModiConfig {
 } ModiConfig;
 
 ModiConfig configModificable;
-
-typedef struct DT_Block {
-	int ID_GDT;
-	char Escriptorio[256]; //El valor despues hay que velo bien cuando nos den un ejemplo de Sript
-	int PC;
-	int Flag_EstadoGDT;
-	t_list *tablaArchivosAbiertos;
-} DTB;
 
 t_queue *colaNEW;
 t_queue *colaREADY;
@@ -73,9 +69,16 @@ DTB* crearDTB(char *rutaMiScript){
 void planificarNewReady(){
 	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
 		DTB *auxDTB;
+		char* strDTB;
 
 		auxDTB = queue_pop(colaNEW);
+
 		//Mandar a CPU y ver si va a READY o EXEC
+		strDTB = DTBStruct2String (auxDTB);
+
+		//sprintf(stdout, "Enviando la %s",strSentencia);
+		send(GsocketCPU, strDTB, strlen(strDTB),0);
+
 		queue_push(colaREADY,auxDTB);
 
 		DTBenPCP++;
@@ -219,33 +222,31 @@ void creacionDeColas(){
 	///GESTION DE CONEXIONES///
 
 void gestionarConexionCPU(int* sock){
-	int socketCPU = *(int*)sock;
+	GsocketCPU = *(int*)sock;
 	conectionCPU++;
 	if(conectionDAM==true && conectionCPU>0)
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 
-	//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
+	/*//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
 		char buffer[5];
 		strcpy(buffer,"hola");
 		buffer[4]='\0';
-		myEnviarDatosFijos(socketCPU,buffer,5);
+		myEnviarDatosFijos(socketCPU,buffer,5);*/
 }
 
 void gestionarConexionDAM(int *sock_cliente){
-	int socketDAM = *(int*)sock_cliente;
+	GsocketDAM = *(int*)sock_cliente;
 
 	conectionDAM=true;
 	if(conectionDAM==true && conectionCPU>0)
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 
-	//A modo de prueba, apra que a futuro se realice lo del reenvio de mensajes
+	/*//A modo de prueba, apra que a futuro se realice lo del reenvio de mensajes
 	char buffer[5];
 	strcpy(buffer,"hola");
 	buffer[4]='\0';
-	myEnviarDatosFijos(socketDAM,buffer,5);
+	myEnviarDatosFijos(socketDAM,buffer,5);*/
 }
-
-	///FUNCIONES DE CONEXION///
 
 	///FUNCIONES DE CONEXION///
 void* connectionCPU() {
@@ -305,12 +306,10 @@ int main(void)
 	creacionDeColas();
 	cargarConfig();
 
-
 	pthread_create(&hiloConnectionDAM,NULL,(void*) &connectionDAM,NULL);
 	pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 	//pthread_create(&hiloNotifyConfig,NULL,(void*)&notifyConfig,NULL);
 
-//TODO Free de split y thread notify
 	while (1) {
 		linea = readline(">");
 		if (linea)
@@ -330,6 +329,9 @@ int main(void)
 			strcpy(token, split[1]);
 			printf("%s",(char*)getConfig(token,"S-AFA.txt",0));
 
+		    free(split[0]);
+		    free(split[1]);
+		    free(split);
 		}
 
 		if(!strncmp(linea,"ejecutar ",9))
@@ -342,6 +344,9 @@ int main(void)
 			printf("La ruta del Escriptorio a ejecutar es: %s\n",path);
 			PLP(path);
 
+			   free(split[0]);
+			   free(split[1]);
+			   free(split);
 		}
 
 		if(!strncmp(linea,"status",6))
@@ -358,6 +363,10 @@ int main(void)
 				id = atoi(idS);
 				printf("Se mostrara todos los datos almacenados en el DTB con ID: %d\n",id);
 			}
+
+			free(split[0]);
+			free(split[1]);
+			free(split);
 		}
 
 		if(!strncmp(linea,"finalizar ",10))
@@ -372,6 +381,10 @@ int main(void)
 			strcpy(idS, split[1]);
 			id = atoi(idS);
 			printf("Se manda al DTB con ID %d a la cola de EXIT\n",id);
+
+			free(split[0]);
+			free(split[1]);
+			free(split);
 
 		}
 
@@ -389,6 +402,9 @@ int main(void)
 				id = atoi(idS);
 				printf("Se mostraran las metricas para el DTB con ID: %d\n",id);
 			}
+
+			free(split[0]);
+			free(split[1]);
 		}
 
 		if(!strncmp(linea,"estado",6))
