@@ -15,38 +15,6 @@
 #define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt"
 t_config *configCPU;
 
-
-void recibirDTB(int socket){
-	DTB *miDTB;
-	int resultRecv;
-	int lenLista;
-	char buffer[1024];
-	char strLenLista[4];
-
-	resultRecv = myRecibirDatosFijos(socket,buffer,264);
-	if (resultRecv!=0)
-	{
-		myPuts("Se deconecto el S-AFA!!!\n");
-		exit(1);
-	}
-
-	strncpy(strLenLista,buffer + 261,3);
-	strLenLista[4] = '\0';
-	lenLista = atoi(strLenLista);
-	if (lenLista != 0){
-		resultRecv = myRecibirDatosFijos(socket,buffer + 264,lenLista * (128 + 10));
-		if (resultRecv!=0)
-		{
-			myPuts("Se deconecto el S-AFA!!!\n");
-			exit(1);
-		}
-	}
-	miDTB = DTBString2Struct(buffer);
-
-	myPuts("El DTB que se recibio es:\n");
-	imprimirDTB(miDTB);
-}
-
 	///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
@@ -164,9 +132,9 @@ int main() {
 
 	mostrarConfig();
 
-    pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+    //pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
-    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
 
     while(1)
     {

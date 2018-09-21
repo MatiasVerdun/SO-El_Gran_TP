@@ -52,7 +52,7 @@ static int conectionCPU=0;
 	///PLANIFICACION A LARGO PLAZO///
 
 DTB* crearDTB(char *rutaMiScript){
-	DTB *miDTB;
+	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
 	miDTB = malloc(sizeof(DTB));
 
 	miDTB->ID_GDT = IDGlobal + 1;
@@ -69,6 +69,7 @@ DTB* crearDTB(char *rutaMiScript){
 void planificarNewReady(){
 	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
 		DTB *auxDTB;
+		//DTB *aux2DTB;
 		char* strDTB;
 
 		auxDTB = queue_pop(colaNEW);
@@ -76,8 +77,15 @@ void planificarNewReady(){
 		//Mandar a CPU y ver si va a READY o EXEC
 		strDTB = DTBStruct2String (auxDTB);
 
+		myPuts("sock %d str %s\n",GsocketCPU, strDTB);
+
+		/*aux2DTB = DTBString2Struct(strDTB);
+
+		myPuts("El DTB que se recibio es:\n");
+		imprimirDTB(aux2DTB);*/
+
 		//sprintf(stdout, "Enviando la %s",strSentencia);
-		send(GsocketCPU, strDTB, strlen(strDTB),0);
+		myEnviarDatosFijos(GsocketCPU, strDTB, strlen(strDTB));
 
 		queue_push(colaREADY,auxDTB);
 
@@ -90,11 +98,8 @@ void PLP(char *rutaScript){
 
 	elDTB = crearDTB(rutaScript);
 	queue_push(colaNEW,elDTB);
-	free(elDTB);
 
 	planificarNewReady();
-
-
 }
 
 	///PLANIFICACION A CORTO PLAZO///
@@ -342,7 +347,8 @@ int main(void)
 
 			strcpy(path, split[1]);
 			printf("La ruta del Escriptorio a ejecutar es: %s\n",path);
-			PLP(path);
+			//PLP(path);
+			PLP(PATHCONFIGSAFA);
 
 			   free(split[0]);
 			   free(split[1]);

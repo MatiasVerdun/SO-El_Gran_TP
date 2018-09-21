@@ -19,6 +19,8 @@ typedef struct datosArchivo {
 
 void myTrim(char *aDonde,char *contenidoACortar);
 
+
+void recibirDTB(int socket);
 void imprimirDTB(DTB *miDTB);
 char* DTBStruct2String(DTB *miDTB);
 DTB* DTBString2Struct (char *miStringDTB);

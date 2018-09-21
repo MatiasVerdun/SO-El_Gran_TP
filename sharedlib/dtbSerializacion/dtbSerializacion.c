@@ -13,6 +13,37 @@ void myTrim(char *aDonde,char *contenidoACortar){
     free(splitClave);
 }
 
+void recibirDTB(int socket){
+	DTB *miDTB;
+	int resultRecv;
+	int lenLista;
+	char buffer[1024];
+	char strLenLista[4];
+
+	resultRecv = myRecibirDatosFijos(socket,buffer,264);
+	if (resultRecv!=0)
+	{
+		myPuts("Se deconecto el S-AFA!!!\n");
+		exit(1);
+	}
+
+	strncpy(strLenLista,buffer + 261,3);
+	strLenLista[4] = '\0';
+	lenLista = atoi(strLenLista);
+	if (lenLista != 0){
+		resultRecv = myRecibirDatosFijos(socket,buffer + 264,lenLista * (128 + 10));
+		if (resultRecv!=0)
+		{
+			myPuts("Se deconecto el S-AFA!!!\n");
+			exit(1);
+		}
+	}
+	miDTB = DTBString2Struct(buffer);
+
+	myPuts("El DTB que se recibio es:\n");
+	imprimirDTB(miDTB);
+}
+
 void imprimirDTB(DTB *miDTB){
 	int cantElementos;
 
@@ -20,12 +51,16 @@ void imprimirDTB(DTB *miDTB){
 
     cantElementos = list_size(miDTB->tablaArchivosAbiertos);
 
-    for(int indice = 0;indice < cantElementos;indice++){
-		datosArchivo *misDatos;
+    if(cantElementos == 0){
+    	myPuts("No hay elementos en la lista de Archivos Abiertos\n");
+    } else {
+        for(int indice = 0;indice < cantElementos;indice++){
+    		datosArchivo *misDatos;
 
-		misDatos = list_get(miDTB->tablaArchivosAbiertos,indice);
+    		misDatos = list_get(miDTB->tablaArchivosAbiertos,indice);
 
-    	myPuts("Elem%d Nombre_Archivo: %s Direccion_Memoria: %l \n",indice,misDatos->nombreArchivo,misDatos->dirMemoria);
+        	myPuts("Elem%d Nombre_Archivo: %s Direccion_Memoria: %l \n",indice,misDatos->nombreArchivo,misDatos->dirMemoria);
+        }
     }
 }
 
@@ -37,7 +72,7 @@ char* DTBStruct2String(DTB *miDTB){
 
 	miStringDTB = malloc(264 + (lenLista * (128 + 10)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3)
 
-	sprintf(miStringDTB,"%2d%-256s%2d%1d%03",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_EstadoGDT,lenLista);
+	sprintf(miStringDTB,"%2d%-256s%2d%1d%03d",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_EstadoGDT,lenLista);
 	//El %03 me dice que puede llegar a tener 999 archivos abiertos
 
 	for(int indice = 0;indice < lenLista;indice++){
