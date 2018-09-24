@@ -144,8 +144,21 @@ void mostrarConfig(){
 	///GESTION DE CONEXIONES///
 
 void gestionarConexionCPU(int *sock_cliente){
-	//int socketCPU = *(int*)sock_cliente;
+	int socketCPU = *(int*)sock_cliente;
 
+	char buffer[256];
+	char strLenRuta[4];
+	int largoRuta;
+
+	myRecibirDatosFijos(socketCPU,buffer,3);
+
+	strncpy(strLenRuta,buffer,3);
+	strLenRuta[4] = '\0';
+	largoRuta = atoi(strLenRuta);
+
+	myRecibirDatosFijos(socketCPU,buffer,largoRuta);
+
+	myPuts("La ruta del Escriptorio que se recibio es: %s\n",buffer);
 }
 
 void gestionarConexionSAFA(int socketSAFA){
@@ -260,7 +273,7 @@ int main() {
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
     //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     //pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

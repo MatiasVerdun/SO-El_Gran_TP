@@ -13,7 +13,7 @@ void myTrim(char *aDonde,char *contenidoACortar){
     free(splitClave);
 }
 
-void recibirDTB(int socket){
+DTB* recibirDTB(int socket){
 	DTB *miDTB;
 	int resultRecv;
 	int lenLista;
@@ -38,10 +38,10 @@ void recibirDTB(int socket){
 			exit(1);
 		}
 	}
+
 	miDTB = DTBString2Struct(buffer);
 
-	myPuts("El DTB que se recibio es:\n");
-	imprimirDTB(miDTB);
+	return miDTB;
 }
 
 void imprimirDTB(DTB *miDTB){
@@ -63,7 +63,6 @@ void imprimirDTB(DTB *miDTB){
         }
     }
 }
-
 
 char* DTBStruct2String(DTB *miDTB){
 	char* miStringDTB;

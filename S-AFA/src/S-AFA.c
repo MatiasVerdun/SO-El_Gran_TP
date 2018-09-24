@@ -22,6 +22,7 @@
 
 int IDGlobal = -1;
 int DTBenPCP = 0;
+int estadoSistema = -1; // 0 = Estado Operativo
 
 int GsocketCPU;
 int GsocketDAM;
@@ -73,6 +74,8 @@ void planificarNewReady(){
 		char* strDTB;
 
 		auxDTB = queue_pop(colaNEW);
+
+		auxDTB->Flag_EstadoGDT = 0;
 
 		//Mandar a CPU y ver si va a READY o EXEC
 		strDTB = DTBStruct2String (auxDTB);
@@ -228,8 +231,10 @@ void creacionDeColas(){
 
 void gestionarConexionCPU(int* sock){
 	GsocketCPU = *(int*)sock;
+
 	conectionCPU++;
 	if(conectionDAM==true && conectionCPU>0)
+		estadoSistema = 0;
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 
 	/*//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
@@ -243,8 +248,10 @@ void gestionarConexionDAM(int *sock_cliente){
 	GsocketDAM = *(int*)sock_cliente;
 
 	conectionDAM=true;
-	if(conectionDAM==true && conectionCPU>0)
-		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
+	//Creo que el if no tendria mucho sentiido ya que se debe conectar primero el DAM y luego CPU ya que se conecta con el,
+	//por lo tanto es el quien debe validar el estado operativo
+	/*if(conectionDAM==true && conectionCPU>0)
+		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");*/
 
 	/*//A modo de prueba, apra que a futuro se realice lo del reenvio de mensajes
 	char buffer[5];
@@ -341,18 +348,23 @@ int main(void)
 
 		if(!strncmp(linea,"ejecutar ",9))
 		{
-			char** split;
-			char path[256];
-			split = string_split(linea, " ");
+			if(estadoSistema == 0){
+				//Esta en un estado operativo
+				char** split;
+				char path[256];
+				split = string_split(linea, " ");
 
-			strcpy(path, split[1]);
-			printf("La ruta del Escriptorio a ejecutar es: %s\n",path);
-			//PLP(path);
-			PLP(PATHCONFIGSAFA);
+				strcpy(path, split[1]);
+				printf("La ruta del Escriptorio a ejecutar es: %s\n",path);
+				//PLP(path);
+				PLP(PATHCONFIGSAFA);
 
-			   free(split[0]);
-			   free(split[1]);
-			   free(split);
+				   free(split[0]);
+				   free(split[1]);
+				   free(split);
+			} else {
+				myPuts("El sistema no se encuentra en un estado Operativo, espere a que alcance dicho estado y vuelva a intentar la operacion.\n");
+			}
 		}
 
 		if(!strncmp(linea,"status",6))

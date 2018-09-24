@@ -175,7 +175,7 @@ int myRecibirDatosFijos(int descriptorSocket, const void* buffer, const unsigned
 #endif
 	   //Controlo Errores
 	   if( retorno <= 0 ) {
-		  //myPuts("Error al recibir Datos (se corto el Paquete Recibido), solo se recibieron %d bytes de los %d bytes totales por recibir\n", bytesRecibidos, (int)bytesPorRecibir);
+		  myPuts("Error al recibir Datos (se corto el Paquete Recibido), solo se recibieron %d bytes de los %d bytes totales por recibir\n", bytesRecibidos, (int)bytesPorRecibir);
 		  bytesRecibidos = retorno;
 		  return 1;
 	   }

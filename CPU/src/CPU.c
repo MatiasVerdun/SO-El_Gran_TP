@@ -15,6 +15,8 @@
 #define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt"
 t_config *configCPU;
 
+u_int32_t socketGDAM;
+
 	///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
@@ -36,8 +38,28 @@ void mostrarConfig(){
 	///GESTION DE CONEXIONES///
 
 void gestionarConexionSAFA(int socketSAFA){
+	DTB *miDTB;
 
-	recibirDTB(socketSAFA);
+	miDTB = recibirDTB(socketSAFA);
+
+	myPuts("El DTB que se recibio es:\n");
+	imprimirDTB(miDTB);
+
+	if(miDTB->Flag_EstadoGDT == 0){
+		int largoRuta;
+		char *strLenRuta;
+
+		largoRuta = strlen(miDTB->Escriptorio);
+
+		strLenRuta = string_from_format("%03d",largoRuta);
+
+		myPuts("Enviando al Diego la ruta del Escriptorio.\n");
+		myEnviarDatosFijos(socketGDAM,strLenRuta,3);
+		myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
+
+		/*Consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
+		en el DTB desaloja a dicho DTB Dummy, avisando a S-AFA que debe bloquearlo.*/
+	}
 
 	/*while(1){
 		if(gestionarDesconexion((int)socketSAFA,"SAFA")!=0)
@@ -51,10 +73,10 @@ void gestionarConexionSAFA(int socketSAFA){
 }
 
 void gestionarConexionDAM(int socketDAM){
-	while(1){
+	/*while(1){
 		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
 			break;
-	}
+	}*/
 }
 
 void gestionarConexionFM9(int socketFM9){
@@ -97,6 +119,7 @@ void* connectionDAM(){
 		exit(1);
 	}
 
+	socketGDAM = socketDAM;
 	gestionarConexionDAM(socketDAM);
 	return 0;
 }
@@ -132,7 +155,7 @@ int main() {
 
 	mostrarConfig();
 
-    //pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+    pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
     //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
 
