@@ -57,7 +57,7 @@ void crearArchivo(char* path){
 	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 
 	if(ntohl(respuesta)==0){
-		myPuts(GREEN"El archivo fue creado correctamente" COLOR_RESET "\n");
+		myPuts(BOLDGREEN"El archivo fue creado correctamente" COLOR_RESET "\n");
 	}else{
 		myPuts(RED "El archivo no pudo ser creado" COLOR_RESET "\n");
 	}
@@ -113,6 +113,9 @@ void guardarDatos(char* path,u_int32_t offset, u_int32_t size,char* buffer){
 		//memcpy(datosDummy,buffer,strlen(buffer));
 		strcpy(datosDummy,buffer);
 		myEnviarDatosFijos(socketGMDJ,(char*)datosDummy,sizeof(datosDummy));//TODO Hacer que envie bien los datos (Indicar al MDJ los bytes a enviar para luego enviarlos)
+		myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+		if(ntohl(respuesta)==0)
+			myPuts(BOLDGREEN"El archivo fue guardado correctamente" COLOR_RESET "\n");
 	}else{
 		myPuts(RED "El archivo solicitado no existe" COLOR_RESET "\n");
 	}
@@ -174,7 +177,7 @@ void gestionarConexionMDJ(){
 	//validarArchivo("root/fifa/jugadores/bou.txt");
 	//crearArchivo("root/fifa/jugadores/bou.txt");
 	//obtenerDatos("root/fifa/jugadores/bou.txt",40,100);
-	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
+	guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
 }
 
 	///FUNCIONES DE CONEXION///
@@ -270,10 +273,10 @@ int main() {
 
 	configDAM=config_create(PATHCONFIGDAM);
 
-    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
     //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
-    //pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

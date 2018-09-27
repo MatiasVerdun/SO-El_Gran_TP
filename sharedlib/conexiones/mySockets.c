@@ -226,3 +226,38 @@ int gestionarDesconexion(int socket,char* nombreProceso){
 	}
 	return 0;
 }
+
+void enviarDatos(u_int32_t size,void* datos,u_int32_t socket){ //TODO Probar
+
+	void* buffer=malloc(size+sizeof(u_int32_t));
+
+	memcpy(buffer,&size,sizeof(u_int32_t));
+	memcpy(buffer+sizeof(u_int32_t),datos,size);
+	myEnviarDatosFijos(socket,buffer,sizeof(buffer));
+
+	free(buffer);
+
+}
+
+void recibirDatos(void* datos,u_int32_t socket){//TODO Probar
+
+	void* buffer = malloc(sizeof(u_int32_t));
+	void* tmp_buffer;
+	u_int32_t size=0;
+
+	myRecibirDatosFijos(socket,buffer,sizeof(u_int32_t));
+	size=*((u_int32_t*)buffer);
+
+	tmp_buffer=realloc(buffer,(sizeof(u_int32_t)+*(u_int32_t*)buffer+size));
+	if (tmp_buffer== NULL) { //Asigno mas memoria al buffer para recibir el contenido del archivo
+		printf("Error realloc");
+		exit(1);
+	}
+	else {
+		/* Reasignación exitosa. Asignar memoria a ptr */
+		buffer = tmp_buffer;
+	}
+
+	myRecibirDatosFijos(socket,buffer+sizeof(u_int32_t),size);
+
+}

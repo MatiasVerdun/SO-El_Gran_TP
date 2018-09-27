@@ -60,7 +60,7 @@ void gestionArchivos(int socketDAM,int operacion){
 			printf(BLUE "Creando archivo '%s'" ,path);
 			loading(1);
 			if(crearArchivo(path)==0){
-				myPuts(GREEN"Archivo creado" COLOR_RESET "\n");
+				myPuts(BOLDGREEN"Archivo creado" COLOR_RESET "\n");
 				respuesta=htonl(0);
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 			}
@@ -117,6 +117,7 @@ void gestionDatos(int socketDAM, int operacion){
 				myPuts(GREEN "Offset: %d\nSize: %d" COLOR_RESET "\n",ntohl(offset),ntohl(size));
 				myRecibirDatosFijos(socketDAM,(char*)datosDummy,sizeof(datosDummy));
 				myPuts(GREEN "Datos recibidos: %s" COLOR_RESET "\n");
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 			}
 			else{
 				myPuts(RED "Archivo inexistente" COLOR_RESET "\n");

@@ -10,6 +10,7 @@
 #include <commons/collections/list.h>
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
+#include <dtbSerializacion/dtbSerializacion.h>
 
 #define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9.txt"
 
@@ -23,6 +24,19 @@ void inicializarMemoria(){
 	int tamMemoria=(int)getConfig("TMM","FM9.txt",1);
 	memoriaFM9=malloc(tamMemoria);
 
+}
+
+DTB* crearDTB(char *rutaMiScript){
+	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
+	miDTB = malloc(sizeof(DTB));
+
+	miDTB->ID_GDT = 1;
+	strcpy(miDTB->Escriptorio,rutaMiScript);
+	miDTB->PC = 0;
+	miDTB->Flag_EstadoGDT = 1;
+	miDTB->tablaArchivosAbiertos = list_create();
+
+	return miDTB;
 }
 
 void mostrarConfig(){
@@ -119,6 +133,42 @@ void* connectionCPU()
 }
 
 	///MAIN///
+void guardarDTB(DTB *miDTB){
+
+	char* stringDTB=malloc(sizeof(DTB));
+
+	memcpy(stringDTB,DTBStruct2String(miDTB),sizeof(DTB)-4);
+	memcpy(memoriaFM9,stringDTB,sizeof(DTB));
+	//printf("%s\n",stringDTB);
+
+	free(stringDTB);
+}
+
+DTB* leerDTB(int posicion){
+	DTB* miDTB=NULL;
+	char* stringDTB=malloc(sizeof(DTB));
+
+	memcpy(stringDTB,memoriaFM9+posicion,sizeof(DTB));
+	miDTB=DTBString2Struct(stringDTB);
+
+	free(stringDTB);
+	return miDTB;
+}
+
+void pruebaGuardadoDTB(){
+	DTB *miDTB;
+	DTB *DTBaGuardar=crearDTB(PATHCONFIGFM9);
+
+    guardarDTB(DTBaGuardar);
+	miDTB=leerDTB(0);
+    printf("Ruta escriptorio: %s\n",miDTB->Escriptorio);
+    printf("Estado GDT: %d\n",miDTB->Flag_EstadoGDT);
+    printf("ID GDT: %d\n",miDTB->ID_GDT);
+	printf("Program Counter: %d\n",miDTB->PC);
+
+	free(DTBaGuardar);
+	free(miDTB);
+}
 
 int main() {
 	system("clear");
@@ -129,8 +179,10 @@ int main() {
 
 	mostrarConfig();
 
-    pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
-    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    //pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+	inicializarMemoria();
+	pruebaGuardadoDTB();
 
     while(1)
     {
