@@ -12,10 +12,31 @@
 #include <readline/history.h>
 #include <conexiones/mySockets.h>
 #include <console/myConsole.h>
+#include <parser/parser.h>
+#include <dtbSerializacion/dtbSerializacion.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/inotify.h>
-#include <dtbSerializacion/dtbSerializacion.h>
+
+t_list *listaSentencias;
+int	nroSentenciaActual;
+
+const int OPERACION_ABRIR = 1;
+const int OPERACION_CONCENTRAR = 2;
+const int OPERACION_ASIGNAR = 3;
+const int OPERACION_WAIT = 4;
+const int OPERACION_SIGNAL = 5;
+const int OPERACION_FLUSH = 6;
+const int OPERACION_CLOSE = 7;
+const int OPERACION_CREAR = 8;
+const int OPERACION_BORRAR = 9;
+
+typedef struct sentencia {
+	int operacion;
+	char *param1;
+	int param2;
+	char *param3;
+} sentencia;
 
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 //t_config *configSAFA;
@@ -210,6 +231,127 @@ void notifyConfig(){
 		}
 		inotify_rm_watch(file_descriptor, watch_descriptor);
 		close(file_descriptor);
+}
+
+///PARSEAR SCRIPTS///
+
+void imprimirSentencia(sentencia *miEntrada)
+{
+    if (miEntrada->operacion == OPERACION_ASIGNAR){
+    	myPuts("Operacion: %d Param1: %s Param2: %d Param3: %s\n",miEntrada->operacion,miEntrada->param1, miEntrada->param2, miEntrada->param3);
+    }
+    else if (miEntrada->operacion == OPERACION_CREAR){
+        	myPuts("Operacion: %d Param1: %s Param2: %d\n",miEntrada->operacion, miEntrada->param1, miEntrada->param2);
+    }
+    else if (miEntrada->operacion == OPERACION_CONCENTRAR){
+        	myPuts("Operacion: %d\n",miEntrada->operacion);
+    }
+    else {
+    	myPuts("Operacion: %d Param1: %s\n",miEntrada->operacion, miEntrada->param1);
+    }
+}
+
+void parsear(char *nombreArchivo){
+	FILE * fdScript;
+	char * line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	sentencia *laSentencia;
+
+	fdScript = fopen((char*)nombreArchivo, "r");
+	if (fdScript == NULL){
+		perror("Error al abrir el archivo: ");
+		exit(EXIT_FAILURE);
+	}
+
+	listaSentencias = list_create();
+	nroSentenciaActual = -1;
+
+	while ((read = getline(&line, &len, fdScript)) != -1) {
+		t_parser_operacion parsed = parse(line);
+
+		laSentencia = malloc(sizeof(sentencia));
+		laSentencia->operacion = 0;
+		laSentencia->param1 = NULL;
+		laSentencia->param2 = -1;
+		laSentencia->param3 = NULL;
+
+		if(parsed.valido){
+			switch(parsed.keyword){
+				case ABRIR:
+					laSentencia->operacion = OPERACION_ABRIR;
+					laSentencia->param1 = malloc(strlen(parsed.argumentos.ABRIR.param1)+1);
+					strcpy(laSentencia->param1,parsed.argumentos.ABRIR.param1);
+					laSentencia->param1[strlen(parsed.argumentos.ABRIR.param1)] = '\0';
+					break;
+				case CONCENTRAR:
+					laSentencia->operacion = OPERACION_CONCENTRAR;
+					break;
+				case ASIGNAR:
+					laSentencia->operacion = OPERACION_ASIGNAR;
+					laSentencia->param1 = malloc(strlen(parsed.argumentos.ASIGNAR.param1)+1);
+					strcpy(laSentencia->param1,parsed.argumentos.ASIGNAR.param1);
+					laSentencia->param1[strlen(parsed.argumentos.ASIGNAR.param1)] = '\0';
+					laSentencia->param2 = parsed.argumentos.ASIGNAR.param2;
+					laSentencia->param3 = malloc(strlen(parsed.argumentos.ASIGNAR.param3)+1);
+					strcpy(laSentencia->param3,parsed.argumentos.ASIGNAR.param3);
+					laSentencia->param3[strlen(parsed.argumentos.ASIGNAR.param3)] = '\0';
+					break;
+				case WAIT:
+					laSentencia->operacion = OPERACION_WAIT;
+					laSentencia->param1 = malloc(strlen(parsed.argumentos.WAIT.param1)+1);
+					strcpy(laSentencia->param1,parsed.argumentos.WAIT.param1);
+					laSentencia->param1[strlen(parsed.argumentos.WAIT.param1)] = '\0';
+					break;
+				case SIGNAL:
+					laSentencia->operacion = OPERACION_SIGNAL;
+					laSentencia->param1 = malloc(strlen(parsed.argumentos.SIGNAL.param1)+1);
+					strcpy(laSentencia->param1,parsed.argumentos.SIGNAL.param1);
+					laSentencia->param1[strlen(parsed.argumentos.SIGNAL.param1)] = '\0';
+					break;
+				case FLUSH:
+					laSentencia->operacion = OPERACION_FLUSH;
+					laSentencia->param1 = malloc(strlen(parsed.argumentos.FLUSH.param1)+1);
+					strcpy(laSentencia->param1,parsed.argumentos.FLUSH.param1);
+					laSentencia->param1[strlen(parsed.argumentos.FLUSH.param1)] = '\0';
+					break;
+				case CLOSE:
+					laSentencia->operacion = OPERACION_CLOSE;
+					laSentencia->param1 = malloc(strlen(parsed.argumentos.CLOSE.param1)+1);
+					strcpy(laSentencia->param1,parsed.argumentos.CLOSE.param1);
+					laSentencia->param1[strlen(parsed.argumentos.CLOSE.param1)] = '\0';
+					break;
+				case CREAR:
+					laSentencia->operacion = OPERACION_CREAR;
+					laSentencia->param1 = malloc(strlen(parsed.argumentos.CREAR.param1)+1);
+					strcpy(laSentencia->param1,parsed.argumentos.CREAR.param1);
+					laSentencia->param1[strlen(parsed.argumentos.CREAR.param1)] = '\0';
+					laSentencia->param2 = parsed.argumentos.CREAR.param2;
+					break;
+				case BORRAR:
+					laSentencia->operacion = OPERACION_BORRAR;
+					laSentencia->param1 = malloc(strlen(parsed.argumentos.BORRAR.param1)+1);
+					strcpy(laSentencia->param1,parsed.argumentos.BORRAR.param1);
+					laSentencia->param1[strlen(parsed.argumentos.BORRAR.param1)] = '\0';
+					break;
+				default:
+					fprintf(stderr, "No pude interpretar <%s>\n", line);
+					exit(EXIT_FAILURE);
+			}
+		} else {
+			fprintf(stderr, "La linea <%s> no es valida\n", line);
+			exit(EXIT_FAILURE);
+		}
+
+		list_add(listaSentencias,laSentencia);
+	}
+
+	//fclose(fdScript);
+	if (line)
+		free(line);
+
+	myPuts("El archivo parseado es el siguiente: \n");
+	list_iterate(listaSentencias,imprimirSentencia);
 }
 
 	///FUNCIONES DE INICIALIZACION///
@@ -433,6 +575,12 @@ int main(void)
 				myPuts("El proceso S-AFA esta en un estado CORRUPTO\n");
 			}
 		}
+		if(!strncmp(linea,"pruebaParser",12))
+		{
+			char *miPath = "\\home\\utnso\\tp-2018-2c-smlc\\S-AFA\\Debug\\miScript.txt";
+			parsear((char *)miPath);
+		}
+
 		if(!strncmp(linea,"exit",4))
 		{
 			exit(1);

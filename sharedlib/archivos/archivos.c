@@ -17,49 +17,42 @@ void leerArchivo(char* FILEPATH,char* buffer){
     struct stat fileInfo = {0};
     char* data;
     fd=open(FILEPATH, O_RDWR, (mode_t)0600);
-    if (fd == -1)
-    {
+
+    if (fd == -1){
         perror("Error opening file for writing");
         exit(EXIT_FAILURE);
     }
 
-    if (fstat(fd, &fileInfo) == -1)
-    {
+    if (fstat(fd, &fileInfo) == -1){
         perror("Error getting the file size");
         exit(EXIT_FAILURE);
     }
 
-    if (fileInfo.st_size == 0)
-    {
+    if (fileInfo.st_size == 0){
         fprintf(stderr, "Error: File is empty, nothing to do\n");
         exit(EXIT_FAILURE);
     }
+
     data = mmap(0, fileInfo.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
-    if (data == MAP_FAILED)
-    {
+    if (data == MAP_FAILED){
         close(fd);
         perror("Error mmapping the file");
         exit(EXIT_FAILURE);
     }
-    for (i = 0; i < fileInfo.st_size; i++)
-    {
+    for (i = 0; i < fileInfo.st_size; i++){
 		if(NULL!=data[i]){
 			//printf("%c",data[i]);
 			buffer[j]=data[i];
 			j++;
 		}
     }
-    buffer[j+1]='\0';
-    // Don't forget to free the mmapped memory
-    if (munmap(data, fileInfo.st_size) == -1)
-    {
+    if (munmap(data, fileInfo.st_size) == -1){
         close(fd);
         perror("Error un-mmapping the file");
         exit(EXIT_FAILURE);
     }
 
-    // Un-mmaping doesn't close the file, so we still need to do that.
     close(fd);
 }
 
