@@ -258,7 +258,7 @@ void parsear(char *nombreArchivo){
 	ssize_t read;
 	sentencia *laSentencia;
 
-	fdScript = fopen((char*)nombreArchivo, "r");
+	fdScript = fopen((char*)nombreArchivo, "a+");
 	if (fdScript == NULL){
 		perror("Error al abrir el archivo: ");
 		exit(EXIT_FAILURE);
@@ -577,7 +577,7 @@ int main(void)
 		}
 		if(!strncmp(linea,"pruebaParser",12))
 		{
-			char *miPath = "\\home\\utnso\\tp-2018-2c-smlc\\S-AFA\\Debug\\miScript.txt";
+			char *miPath = "/home/utnso/tp-2018-2c-smlc/S-AFA/Debug/miScript.txt";
 			parsear((char *)miPath);
 		}
 
