@@ -90,30 +90,24 @@ DTB* crearDTB(char *rutaMiScript){
 
 void planificarNewReady(){
 	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
-		DTB *auxDTB;
-		//DTB *aux2DTB;
-		char* strDTB;
+		/*el PLP eligirá uno de los DTBs en “NEW”, según su algoritmo de planificación,
+		  y se comunicará con el PCP para indicarle que “desbloquee” el	DTB_Dummy.*/
 
-		auxDTB = queue_pop(colaNEW);
+		if(strcmp(configModificable.algoPlani,"FIFO") == 0 ){
+			DTB *auxDTB;
+			//DTB *aux2DTB;
 
-		auxDTB->Flag_EstadoGDT = 0;
+			auxDTB = queue_pop(colaNEW);
 
-		//Mandar a CPU y ver si va a READY o EXEC
-		strDTB = DTBStruct2String (auxDTB);
+			PCP(auxDTB);
+			DTBenPCP++;
+		} else if(strcmp(configModificable.algoPlani,"RR") == 0 ){
 
-		myPuts("sock %d str %s\n",GsocketCPU, strDTB);
+		} else if(strcmp(configModificable.algoPlani,"VRR") == 0 ){
 
-		/*aux2DTB = DTBString2Struct(strDTB);
+		} else if(strcmp(configModificable.algoPlani,"PROPIO") == 0 ){
 
-		myPuts("El DTB que se recibio es:\n");
-		imprimirDTB(aux2DTB);*/
-
-		//sprintf(stdout, "Enviando la %s",strSentencia);
-		myEnviarDatosFijos(GsocketCPU, strDTB, strlen(strDTB));
-
-		queue_push(colaREADY,auxDTB);
-
-		DTBenPCP++;
+		}
 	}
 }
 
@@ -128,8 +122,58 @@ void PLP(char *rutaScript){
 
 	///PLANIFICACION A CORTO PLAZO///
 
-void PCP(){
+void recibirBloqueoDeDTByBloquearlo(){
+	char buffer[5];
+	int bloquear = 1; // Si es 0 hay que bloquear, si es 1 no
 
+	myRecibirDatosFijos(GsocketCPU,buffer, sizeof(buffer));
+
+	//myPuts("Buffer %s\n",buffer);
+
+	if(strcmp(buffer,"BLOCK") == 0){ //Quiere decir que la operacion se ejecuto bien en la instancia entonces afecto la variable global
+		bloquear = 0;
+	}
+
+	DTB *miDTB;
+
+		miDTB = recibirDTB(GsocketCPU);
+
+		//myPuts("El DTB que se recibio es:\n");
+		//imprimirDTB(miDTB);
+
+		queue_push(colaBLOCK,miDTB);
+}
+
+void PCP(DTB *miDTB){
+	/*Este desbloqueo se efectuará indicando al DTB_Dummy en su contenido un flag de inicialización en
+		0, el ID del DTB a “pasar” a “READY” y el path del script Escriptorio a cargar a memoria.*/
+
+	char* strDTB;
+
+	miDTB->Flag_EstadoGDT = 0;
+
+	//Mandar a CPU y ver si va a READY o EXEC
+	strDTB = DTBStruct2String (miDTB);
+
+	//myPuts("sock %d str %s\n",GsocketCPU, strDTB);
+
+	/*aux2DTB = DTBString2Struct(strDTB);
+
+	myPuts("El DTB que se recibio es:\n");
+	imprimirDTB(aux2DTB);*/
+
+	//sprintf(stdout, "Enviando la %s",strSentencia);
+	myEnviarDatosFijos(GsocketCPU, strDTB, strlen(strDTB));
+
+	/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
+	en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
+	bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
+	programa G.DT que se había ejecutado en la cola de Bloqueados.
+	Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
+	FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
+
+	recibirBloqueoDeDTByBloquearlo();
+	//queue_push(colaREADY,miDTB);
 }
 
 	///FUNCIONES DE CONFIG///

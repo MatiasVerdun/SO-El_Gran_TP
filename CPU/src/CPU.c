@@ -38,6 +38,9 @@ void mostrarConfig(){
 	///GESTION DE CONEXIONES///
 
 void gestionarConexionSAFA(int socketSAFA){
+
+	//INICIAR GDT//
+
 	DTB *miDTB;
 
 	miDTB = recibirDTB(socketSAFA);
@@ -57,6 +60,25 @@ void gestionarConexionSAFA(int socketSAFA){
 		myEnviarDatosFijos(socketGDAM,strLenRuta,3);
 		myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
 
+		//Enviar a S-AFA que debe bloquear el dtb
+		char miBuffer[5];
+		char* strDTB;
+
+			strcpy(miBuffer,"BLOCK");
+
+		myEnviarDatosFijos(socketSAFA,miBuffer,strlen(miBuffer));
+
+		strDTB = DTBStruct2String (miDTB);
+
+		//myPuts("sock %d str %s\n",socketSAFA, strDTB);
+
+		/*aux2DTB = DTBString2Struct(strDTB);
+
+		myPuts("El DTB que se recibio es:\n");
+		imprimirDTB(aux2DTB);*/
+
+		//sprintf(stdout, "Enviando la %s",strSentencia);
+		myEnviarDatosFijos(socketSAFA, strDTB, strlen(strDTB));
 		/*Consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
 		en el DTB desaloja a dicho DTB Dummy, avisando a S-AFA que debe bloquearlo.*/
 	}
