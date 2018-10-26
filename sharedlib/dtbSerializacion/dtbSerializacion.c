@@ -26,9 +26,8 @@ DTB* recibirDTB(int socket){
 		myPuts("Se deconecto el S-AFA!!!\n");
 		exit(1);
 	}
-
 	strncpy(strLenLista,buffer + 261,3);
-	strLenLista[4] = '\0';
+	strLenLista[3] = '\0';
 	lenLista = atoi(strLenLista);
 	if (lenLista != 0){
 		resultRecv = myRecibirDatosFijos(socket,buffer + 264,lenLista * (128 + 10));
@@ -71,7 +70,7 @@ char* DTBStruct2String(DTB *miDTB){
 
 	miStringDTB = malloc(264 + (lenLista * (128 + 10)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3)
 
-	sprintf(miStringDTB,"%2d%-256s%2d%1d%03d",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_EstadoGDT,lenLista);
+	sprintf(miStringDTB,"%02d%-256s%2d%1d%03d",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_EstadoGDT,lenLista);
 	//El %03 me dice que puede llegar a tener 999 archivos abiertos
 
 	for(int indice = 0;indice < lenLista;indice++){
@@ -103,7 +102,7 @@ DTB* DTBString2Struct (char *miStringDTB){
 	miDTB = malloc(sizeof(DTB));
 
 	nProxLectura = 2;
-	strncpy(ID_GDT,miStringDTB,nProxLectura);
+	strncpy(ID_GDT,miStringDTB,nProxLectura); //TODO
 	ID_GDT[2] = '\0';
 	miDTB->ID_GDT = atoi(ID_GDT);
 	nTotDesplaza += nProxLectura;

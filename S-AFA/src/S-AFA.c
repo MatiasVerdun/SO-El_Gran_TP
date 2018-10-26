@@ -41,7 +41,7 @@ typedef struct sentencia {
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 //t_config *configSAFA;
 
-int IDGlobal = -1;
+int IDGlobal = 0;
 int DTBenPCP = 0;
 int estadoSistema = -1; // 0 = Estado Operativo
 
@@ -97,7 +97,7 @@ DTB* crearDTB(char *rutaMiScript){
 	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
 	miDTB = malloc(sizeof(DTB));
 
-	miDTB->ID_GDT = IDGlobal + 1;
+	miDTB->ID_GDT = IDGlobal;
 	strcpy(miDTB->Escriptorio,rutaMiScript);
 	miDTB->PC = 0;
 	miDTB->Flag_EstadoGDT = 1;
@@ -175,14 +175,6 @@ void PCP(DTB *miDTB){
 	//Mandar a CPU y ver si va a READY o EXEC
 	strDTB = DTBStruct2String (miDTB);
 
-	//myPuts("sock %d str %s\n",GsocketCPU, strDTB);
-
-	/*aux2DTB = DTBString2Struct(strDTB);
-
-	myPuts("El DTB que se recibio es:\n");
-	imprimirDTB(aux2DTB);*/
-
-	//sprintf(stdout, "Enviando la %s",strSentencia);
 	myEnviarDatosFijos(GsocketCPU, strDTB, strlen(strDTB));
 
 	/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
@@ -789,7 +781,6 @@ int main(void)
 			char *miPath = "/home/utnso/tp-2018-2c-smlc/S-AFA/Debug/miScript.txt";
 			parsear((char *)miPath);
 		}
-
 		if(!strncmp(linea,"exit",4))
 		{
 			exit(1);

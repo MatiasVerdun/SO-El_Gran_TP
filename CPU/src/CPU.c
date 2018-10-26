@@ -40,47 +40,48 @@ void mostrarConfig(){
 void gestionarConexionSAFA(int socketSAFA){
 
 	//INICIAR GDT//
+	while(1){
+		DTB *miDTB;
 
-	DTB *miDTB;
+		miDTB = recibirDTB(socketSAFA);
 
-	miDTB = recibirDTB(socketSAFA);
+		myPuts("El DTB que se recibio es:\n");
+		imprimirDTB(miDTB);
 
-	myPuts("El DTB que se recibio es:\n");
-	imprimirDTB(miDTB);
+		if(miDTB->Flag_EstadoGDT == 0){
+			int largoRuta;
+			char *strLenRuta;
 
-	if(miDTB->Flag_EstadoGDT == 0){
-		int largoRuta;
-		char *strLenRuta;
+			largoRuta = strlen(miDTB->Escriptorio);
 
-		largoRuta = strlen(miDTB->Escriptorio);
+			strLenRuta = string_from_format("%03d",largoRuta);
 
-		strLenRuta = string_from_format("%03d",largoRuta);
+			myPuts("Enviando al Diego la ruta del Escriptorio.\n");
+			myEnviarDatosFijos(socketGDAM,strLenRuta,3);
+			myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
 
-		myPuts("Enviando al Diego la ruta del Escriptorio.\n");
-		myEnviarDatosFijos(socketGDAM,strLenRuta,3);
-		myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
-
-		//Enviar a S-AFA que debe bloquear el dtb
-		char miBuffer[5];
-		char* strDTB;
+			//Enviar a S-AFA que debe bloquear el dtb
+			char miBuffer[5];
+			char* strDTB;
 
 			strcpy(miBuffer,"BLOCK");
 
-		myEnviarDatosFijos(socketSAFA,miBuffer,strlen(miBuffer));
+			myEnviarDatosFijos(socketSAFA,miBuffer,strlen(miBuffer));
 
-		strDTB = DTBStruct2String (miDTB);
+			strDTB = DTBStruct2String (miDTB);
 
-		//myPuts("sock %d str %s\n",socketSAFA, strDTB);
+			//myPuts("sock %d str %s\n",socketSAFA, strDTB);
 
-		/*aux2DTB = DTBString2Struct(strDTB);
+			/*aux2DTB = DTBString2Struct(strDTB);
 
-		myPuts("El DTB que se recibio es:\n");
-		imprimirDTB(aux2DTB);*/
+			myPuts("El DTB que se recibio es:\n");
+			imprimirDTB(aux2DTB);*/
 
-		//sprintf(stdout, "Enviando la %s",strSentencia);
-		myEnviarDatosFijos(socketSAFA, strDTB, strlen(strDTB));
-		/*Consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
-		en el DTB desaloja a dicho DTB Dummy, avisando a S-AFA que debe bloquearlo.*/
+			//sprintf(stdout, "Enviando la %s",strSentencia);
+			myEnviarDatosFijos(socketSAFA, strDTB, strlen(strDTB));
+			/*Consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
+			en el DTB desaloja a dicho DTB Dummy, avisando a S-AFA que debe bloquearlo.*/
+		}
 	}
 
 	/*while(1){
