@@ -71,6 +71,26 @@ static sem_t semDAM;
 static bool conectionDAM;
 static int conectionCPU=0;
 
+DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
+	for (int indice = 0;indice < list_size(miCola->elements);indice++){
+			DTB *miDTB= list_get(miCola->elements,indice);
+			if(miDTB->ID_GDT==idGDT){
+				return miDTB;
+			}
+	}
+	return NULL;
+}
+
+int buscarIndicePorIdGDT(t_queue *miCola,int idGDT){
+	for (int indice = 0;indice < list_size(miCola->elements);indice++){
+		DTB *miDTB= list_get(miCola->elements,indice);
+		if(miDTB->ID_GDT==idGDT){
+			return indice;
+		}
+	}
+	return -1;
+}
+
 	///PLANIFICACION A LARGO PLAZO///
 
 DTB* crearDTB(char *rutaMiScript){
@@ -299,7 +319,7 @@ void parsear(char *nombreArchivo){
 	FILE * fdScript;
 	char * line = NULL;
 	size_t len = 0;
-	ssize_t read;
+	size_t read;
 	sentencia *laSentencia;
 
 	fdScript = fopen((char*)nombreArchivo, "a+");
@@ -562,10 +582,110 @@ int main(void)
 
 			if(split[1] == NULL){
 				printf("Se mostrara el estado de las colas y la informacion complementaria\n");
+
+				if (queue_is_empty(colaNEW)){
+					printf("Cola NEW:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola NEW:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaNEW->elements,imprimirIdDTB);
+				}
+
+				if (queue_is_empty(colaREADY)){
+					printf("Cola READY:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola READY:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaREADY->elements,imprimirIdDTB);
+				}
+
+				if (queue_is_empty(colaBLOCK)){
+					printf("Cola BLOCK:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola BLOCK:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaBLOCK->elements,imprimirIdDTB);
+				}
+
+				if (queue_is_empty(colaEXEC)){
+					printf("Cola EXEC:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola EXEC:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaEXEC->elements,imprimirIdDTB);
+				}
+
+				if (queue_is_empty(colaEXIT)){
+					printf("Cola EXIT:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola EXIT:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaEXIT->elements,imprimirIdDTB);
+				}
+
 			} else {
 				strcpy(idS, split[1]);
 				id = atoi(idS);
+
+				DTB *miDTB;
 				printf("Se mostrara todos los datos almacenados en el DTB con ID: %d\n",id);
+
+				miDTB = buscarDTBPorID(colaNEW, id);
+				if (miDTB == NULL){
+					miDTB = buscarDTBPorID(colaREADY, id);
+					if (miDTB == NULL){
+						miDTB = buscarDTBPorID(colaBLOCK, id);
+						if (miDTB == NULL){
+							miDTB = buscarDTBPorID(colaEXEC, id);
+							if (miDTB == NULL){
+								miDTB = buscarDTBPorID(colaEXIT, id);
+								if (miDTB == NULL){
+									printf("El id %d es un id erroneo, no se encuentra en ninguna cola\n");
+								} else {
+									printf("Cola EXIT:\n");
+									imprimirDTB(miDTB);
+								}
+							} else {
+								printf("Cola EXEC:\n");
+								imprimirDTB(miDTB);
+							}
+						} else {
+							printf("Cola BLOCK:\n");
+							imprimirDTB(miDTB);
+						}
+					} else {
+						printf("Cola READY:\n");
+						imprimirDTB(miDTB);
+					}
+				} else {
+					printf("Cola NEW:\n");
+					imprimirDTB(miDTB);
+				}
 			}
 
 			free(split[0]);
@@ -584,7 +704,52 @@ int main(void)
 
 			strcpy(idS, split[1]);
 			id = atoi(idS);
-			printf("Se manda al DTB con ID %d a la cola de EXIT\n",id);
+
+			DTB *miDTB;
+
+			miDTB = buscarDTBPorID(colaNEW, id);
+			if (miDTB == NULL){
+				miDTB = buscarDTBPorID(colaREADY, id);
+				if (miDTB == NULL){
+					miDTB = buscarDTBPorID(colaBLOCK, id);
+					if (miDTB == NULL){
+						miDTB = buscarDTBPorID(colaEXEC, id);
+						if (miDTB == NULL){
+							miDTB = buscarDTBPorID(colaEXIT, id);
+							if (miDTB == NULL){
+								printf("El id %d es un id erroneo, no se encuentra en ninguna cola\n");
+							} else {
+								printf("El DTB con id %d ya se encuentra en la cola EXIT.\n",id);
+							}
+						} else {
+							//printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
+							printf("Cola EXEC:\n");
+							//TURBIO//
+							/* el G.DT se encuentra en la cola EXEC se deberá esperar a terminar la
+							operación actual, para luego moverlo a la cola EXIT. */
+						}
+					} else {
+						printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
+						int indice;
+						indice = buscarIndicePorIdGDT(colaBLOCK,id);
+						miDTB = list_remove(colaBLOCK->elements, indice);
+						queue_push(colaEXIT,miDTB);
+					}
+				} else {
+					printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
+					int indice;
+					indice = buscarIndicePorIdGDT(colaREADY,id);
+					miDTB = list_remove(colaREADY->elements, indice);
+					queue_push(colaEXIT,miDTB);
+				}
+			} else {
+				printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
+				int indice;
+				indice = buscarIndicePorIdGDT(colaNEW,id);
+				miDTB = list_remove(colaNEW->elements, indice);
+				queue_push(colaEXIT,miDTB);
+			}
+
 
 			free(split[0]);
 			free(split[1]);
