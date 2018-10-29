@@ -18,8 +18,6 @@
 #include <sys/types.h>
 #include <sys/inotify.h>
 
-t_list *listaSentencias;
-int	nroSentenciaActual;
 
 const int OPERACION_ABRIR = 1;
 const int OPERACION_CONCENTRAR = 2;
@@ -31,21 +29,14 @@ const int OPERACION_CLOSE = 7;
 const int OPERACION_CREAR = 8;
 const int OPERACION_BORRAR = 9;
 
-typedef struct sentencia {
-	int operacion;
-	char *param1;
-	int param2;
-	char *param3;
-} sentencia;
-
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 //t_config *configSAFA;
 
+int	nroSentenciaActual;
 int IDGlobal = 0;
 int DTBenPCP = 0;
 int estadoSistema = -1; // 0 = Estado Operativo
-
-int GsocketCPU;
+int GsocketCPU;  // TODO ¿Es global con la lista de CPU's?
 int GsocketDAM;
 
 typedef struct ModiConfig {
@@ -60,16 +51,33 @@ typedef struct ModiConfig {
 
 ModiConfig configModificable;
 
+typedef struct sentencia {
+	int operacion;
+	char *param1;
+	int param2;
+	char *param3;
+} sentencia;
+
+typedef struct clienteCPU {
+	int socketCPU;
+	int libre; // 1 si 0 no
+} clienteCPU;
+
+
 t_queue *colaNEW;
 t_queue *colaREADY;
 t_queue *colaEXEC;
 t_queue *colaBLOCK;
 t_queue *colaEXIT;
 
+t_list *listaSentencias;
+t_list *listaMetricas;
+t_list *listaCPU;
+
 static sem_t semCPU;
 static sem_t semDAM;
 static bool conectionDAM;
-static int conectionCPU=0;
+
 
 DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
 	for (int indice = 0;indice < list_size(miCola->elements);indice++){
@@ -93,6 +101,15 @@ int buscarIndicePorIdGDT(t_queue *miCola,int idGDT){
 
 	///PLANIFICACION A LARGO PLAZO///
 
+
+typedef struct metrica {
+	int ID_DTB;
+	int sentenciasEjecutadasEnNEW;
+	int sentenciasEjecutadasHastaEXIT;
+} metrica;
+
+int cantHistoricaDeSentencias;
+
 DTB* crearDTB(char *rutaMiScript){
 	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
 	miDTB = malloc(sizeof(DTB));
@@ -108,10 +125,42 @@ DTB* crearDTB(char *rutaMiScript){
 	return miDTB;
 }
 
+metrica* crearMetricasParaDTB(int IDDTB){
+	metrica *miMetrica;
+	miMetrica = malloc(sizeof(metrica));
+
+	miMetrica->ID_DTB = IDDTB;
+	miMetrica->sentenciasEjecutadasEnNEW = 0;
+	miMetrica->sentenciasEjecutadasHastaEXIT = 0;
+
+	return miMetrica;
+}
+
+void enviarQyPlanificacionACPU(int CPU){
+	char planificacion[5];
+	int retardo = configModificable.retardoPlani;
+	int quantum = configModificable.quantum;
+
+	if(strcmp(configModificable.algoPlani,"FIFO")==0){
+		quantum = -1;
+	}
+
+	strcpy(planificacion,configModificable.algoPlani);
+	planificacion[4]='\0';
+	myEnviarDatosFijos(CPU,planificacion,5);
+
+	myEnviarDatosFijos(CPU,&quantum,sizeof(int));
+
+	myEnviarDatosFijos(CPU,&retardo,sizeof(int));
+
+}
+
+/*
 void planificarNewReady(){
 	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
-		/*el PLP eligirá uno de los DTBs en “NEW”, según su algoritmo de planificación,
-		  y se comunicará con el PCP para indicarle que “desbloquee” el	DTB_Dummy.*/
+		//el PLP eligirá uno de los DTBs en “NEW”, según su algoritmo de planificación,
+		//  y se comunicará con el PCP para indicarle que “desbloquee” el	DTB_Dummy.
+
 
 		if(strcmp(configModificable.algoPlani,"FIFO") == 0 ){
 			DTB *auxDTB;
@@ -130,14 +179,31 @@ void planificarNewReady(){
 		}
 	}
 }
+*/
 
 void PLP(char *rutaScript){
 	DTB *elDTB;
+	DTB *DTBAReady;
+	metrica *laMetrica;
 
+	//CreaElDTB
 	elDTB = crearDTB(rutaScript);
+
+	//Lo pone el la cola de NEW
 	queue_push(colaNEW,elDTB);
 
-	planificarNewReady();
+	laMetrica = crearMetricasParaDTB(elDTB->ID_GDT);
+	list_add(listaMetricas,laMetrica);
+
+	//Controla el grado de multiprogramacion y si es posible lo pone en la cola de READY
+	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
+		DTBenPCP++;
+		DTBAReady = queue_pop(colaNEW);
+		queue_push(colaREADY,DTBAReady);
+		//Carga de memoria
+
+	}
+
 }
 
 	///PLANIFICACION A CORTO PLAZO///
@@ -156,36 +222,46 @@ void recibirBloqueoDeDTByBloquearlo(){
 
 	DTB *miDTB;
 
-		miDTB = recibirDTB(GsocketCPU);
+	miDTB = recibirDTB(GsocketCPU);
 
 		//myPuts("El DTB que se recibio es:\n");
 		//imprimirDTB(miDTB);
 
-		queue_push(colaBLOCK,miDTB);
+	queue_push(colaBLOCK,miDTB);
 }
+
+bool hayCPUDisponible(){
+	bool estaLibre(clienteCPU *unaCPU) {
+				return unaCPU->libre == 1;
+	}
+	return list_any_satisfy(listaCPU, (void*) estaLibre);
+
+}
+
 
 void PCP(DTB *miDTB){
 	/*Este desbloqueo se efectuará indicando al DTB_Dummy en su contenido un flag de inicialización en
 		0, el ID del DTB a “pasar” a “READY” y el path del script Escriptorio a cargar a memoria.*/
+	if(!queue_is_empty(colaREADY) && hayCPUDisponible()) {
+		char* strDTB;
 
-	char* strDTB;
+		miDTB->Flag_EstadoGDT = 0;
 
-	miDTB->Flag_EstadoGDT = 0;
+		//Mandar a CPU y ver si va a READY o EXEC
+		strDTB = DTBStruct2String (miDTB);
 
-	//Mandar a CPU y ver si va a READY o EXEC
-	strDTB = DTBStruct2String (miDTB);
+		myEnviarDatosFijos(GsocketCPU, strDTB, strlen(strDTB));
 
-	myEnviarDatosFijos(GsocketCPU, strDTB, strlen(strDTB));
+		/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
+		en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
+		bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
+		programa G.DT que se había ejecutado en la cola de Bloqueados.
+		Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
+		FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
 
-	/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
-	en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
-	bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
-	programa G.DT que se había ejecutado en la cola de Bloqueados.
-	Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
-	FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
-
-	recibirBloqueoDeDTByBloquearlo();
-	//queue_push(colaREADY,miDTB);
+		recibirBloqueoDeDTByBloquearlo();
+		//queue_push(colaREADY,miDTB);
+	}
 }
 
 	///FUNCIONES DE CONFIG///
@@ -427,13 +503,31 @@ void creacionDeColas(){
 
 	///GESTION DE CONEXIONES///
 
-void gestionarConexionCPU(int* sock){
-	GsocketCPU = *(int*)sock;
+clienteCPU* crearClienteCPU(int socket){
+	clienteCPU *nuevoCPU;
+	nuevoCPU = malloc(sizeof(clienteCPU));
 
-	conectionCPU++;
-	if(conectionDAM==true && conectionCPU>0)
+	nuevoCPU->socketCPU = socket;
+	nuevoCPU->libre =1;
+
+	return nuevoCPU;
+
+}
+
+
+void gestionarConexionCPU(int* sock){
+	GsocketCPU = *(int*)sock; //TODO
+	clienteCPU *nuevoClienteCPU;
+
+	nuevoClienteCPU =crearClienteCPU(GsocketCPU);
+
+	list_add(listaCPU,nuevoClienteCPU);
+
+	if(conectionDAM==true && !list_is_empty(listaCPU))
 		estadoSistema = 0;
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
+
+	enviarQyPlanificacionACPU(GsocketCPU);
 
 	/*//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
 		char buffer[5];
@@ -514,6 +608,8 @@ int main(void)
 	//configSAFA=config_create(PATHCONFIGSAFA);
 
 	creacionDeColas();
+	listaMetricas =list_create();
+	listaCPU = list_create();
 	cargarConfig();
 
 	pthread_create(&hiloConnectionDAM,NULL,(void*) &connectionDAM,NULL);
@@ -770,7 +866,7 @@ int main(void)
 
 		if(!strncmp(linea,"estado",6))
 		{
-			if(conectionDAM==true && conectionCPU>0){
+			if(conectionDAM==true && !list_is_empty(listaCPU)){
 				myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 			}else{
 				myPuts("El proceso S-AFA esta en un estado CORRUPTO\n");

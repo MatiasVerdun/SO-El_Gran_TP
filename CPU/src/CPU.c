@@ -16,6 +16,12 @@
 t_config *configCPU;
 
 u_int32_t socketGDAM;
+u_int32_t socketSAFA;
+
+//Configuracion de Planificacion
+int quantum;
+int retardoPlanificacion;
+char tipoPlanificacion[5];
 
 	///FUNCIONES DE CONFIG///
 
@@ -37,10 +43,42 @@ void mostrarConfig(){
 
 	///GESTION DE CONEXIONES///
 
+void recibirQyPlanificacion(){
+
+	int resultRecv;
+
+	char bufferPlanificacion[5];
+	resultRecv = myRecibirDatosFijos(socketSAFA,bufferPlanificacion,5);
+	if(resultRecv !=0){
+		printf("Error al recibir el tipo de planificacion");
+	}
+	strcpy(tipoPlanificacion,bufferPlanificacion);
+
+
+	resultRecv = myRecibirDatosFijos(socketSAFA,&quantum,sizeof(int));
+	if(resultRecv !=0){
+		printf("Error al recibir el Quantum");
+	}
+
+	resultRecv = myRecibirDatosFijos(socketSAFA,&retardoPlanificacion,sizeof(int));
+	if(resultRecv !=0){
+		printf("Error al recibir el retardo de la planificacion");
+	}
+
+	if(strcmp(tipoPlanificacion,"FIFO")==0){
+			printf("Recibi que la planificacion es FIFO \n ");
+	}else{
+			printf("Recibi que la planificacion es %s y el Quantum es %d \n",tipoPlanificacion,quantum);
+	}
+}
+
+
 void gestionarConexionSAFA(int socketSAFA){
 
+	recibirQyPlanificacion();
 	//INICIAR GDT//
 	while(1){
+
 		DTB *miDTB;
 
 		miDTB = recibirDTB(socketSAFA);
@@ -148,7 +186,7 @@ void* connectionDAM(){
 }
 
 void* connectionSAFA(){
-	u_int32_t result,socketSAFA;
+	u_int32_t result;
 
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
@@ -157,12 +195,16 @@ void* connectionSAFA(){
 	PUERTO_ESCUCHA=(int)getConfigR("S-AFA_PUERTO",1,configCPU);
 
 	result=myEnlazarCliente((int*)&socketSAFA,IP_ESCUCHA,PUERTO_ESCUCHA);
+
 	if(result==1){
 		myPuts("No se encuentra disponible el S-AFA para conectarse.\n");
 		exit(1);
 	}
 
-	gestionarConexionSAFA((int)socketSAFA);
+	recibirQyPlanificacion(socketSAFA);
+
+	gestionarConexionSAFA(socketSAFA);
+
 	return 0;
 }
 
