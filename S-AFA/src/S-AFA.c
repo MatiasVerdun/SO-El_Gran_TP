@@ -117,7 +117,7 @@ DTB* crearDTB(char *rutaMiScript){
 	miDTB->ID_GDT = IDGlobal;
 	strcpy(miDTB->Escriptorio,rutaMiScript);
 	miDTB->PC = 0;
-	miDTB->Flag_EstadoGDT = 1;
+	miDTB->Flag_GDTInicializado = 0; //Tiene que estar en 0
 	miDTB->tablaArchivosAbiertos = list_create();
 
 	IDGlobal++;
@@ -208,26 +208,18 @@ void PLP(char *rutaScript){
 
 	///PLANIFICACION A CORTO PLAZO///
 
-void recibirBloqueoDeDTByBloquearlo(){
-	char buffer[5];
-	int bloquear = 1; // Si es 0 hay que bloquear, si es 1 no
-
-	myRecibirDatosFijos(GsocketCPU,buffer, sizeof(buffer));
-
-	//myPuts("Buffer %s\n",buffer);
-
-	if(strcmp(buffer,"BLOCK") == 0){ //Quiere decir que la operacion se ejecuto bien en la instancia entonces afecto la variable global
-		bloquear = 0;
-	}
-
+void recibirDTByMotivo(int socketCPU){
 	DTB *miDTB;
 
-	miDTB = recibirDTB(GsocketCPU);
+	miDTB = recibirDTB(socketCPU);
 
-		//myPuts("El DTB que se recibio es:\n");
-		//imprimirDTB(miDTB);
+	int motivoLiberacionCPU;
 
-	queue_push(colaBLOCK,miDTB);
+	myRecibirDatosFijos(socketCPU,&motivoLiberacionCPU,sizeof(int));
+
+	int instruccionesRealizadas;
+
+	myRecibirDatosFijos(socketCPU,&instruccionesRealizadas,sizeof(int));
 }
 
 bool hayCPUDisponible(){
@@ -238,6 +230,19 @@ bool hayCPUDisponible(){
 
 }
 
+int buscarCPUDisponible(){
+
+	for(int i = 0 ; i < list_size(listaCPU); i++){
+
+		clienteCPU * elemento;
+
+		elemento = list_get(listaCPU,i);
+
+		if(elemento->libre == 0)
+			return elemento->socketCPU;
+	}
+
+}
 
 void PCP(DTB *miDTB){
 	/*Este desbloqueo se efectuará indicando al DTB_Dummy en su contenido un flag de inicialización en
@@ -245,12 +250,17 @@ void PCP(DTB *miDTB){
 	if(!queue_is_empty(colaREADY) && hayCPUDisponible()) {
 		char* strDTB;
 
-		miDTB->Flag_EstadoGDT = 0;
+		int socketCPULibre;
+
+		//miDTB->Flag_GDTInicializado = 0;
 
 		//Mandar a CPU y ver si va a READY o EXEC
+
+		socketCPULibre = buscarCPUDisponible();
+
 		strDTB = DTBStruct2String (miDTB);
 
-		myEnviarDatosFijos(GsocketCPU, strDTB, strlen(strDTB));
+		myEnviarDatosFijos(socketCPULibre, strDTB, strlen(strDTB));
 
 		/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
 		en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
@@ -259,7 +269,7 @@ void PCP(DTB *miDTB){
 		Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
 		FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
 
-		recibirBloqueoDeDTByBloquearlo();
+		recibirDTByMotivo(socketCPULibre);
 		//queue_push(colaREADY,miDTB);
 	}
 }

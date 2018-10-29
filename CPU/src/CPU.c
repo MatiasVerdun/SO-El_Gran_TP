@@ -22,6 +22,9 @@ u_int32_t socketSAFA;
 int quantum;
 int retardoPlanificacion;
 char tipoPlanificacion[5];
+int  estoyEjecutando = 0 ; // 0 no 1 si
+int instruccionesEjecutadas;
+int motivoLiberacionCPU = -1; // 0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error
 
 	///FUNCIONES DE CONFIG///
 
@@ -72,8 +75,112 @@ void recibirQyPlanificacion(){
 	}
 }
 
+void operacionDummy(DTB *miDTB){
+	int largoRuta;
+	char *strLenRuta;
 
-void gestionarConexionSAFA(int socketSAFA){
+	largoRuta = strlen(miDTB->Escriptorio);
+
+	strLenRuta = string_from_format("%03d",largoRuta);
+
+	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
+
+	myEnviarDatosFijos(socketGDAM,strLenRuta,3);
+
+	myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
+
+	miDTB->Flag_GDTInicializado = 1;
+
+	motivoLiberacionCPU = 2;
+
+	//Enviar a S-AFA que debe bloquear el dtb
+//	char miBuffer[5];
+//	char* strDTB;
+//
+//	motivoLiberacionCPU=2;
+//
+//	myEnviarDatosFijos(socketSAFA,motivoLiberacionCPU,strlen(miBuffer));
+//
+//	miDTB->Flag_GDTInicializado = 1;
+//
+//	strDTB = DTBStruct2String (miDTB);
+//
+//	//myPuts("sock %d str %s\n",socketSAFA, strDTB);
+//
+//	aux2DTB = DTBString2Struct(strDTB);
+//
+//	myPuts("El DTB que se recibio es:\n");
+//	imprimirDTB(aux2DTB);
+//
+//	//sprintf(stdout, "Enviando la %s",strSentencia);
+//	myEnviarDatosFijos(socketSAFA, strDTB, strlen(strDTB));
+//	//Consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
+//	//en el DTB desaloja a dicho DTB Dummy, avisando a S-AFA que debe bloquearlo.
+}
+
+bool hayQuantum(){
+	return instruccionesEjecutadas < quantum || quantum < 0;
+}
+
+bool terminoElDTB(){
+	return motivoLiberacionCPU != 1;
+}
+
+bool DTBBloqueado(){
+	return motivoLiberacionCPU != 2;
+}
+
+
+
+void ejecutarInstruccion(DTB* miDTB){
+	instruccionesEjecutadas = 0;
+
+
+	while(hayQuantum() && !terminoElDTB() && !DTBBloqueado() ){
+
+		estoyEjecutando = 1;
+
+
+		miDTB->PC++;
+
+		instruccionesEjecutadas++;
+
+	}
+	if(terminoElDTB()){
+
+		motivoLiberacionCPU = 1;
+
+	}else{
+
+		if(instruccionesEjecutadas == quantum){
+			motivoLiberacionCPU =  0;
+		}
+
+	}
+
+	if(DTBBloqueado()){
+		motivoLiberacionCPU = 2;
+	}
+
+	estoyEjecutando = 0;
+	instruccionesEjecutadas = 0;
+}
+
+void enviarDTByMotivo(DTB* miDTB){
+	char* strDTB;
+
+	strDTB = DTBStruct2String (miDTB);
+
+	myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
+
+	myEnviarDatosFijos(socketSAFA,&motivoLiberacionCPU,sizeof(int));
+
+	myEnviarDatosFijos(socketSAFA,&instruccionesEjecutadas,sizeof(int));
+
+}
+
+
+void gestionarConexionSAFA(){
 
 	recibirQyPlanificacion();
 	//INICIAR GDT//
@@ -86,40 +193,13 @@ void gestionarConexionSAFA(int socketSAFA){
 		myPuts("El DTB que se recibio es:\n");
 		imprimirDTB(miDTB);
 
-		if(miDTB->Flag_EstadoGDT == 0){
-			int largoRuta;
-			char *strLenRuta;
-
-			largoRuta = strlen(miDTB->Escriptorio);
-
-			strLenRuta = string_from_format("%03d",largoRuta);
-
-			myPuts("Enviando al Diego la ruta del Escriptorio.\n");
-			myEnviarDatosFijos(socketGDAM,strLenRuta,3);
-			myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
-
-			//Enviar a S-AFA que debe bloquear el dtb
-			char miBuffer[5];
-			char* strDTB;
-
-			strcpy(miBuffer,"BLOCK");
-
-			myEnviarDatosFijos(socketSAFA,miBuffer,strlen(miBuffer));
-
-			strDTB = DTBStruct2String (miDTB);
-
-			//myPuts("sock %d str %s\n",socketSAFA, strDTB);
-
-			/*aux2DTB = DTBString2Struct(strDTB);
-
-			myPuts("El DTB que se recibio es:\n");
-			imprimirDTB(aux2DTB);*/
-
-			//sprintf(stdout, "Enviando la %s",strSentencia);
-			myEnviarDatosFijos(socketSAFA, strDTB, strlen(strDTB));
-			/*Consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
-			en el DTB desaloja a dicho DTB Dummy, avisando a S-AFA que debe bloquearlo.*/
+		if(miDTB->Flag_GDTInicializado == 0){
+			operacionDummy(miDTB);
+		}else{
+			ejecutarInstruccion(miDTB);
 		}
+
+		enviarDTByMotivo(miDTB);
 	}
 
 	/*while(1){
@@ -132,6 +212,7 @@ void gestionarConexionSAFA(int socketSAFA){
 	myRecibirDatosFijos(socketSAFA,buffer,5);
 	printf("El buffer que recibi por socket es %s\n",buffer);*/
 }
+
 
 void gestionarConexionDAM(int socketDAM){
 	/*while(1){
@@ -201,9 +282,7 @@ void* connectionSAFA(){
 		exit(1);
 	}
 
-	recibirQyPlanificacion(socketSAFA);
-
-	gestionarConexionSAFA(socketSAFA);
+	gestionarConexionSAFA();
 
 	return 0;
 }
