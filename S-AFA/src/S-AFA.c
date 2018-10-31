@@ -18,8 +18,6 @@
 #include <sys/types.h>
 #include <sys/inotify.h>
 
-t_list *listaSentencias;
-int	nroSentenciaActual;
 
 const int OPERACION_ABRIR = 1;
 const int OPERACION_CONCENTRAR = 2;
@@ -31,22 +29,16 @@ const int OPERACION_CLOSE = 7;
 const int OPERACION_CREAR = 8;
 const int OPERACION_BORRAR = 9;
 
-typedef struct sentencia {
-	int operacion;
-	char *param1;
-	int param2;
-	char *param3;
-} sentencia;
-
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 //t_config *configSAFA;
 
-int IDGlobal = -1;
+int	nroSentenciaActual;
+int IDGlobal = 0;
 int DTBenPCP = 0;
 int estadoSistema = -1; // 0 = Estado Operativo
-
-int GsocketCPU;
+//int GsocketCPU;  // TODO ¿Es global con la lista de CPU's?
 int GsocketDAM;
+int cantHistoricaDeSentencias;
 
 typedef struct ModiConfig {
 	char IP_ESCUCHA[15];
@@ -60,16 +52,58 @@ typedef struct ModiConfig {
 
 ModiConfig configModificable;
 
+typedef struct metrica {
+	int ID_DTB;
+	int sentenciasEjecutadasEnNEW;
+	int sentenciasEjecutadasHastaEXIT;
+} metrica;
+
+typedef struct sentencia {
+	int operacion;
+	char *param1;
+	int param2;
+	char *param3;
+} sentencia;
+
+typedef struct clienteCPU {
+	int socketCPU;
+	int libre; // 1 si 0 no
+} clienteCPU;
+
+
 t_queue *colaNEW;
 t_queue *colaREADY;
 t_queue *colaEXEC;
 t_queue *colaBLOCK;
 t_queue *colaEXIT;
 
+t_list *listaSentencias;
+t_list *listaMetricas;
+t_list *listaCPU;
+
 static sem_t semCPU;
 static sem_t semDAM;
-static bool conectionDAM;
-static int conectionCPU=0;
+static bool conectionDAM = false;
+
+DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
+	for (int indice = 0;indice < list_size(miCola->elements);indice++){
+			DTB *miDTB= list_get(miCola->elements,indice);
+			if(miDTB->ID_GDT==idGDT){
+				return miDTB;
+			}
+	}
+	return NULL;
+}
+
+int buscarIndicePorIdGDT(t_queue *miCola,int idGDT){
+	for (int indice = 0;indice < list_size(miCola->elements);indice++){
+		DTB *miDTB= list_get(miCola->elements,indice);
+		if(miDTB->ID_GDT==idGDT){
+			return indice;
+		}
+	}
+	return -1;
+}
 
 	///PLANIFICACION A LARGO PLAZO///
 
@@ -77,10 +111,10 @@ DTB* crearDTB(char *rutaMiScript){
 	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
 	miDTB = malloc(sizeof(DTB));
 
-	miDTB->ID_GDT = IDGlobal + 1;
+	miDTB->ID_GDT = IDGlobal;
 	strcpy(miDTB->Escriptorio,rutaMiScript);
 	miDTB->PC = 0;
-	miDTB->Flag_EstadoGDT = 1;
+	miDTB->Flag_GDTInicializado = 1;
 	miDTB->tablaArchivosAbiertos = list_create();
 
 	IDGlobal++;
@@ -88,48 +122,141 @@ DTB* crearDTB(char *rutaMiScript){
 	return miDTB;
 }
 
-void planificarNewReady(){
+metrica* crearMetricasParaDTB(int IDDTB){
+	metrica *miMetrica;
+	miMetrica = malloc(sizeof(metrica));
+
+	miMetrica->ID_DTB = IDDTB;
+	miMetrica->sentenciasEjecutadasEnNEW = 0;
+	miMetrica->sentenciasEjecutadasHastaEXIT = 0;
+
+	return miMetrica;
+}
+
+void enviarQyPlanificacionACPU(int CPU){
+	char planificacion[5];
+	int retardo = configModificable.retardoPlani;
+	int quantum = configModificable.quantum;
+
+	if(strcmp(configModificable.algoPlani,"FIFO")==0){
+		quantum = -1;
+	}
+
+	strcpy(planificacion,configModificable.algoPlani);
+	planificacion[4]='\0';
+	myEnviarDatosFijos(CPU,planificacion,5);
+
+	myEnviarDatosFijos(CPU,&quantum,sizeof(int));
+
+	myEnviarDatosFijos(CPU,&retardo,sizeof(int));
+
+}
+
+void PLP(int esDummy){
 	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
 		DTB *auxDTB;
-		//DTB *aux2DTB;
-		char* strDTB;
 
 		auxDTB = queue_pop(colaNEW);
 
-		auxDTB->Flag_EstadoGDT = 0;
-
-		//Mandar a CPU y ver si va a READY o EXEC
-		strDTB = DTBStruct2String (auxDTB);
-
-		myPuts("sock %d str %s\n",GsocketCPU, strDTB);
-
-		/*aux2DTB = DTBString2Struct(strDTB);
-
-		myPuts("El DTB que se recibio es:\n");
-		imprimirDTB(aux2DTB);*/
-
-		//sprintf(stdout, "Enviando la %s",strSentencia);
-		myEnviarDatosFijos(GsocketCPU, strDTB, strlen(strDTB));
-
-		queue_push(colaREADY,auxDTB);
-
+		if(esDummy == 1){
+			PCP(auxDTB,esDummy);
+		}
+		esDummy = 0;
+		PCP(auxDTB,esDummy);
 		DTBenPCP++;
+		//queue_push(colaREADY,auxDTB);
 	}
 }
 
-void PLP(char *rutaScript){
+void NuevoDTByPlanificacion(char *rutaScript){
 	DTB *elDTB;
+	metrica *laMetrica;
+	int dummy = 1;
 
 	elDTB = crearDTB(rutaScript);
 	queue_push(colaNEW,elDTB);
 
-	planificarNewReady();
+	laMetrica = crearMetricasParaDTB(elDTB->ID_GDT);
+	list_add(listaMetricas,laMetrica);
+
+	PLP(dummy); //Cuando lo recibe en 1 es porque me llego por ejecutar
 }
 
 	///PLANIFICACION A CORTO PLAZO///
 
-void PCP(){
+void recibirDTByMotivo(int socketCPU){
+	DTB *miDTB;
 
+	miDTB = recibirDTB(socketCPU);
+
+	int motivoLiberacionCPU;
+
+	myRecibirDatosFijos(socketCPU,&motivoLiberacionCPU,sizeof(int));
+
+	int instruccionesRealizadas;
+
+	myRecibirDatosFijos(socketCPU,&instruccionesRealizadas,sizeof(int));
+
+	if (motivoLiberacionCPU == 2){
+		queue_push(colaBLOCK,miDTB);
+	}
+}
+
+bool hayCPUDisponible(){
+	bool estaLibre(clienteCPU *unaCPU) {
+				return unaCPU->libre == 1;
+	}
+	return list_any_satisfy(listaCPU, (void*) estaLibre);
+
+}
+
+int buscarCPUDisponible(){
+
+	for(int i = 0 ; i < list_size(listaCPU); i++){
+
+		clienteCPU * elemento;
+
+		elemento = list_get(listaCPU,i);
+
+		if(elemento->libre == 1)
+			return elemento->socketCPU;
+	}
+
+}
+
+void PCP(DTB *miDTB, int esDummy){
+	/*Este desbloqueo se efectuará indicando al DTB_Dummy en su contenido un flag de inicialización en
+		0, el ID del DTB a “pasar” a “READY” y el path del script Escriptorio a cargar a memoria.*/
+	if(hayCPUDisponible()) {
+		if(esDummy == 1){
+			char* strDTB;
+
+					int socketCPULibre;
+
+					miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
+
+					//Mandar a CPU y ver si va a READY o EXEC
+
+					socketCPULibre = buscarCPUDisponible();
+
+					strDTB = DTBStruct2String (miDTB);
+
+					myEnviarDatosFijos(socketCPULibre, strDTB, strlen(strDTB));
+
+					/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
+					en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
+					bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
+					programa G.DT que se había ejecutado en la cola de Bloqueados.
+					Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
+					FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
+
+					recibirDTByMotivo(socketCPULibre);
+					//queue_push(colaREADY,miDTB);
+		}else{
+			//TODO cuando no es dummy
+		}
+
+	}
 }
 
 	///FUNCIONES DE CONFIG///
@@ -255,7 +382,7 @@ void parsear(char *nombreArchivo){
 	FILE * fdScript;
 	char * line = NULL;
 	size_t len = 0;
-	ssize_t read;
+	size_t read;
 	sentencia *laSentencia;
 
 	fdScript = fopen((char*)nombreArchivo, "r");
@@ -371,14 +498,32 @@ void creacionDeColas(){
 
 	///GESTION DE CONEXIONES///
 
-void gestionarConexionCPU(int* sock){
-	GsocketCPU = *(int*)sock;
+clienteCPU* crearClienteCPU(int socket){
+	clienteCPU *nuevoCPU;
+	nuevoCPU = malloc(sizeof(clienteCPU));
 
-	conectionCPU++;
-	if(conectionDAM==true && conectionCPU>0)
+	nuevoCPU->socketCPU = socket;
+	nuevoCPU->libre =1;
+
+	return nuevoCPU;
+
+}
+
+
+void gestionarConexionCPU(int* sock){
+	int socketCPU = *(int*)sock; //TODO
+	clienteCPU *nuevoClienteCPU;
+
+	nuevoClienteCPU =crearClienteCPU(socketCPU);
+
+	list_add(listaCPU,nuevoClienteCPU);
+
+	if(conectionDAM==true && !(list_is_empty(listaCPU))){
 		estadoSistema = 0;
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 
+	enviarQyPlanificacionACPU(socketCPU);
+	}
 	/*//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
 		char buffer[5];
 		strcpy(buffer,"hola");
@@ -458,6 +603,8 @@ int main(void)
 	//configSAFA=config_create(PATHCONFIGSAFA);
 
 	creacionDeColas();
+	listaMetricas =list_create();
+	listaCPU = list_create();
 	cargarConfig();
 
 	pthread_create(&hiloConnectionDAM,NULL,(void*) &connectionDAM,NULL);
@@ -498,8 +645,8 @@ int main(void)
 
 				strcpy(path, split[1]);
 				printf("La ruta del Escriptorio a ejecutar es: %s\n",path);
-				//PLP(path);
-				PLP(PATHCONFIGSAFA);
+				// NuevoDTByPlanificacion(path);
+				 NuevoDTByPlanificacion(PATHCONFIGSAFA);
 
 				   free(split[0]);
 				   free(split[1]);
@@ -518,10 +665,110 @@ int main(void)
 
 			if(split[1] == NULL){
 				printf("Se mostrara el estado de las colas y la informacion complementaria\n");
+
+				if (queue_is_empty(colaNEW)){
+					printf("Cola NEW:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola NEW:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaNEW->elements,imprimirIdDTB);
+				}
+
+				if (queue_is_empty(colaREADY)){
+					printf("Cola READY:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola READY:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaREADY->elements,imprimirIdDTB);
+				}
+
+				if (queue_is_empty(colaBLOCK)){
+					printf("Cola BLOCK:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola BLOCK:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaBLOCK->elements,imprimirIdDTB);
+				}
+
+				if (queue_is_empty(colaEXEC)){
+					printf("Cola EXEC:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola EXEC:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaEXEC->elements,imprimirIdDTB);
+				}
+
+				if (queue_is_empty(colaEXIT)){
+					printf("Cola EXIT:\n");
+					printf("No contiene DTB asignados.\n");
+				} else {
+					printf("Cola EXIT:\n");
+					int indice = 0;
+					void imprimirIdDTB(DTB *miDTB){
+					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
+					    indice++;
+					}
+					list_iterate(colaEXIT->elements,imprimirIdDTB);
+				}
+
 			} else {
 				strcpy(idS, split[1]);
 				id = atoi(idS);
+
+				DTB *miDTB;
 				printf("Se mostrara todos los datos almacenados en el DTB con ID: %d\n",id);
+
+				miDTB = buscarDTBPorID(colaNEW, id);
+				if (miDTB == NULL){
+					miDTB = buscarDTBPorID(colaREADY, id);
+					if (miDTB == NULL){
+						miDTB = buscarDTBPorID(colaBLOCK, id);
+						if (miDTB == NULL){
+							miDTB = buscarDTBPorID(colaEXEC, id);
+							if (miDTB == NULL){
+								miDTB = buscarDTBPorID(colaEXIT, id);
+								if (miDTB == NULL){
+									printf("El id %d es un id erroneo, no se encuentra en ninguna cola\n");
+								} else {
+									printf("Cola EXIT:\n");
+									imprimirDTB(miDTB);
+								}
+							} else {
+								printf("Cola EXEC:\n");
+								imprimirDTB(miDTB);
+							}
+						} else {
+							printf("Cola BLOCK:\n");
+							imprimirDTB(miDTB);
+						}
+					} else {
+						printf("Cola READY:\n");
+						imprimirDTB(miDTB);
+					}
+				} else {
+					printf("Cola NEW:\n");
+					imprimirDTB(miDTB);
+				}
 			}
 
 			free(split[0]);
@@ -540,7 +787,52 @@ int main(void)
 
 			strcpy(idS, split[1]);
 			id = atoi(idS);
-			printf("Se manda al DTB con ID %d a la cola de EXIT\n",id);
+
+			DTB *miDTB;
+
+			miDTB = buscarDTBPorID(colaNEW, id);
+			if (miDTB == NULL){
+				miDTB = buscarDTBPorID(colaREADY, id);
+				if (miDTB == NULL){
+					miDTB = buscarDTBPorID(colaBLOCK, id);
+					if (miDTB == NULL){
+						miDTB = buscarDTBPorID(colaEXEC, id);
+						if (miDTB == NULL){
+							miDTB = buscarDTBPorID(colaEXIT, id);
+							if (miDTB == NULL){
+								printf("El id %d es un id erroneo, no se encuentra en ninguna cola\n");
+							} else {
+								printf("El DTB con id %d ya se encuentra en la cola EXIT.\n",id);
+							}
+						} else {
+							//printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
+							printf("Cola EXEC:\n");
+							//TURBIO//
+							/* el G.DT se encuentra en la cola EXEC se deberá esperar a terminar la
+							operación actual, para luego moverlo a la cola EXIT. */
+						}
+					} else {
+						printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
+						int indice;
+						indice = buscarIndicePorIdGDT(colaBLOCK,id);
+						miDTB = list_remove(colaBLOCK->elements, indice);
+						queue_push(colaEXIT,miDTB);
+					}
+				} else {
+					printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
+					int indice;
+					indice = buscarIndicePorIdGDT(colaREADY,id);
+					miDTB = list_remove(colaREADY->elements, indice);
+					queue_push(colaEXIT,miDTB);
+				}
+			} else {
+				printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
+				int indice;
+				indice = buscarIndicePorIdGDT(colaNEW,id);
+				miDTB = list_remove(colaNEW->elements, indice);
+				queue_push(colaEXIT,miDTB);
+			}
+
 
 			free(split[0]);
 			free(split[1]);
@@ -569,7 +861,7 @@ int main(void)
 
 		if(!strncmp(linea,"estado",6))
 		{
-			if(conectionDAM==true && conectionCPU>0){
+			if(conectionDAM==true && !list_is_empty(listaCPU)){
 				myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 			}else{
 				myPuts("El proceso S-AFA esta en un estado CORRUPTO\n");
@@ -580,7 +872,6 @@ int main(void)
 			char *miPath = "/home/utnso/tp-2018-2c-smlc/S-AFA/Debug/miScript.txt";
 			parsear((char *)miPath);
 		}
-
 		if(!strncmp(linea,"exit",4))
 		{
 			exit(1);

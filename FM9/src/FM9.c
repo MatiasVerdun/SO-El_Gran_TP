@@ -33,7 +33,7 @@ DTB* crearDTB(char *rutaMiScript){
 	miDTB->ID_GDT = 1;
 	strcpy(miDTB->Escriptorio,rutaMiScript);
 	miDTB->PC = 0;
-	miDTB->Flag_EstadoGDT = 1;
+	miDTB->Flag_GDTInicializado = 1;
 	miDTB->tablaArchivosAbiertos = list_create();
 
 	return miDTB;
@@ -162,7 +162,7 @@ void pruebaGuardadoDTB(){
     guardarDTB(DTBaGuardar);
 	miDTB=leerDTB(0);
     printf("Ruta escriptorio: %s\n",miDTB->Escriptorio);
-    printf("Estado GDT: %d\n",miDTB->Flag_EstadoGDT);
+    printf("Estado GDT: %d\n",miDTB->Flag_GDTInicializado);
     printf("ID GDT: %d\n",miDTB->ID_GDT);
 	printf("Program Counter: %d\n",miDTB->PC);
 

@@ -16,6 +16,15 @@
 t_config *configCPU;
 
 u_int32_t socketGDAM;
+u_int32_t socketSAFA;
+
+//Configuracion de Planificacion
+int quantum;
+int retardoPlanificacion;
+char tipoPlanificacion[5];
+int  estoyEjecutando = 0 ; // 0 no 1 si
+int instruccionesEjecutadas;
+int motivoLiberacionCPU = -1; // 0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error
 
 	///FUNCIONES DE CONFIG///
 
@@ -35,30 +44,134 @@ void mostrarConfig(){
     free(myText);
 }
 
-	///GESTION DE CONEXIONES///
+void recibirQyPlanificacion(){
 
-void gestionarConexionSAFA(int socketSAFA){
-	DTB *miDTB;
+	int resultRecv;
 
-	miDTB = recibirDTB(socketSAFA);
+	char bufferPlanificacion[5];
+	resultRecv = myRecibirDatosFijos(socketSAFA,bufferPlanificacion,5);
+	if(resultRecv !=0){
+		printf("Error al recibir el tipo de planificacion");
+	}
+	strcpy(tipoPlanificacion,bufferPlanificacion);
 
-	myPuts("El DTB que se recibio es:\n");
-	imprimirDTB(miDTB);
 
-	if(miDTB->Flag_EstadoGDT == 0){
-		int largoRuta;
-		char *strLenRuta;
+	resultRecv = myRecibirDatosFijos(socketSAFA,&quantum,sizeof(int));
+	if(resultRecv !=0){
+		printf("Error al recibir el Quantum");
+	}
 
-		largoRuta = strlen(miDTB->Escriptorio);
+	resultRecv = myRecibirDatosFijos(socketSAFA,&retardoPlanificacion,sizeof(int));
+	if(resultRecv !=0){
+		printf("Error al recibir el retardo de la planificacion");
+	}
 
-		strLenRuta = string_from_format("%03d",largoRuta);
+	if(strcmp(tipoPlanificacion,"FIFO")==0){
+			printf("Recibi que la planificacion es FIFO \n ");
+	}else{
+			printf("Recibi que la planificacion es %s y el Quantum es %d \n",tipoPlanificacion,quantum);
+	}
+}
 
-		myPuts("Enviando al Diego la ruta del Escriptorio.\n");
-		myEnviarDatosFijos(socketGDAM,strLenRuta,3);
-		myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
+void operacionDummy(DTB *miDTB){
+	int largoRuta;
+	char *strLenRuta;
 
-		/*Consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
-		en el DTB desaloja a dicho DTB Dummy, avisando a S-AFA que debe bloquearlo.*/
+	largoRuta = strlen(miDTB->Escriptorio);
+
+	strLenRuta = string_from_format("%03d",largoRuta);
+
+	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
+
+	int estado = 2;
+
+	int inst = 0;
+
+	enviarDTByMotivo(miDTB,estado,inst);
+
+	myEnviarDatosFijos(socketGDAM,strLenRuta,3);
+
+	myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
+}
+
+bool hayQuantum(int inst){
+	return inst < quantum || quantum < 0;
+}
+
+bool terminoElDTB(){
+	return motivoLiberacionCPU != 1;
+}
+
+bool DTBBloqueado(){
+	return motivoLiberacionCPU != 2;
+}
+
+void ejecutarInstruccion(DTB* miDTB){
+	int instruccionesEjecutadas = 0;
+
+
+	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() ){
+
+		estoyEjecutando = 1;
+
+		miDTB->PC++;
+
+		instruccionesEjecutadas++;
+
+	}
+	if(terminoElDTB()){
+
+		motivoLiberacionCPU = 1;
+
+	}else{
+
+		if(instruccionesEjecutadas == quantum){
+			motivoLiberacionCPU =  0;
+		}
+
+	}
+
+	if(DTBBloqueado()){
+		motivoLiberacionCPU = 2;
+	}
+
+	estoyEjecutando = 0;
+	instruccionesEjecutadas = 0;
+}
+
+void enviarDTByMotivo(DTB* miDTB, int motivo, int instrucciones){
+	char* strDTB;
+
+	strDTB = DTBStruct2String (miDTB);
+
+	myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
+
+	myEnviarDatosFijos(socketSAFA,&motivo,sizeof(int));
+
+	myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
+
+}
+
+///GESTION DE CONEXIONES///
+
+void gestionarConexionSAFA(){
+
+	recibirQyPlanificacion();
+	//INICIAR GDT//
+	while(1){
+
+		DTB *miDTB;
+
+		miDTB = recibirDTB(socketSAFA);
+
+		myPuts("El DTB que se recibio es:\n");
+		imprimirDTB(miDTB);
+
+		if(miDTB->Flag_GDTInicializado == 0){
+			operacionDummy(miDTB);
+		}else{
+			ejecutarInstruccion(miDTB);
+		}
 	}
 
 	/*while(1){
@@ -85,7 +198,8 @@ void gestionarConexionFM9(int socketFM9){
 			break;
 	}
 }
-	///FUNCIONES DE CONEXION///
+
+///FUNCIONES DE CONEXION///
 
 void* connectionFM9(){
 	u_int32_t result,socketFM9;
@@ -125,7 +239,7 @@ void* connectionDAM(){
 }
 
 void* connectionSAFA(){
-	u_int32_t result,socketSAFA;
+	u_int32_t result;
 
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
@@ -134,12 +248,14 @@ void* connectionSAFA(){
 	PUERTO_ESCUCHA=(int)getConfigR("S-AFA_PUERTO",1,configCPU);
 
 	result=myEnlazarCliente((int*)&socketSAFA,IP_ESCUCHA,PUERTO_ESCUCHA);
+
 	if(result==1){
 		myPuts("No se encuentra disponible el S-AFA para conectarse.\n");
 		exit(1);
 	}
 
-	gestionarConexionSAFA((int)socketSAFA);
+	gestionarConexionSAFA();
+
 	return 0;
 }
 
