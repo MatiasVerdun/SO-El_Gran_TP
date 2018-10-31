@@ -44,8 +44,6 @@ void mostrarConfig(){
     free(myText);
 }
 
-	///GESTION DE CONEXIONES///
-
 void recibirQyPlanificacion(){
 
 	int resultRecv;
@@ -85,41 +83,19 @@ void operacionDummy(DTB *miDTB){
 
 	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
 
+	int estado = 2;
+
+	int inst = 0;
+
+	enviarDTByMotivo(miDTB,estado,inst);
+
 	myEnviarDatosFijos(socketGDAM,strLenRuta,3);
 
 	myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
-
-	miDTB->Flag_GDTInicializado = 1;
-
-	motivoLiberacionCPU = 2;
-
-	//Enviar a S-AFA que debe bloquear el dtb
-//	char miBuffer[5];
-//	char* strDTB;
-//
-//	motivoLiberacionCPU=2;
-//
-//	myEnviarDatosFijos(socketSAFA,motivoLiberacionCPU,strlen(miBuffer));
-//
-//	miDTB->Flag_GDTInicializado = 1;
-//
-//	strDTB = DTBStruct2String (miDTB);
-//
-//	//myPuts("sock %d str %s\n",socketSAFA, strDTB);
-//
-//	aux2DTB = DTBString2Struct(strDTB);
-//
-//	myPuts("El DTB que se recibio es:\n");
-//	imprimirDTB(aux2DTB);
-//
-//	//sprintf(stdout, "Enviando la %s",strSentencia);
-//	myEnviarDatosFijos(socketSAFA, strDTB, strlen(strDTB));
-//	//Consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
-//	//en el DTB desaloja a dicho DTB Dummy, avisando a S-AFA que debe bloquearlo.
 }
 
-bool hayQuantum(){
-	return instruccionesEjecutadas < quantum || quantum < 0;
+bool hayQuantum(int inst){
+	return inst < quantum || quantum < 0;
 }
 
 bool terminoElDTB(){
@@ -130,16 +106,13 @@ bool DTBBloqueado(){
 	return motivoLiberacionCPU != 2;
 }
 
-
-
 void ejecutarInstruccion(DTB* miDTB){
-	instruccionesEjecutadas = 0;
+	int instruccionesEjecutadas = 0;
 
 
-	while(hayQuantum() && !terminoElDTB() && !DTBBloqueado() ){
+	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() ){
 
 		estoyEjecutando = 1;
-
 
 		miDTB->PC++;
 
@@ -166,19 +139,20 @@ void ejecutarInstruccion(DTB* miDTB){
 	instruccionesEjecutadas = 0;
 }
 
-void enviarDTByMotivo(DTB* miDTB){
+void enviarDTByMotivo(DTB* miDTB, int motivo, int instrucciones){
 	char* strDTB;
 
 	strDTB = DTBStruct2String (miDTB);
 
 	myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
 
-	myEnviarDatosFijos(socketSAFA,&motivoLiberacionCPU,sizeof(int));
+	myEnviarDatosFijos(socketSAFA,&motivo,sizeof(int));
 
-	myEnviarDatosFijos(socketSAFA,&instruccionesEjecutadas,sizeof(int));
+	myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
 
 }
 
+///GESTION DE CONEXIONES///
 
 void gestionarConexionSAFA(){
 
@@ -198,8 +172,6 @@ void gestionarConexionSAFA(){
 		}else{
 			ejecutarInstruccion(miDTB);
 		}
-
-		enviarDTByMotivo(miDTB);
 	}
 
 	/*while(1){
@@ -212,7 +184,6 @@ void gestionarConexionSAFA(){
 	myRecibirDatosFijos(socketSAFA,buffer,5);
 	printf("El buffer que recibi por socket es %s\n",buffer);*/
 }
-
 
 void gestionarConexionDAM(int socketDAM){
 	/*while(1){
@@ -227,7 +198,8 @@ void gestionarConexionFM9(int socketFM9){
 			break;
 	}
 }
-	///FUNCIONES DE CONEXION///
+
+///FUNCIONES DE CONEXION///
 
 void* connectionFM9(){
 	u_int32_t result,socketFM9;

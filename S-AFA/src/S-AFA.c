@@ -36,8 +36,9 @@ int	nroSentenciaActual;
 int IDGlobal = 0;
 int DTBenPCP = 0;
 int estadoSistema = -1; // 0 = Estado Operativo
-int GsocketCPU;  // TODO ¿Es global con la lista de CPU's?
+//int GsocketCPU;  // TODO ¿Es global con la lista de CPU's?
 int GsocketDAM;
+int cantHistoricaDeSentencias;
 
 typedef struct ModiConfig {
 	char IP_ESCUCHA[15];
@@ -50,6 +51,12 @@ typedef struct ModiConfig {
 } ModiConfig;
 
 ModiConfig configModificable;
+
+typedef struct metrica {
+	int ID_DTB;
+	int sentenciasEjecutadasEnNEW;
+	int sentenciasEjecutadasHastaEXIT;
+} metrica;
 
 typedef struct sentencia {
 	int operacion;
@@ -76,8 +83,7 @@ t_list *listaCPU;
 
 static sem_t semCPU;
 static sem_t semDAM;
-static bool conectionDAM;
-
+static bool conectionDAM = false;
 
 DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
 	for (int indice = 0;indice < list_size(miCola->elements);indice++){
@@ -101,15 +107,6 @@ int buscarIndicePorIdGDT(t_queue *miCola,int idGDT){
 
 	///PLANIFICACION A LARGO PLAZO///
 
-
-typedef struct metrica {
-	int ID_DTB;
-	int sentenciasEjecutadasEnNEW;
-	int sentenciasEjecutadasHastaEXIT;
-} metrica;
-
-int cantHistoricaDeSentencias;
-
 DTB* crearDTB(char *rutaMiScript){
 	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
 	miDTB = malloc(sizeof(DTB));
@@ -117,7 +114,7 @@ DTB* crearDTB(char *rutaMiScript){
 	miDTB->ID_GDT = IDGlobal;
 	strcpy(miDTB->Escriptorio,rutaMiScript);
 	miDTB->PC = 0;
-	miDTB->Flag_GDTInicializado = 0; //Tiene que estar en 0
+	miDTB->Flag_GDTInicializado = 1;
 	miDTB->tablaArchivosAbiertos = list_create();
 
 	IDGlobal++;
@@ -155,55 +152,34 @@ void enviarQyPlanificacionACPU(int CPU){
 
 }
 
-/*
-void planificarNewReady(){
+void PLP(int esDummy){
 	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
-		//el PLP eligirá uno de los DTBs en “NEW”, según su algoritmo de planificación,
-		//  y se comunicará con el PCP para indicarle que “desbloquee” el	DTB_Dummy.
+		DTB *auxDTB;
 
+		auxDTB = queue_pop(colaNEW);
 
-		if(strcmp(configModificable.algoPlani,"FIFO") == 0 ){
-			DTB *auxDTB;
-			//DTB *aux2DTB;
-
-			auxDTB = queue_pop(colaNEW);
-
-			PCP(auxDTB);
-			DTBenPCP++;
-		} else if(strcmp(configModificable.algoPlani,"RR") == 0 ){
-
-		} else if(strcmp(configModificable.algoPlani,"VRR") == 0 ){
-
-		} else if(strcmp(configModificable.algoPlani,"PROPIO") == 0 ){
-
+		if(esDummy == 1){
+			PCP(auxDTB,esDummy);
 		}
+		esDummy = 0;
+		PCP(auxDTB,esDummy);
+		DTBenPCP++;
+		//queue_push(colaREADY,auxDTB);
 	}
 }
-*/
 
-void PLP(char *rutaScript){
+void NuevoDTByPlanificacion(char *rutaScript){
 	DTB *elDTB;
-	DTB *DTBAReady;
 	metrica *laMetrica;
+	int dummy = 1;
 
-	//CreaElDTB
 	elDTB = crearDTB(rutaScript);
-
-	//Lo pone el la cola de NEW
 	queue_push(colaNEW,elDTB);
 
 	laMetrica = crearMetricasParaDTB(elDTB->ID_GDT);
 	list_add(listaMetricas,laMetrica);
 
-	//Controla el grado de multiprogramacion y si es posible lo pone en la cola de READY
-	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
-		DTBenPCP++;
-		DTBAReady = queue_pop(colaNEW);
-		queue_push(colaREADY,DTBAReady);
-		//Carga de memoria
-
-	}
-
+	PLP(dummy); //Cuando lo recibe en 1 es porque me llego por ejecutar
 }
 
 	///PLANIFICACION A CORTO PLAZO///
@@ -220,6 +196,10 @@ void recibirDTByMotivo(int socketCPU){
 	int instruccionesRealizadas;
 
 	myRecibirDatosFijos(socketCPU,&instruccionesRealizadas,sizeof(int));
+
+	if (motivoLiberacionCPU == 2){
+		queue_push(colaBLOCK,miDTB);
+	}
 }
 
 bool hayCPUDisponible(){
@@ -238,39 +218,44 @@ int buscarCPUDisponible(){
 
 		elemento = list_get(listaCPU,i);
 
-		if(elemento->libre == 0)
+		if(elemento->libre == 1)
 			return elemento->socketCPU;
 	}
 
 }
 
-void PCP(DTB *miDTB){
+void PCP(DTB *miDTB, int esDummy){
 	/*Este desbloqueo se efectuará indicando al DTB_Dummy en su contenido un flag de inicialización en
 		0, el ID del DTB a “pasar” a “READY” y el path del script Escriptorio a cargar a memoria.*/
-	if(!queue_is_empty(colaREADY) && hayCPUDisponible()) {
-		char* strDTB;
+	if(hayCPUDisponible()) {
+		if(esDummy == 1){
+			char* strDTB;
 
-		int socketCPULibre;
+					int socketCPULibre;
 
-		//miDTB->Flag_GDTInicializado = 0;
+					miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
 
-		//Mandar a CPU y ver si va a READY o EXEC
+					//Mandar a CPU y ver si va a READY o EXEC
 
-		socketCPULibre = buscarCPUDisponible();
+					socketCPULibre = buscarCPUDisponible();
 
-		strDTB = DTBStruct2String (miDTB);
+					strDTB = DTBStruct2String (miDTB);
 
-		myEnviarDatosFijos(socketCPULibre, strDTB, strlen(strDTB));
+					myEnviarDatosFijos(socketCPULibre, strDTB, strlen(strDTB));
 
-		/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
-		en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
-		bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
-		programa G.DT que se había ejecutado en la cola de Bloqueados.
-		Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
-		FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
+					/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
+					en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
+					bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
+					programa G.DT que se había ejecutado en la cola de Bloqueados.
+					Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
+					FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
 
-		recibirDTByMotivo(socketCPULibre);
-		//queue_push(colaREADY,miDTB);
+					recibirDTByMotivo(socketCPULibre);
+					//queue_push(colaREADY,miDTB);
+		}else{
+			//TODO cuando no es dummy
+		}
+
 	}
 }
 
@@ -526,19 +511,19 @@ clienteCPU* crearClienteCPU(int socket){
 
 
 void gestionarConexionCPU(int* sock){
-	GsocketCPU = *(int*)sock; //TODO
+	int socketCPU = *(int*)sock; //TODO
 	clienteCPU *nuevoClienteCPU;
 
-	nuevoClienteCPU =crearClienteCPU(GsocketCPU);
+	nuevoClienteCPU =crearClienteCPU(socketCPU);
 
 	list_add(listaCPU,nuevoClienteCPU);
 
-	if(conectionDAM==true && !list_is_empty(listaCPU))
+	if(conectionDAM==true && !(list_is_empty(listaCPU))){
 		estadoSistema = 0;
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 
-	enviarQyPlanificacionACPU(GsocketCPU);
-
+	enviarQyPlanificacionACPU(socketCPU);
+	}
 	/*//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
 		char buffer[5];
 		strcpy(buffer,"hola");
@@ -660,8 +645,8 @@ int main(void)
 
 				strcpy(path, split[1]);
 				printf("La ruta del Escriptorio a ejecutar es: %s\n",path);
-				//PLP(path);
-				PLP(PATHCONFIGSAFA);
+				// NuevoDTByPlanificacion(path);
+				 NuevoDTByPlanificacion(PATHCONFIGSAFA);
 
 				   free(split[0]);
 				   free(split[1]);

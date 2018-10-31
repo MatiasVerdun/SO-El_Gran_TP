@@ -167,7 +167,9 @@ void gestionarConexionCPU(int *sock_cliente){
 }
 
 void gestionarConexionSAFA(int socketSAFA){
-
+	while (1){
+		//Avisar a Safa que se abrio el archivo para que lo pase a ready
+	}
 }
 
 void gestionarConexionFM9(){

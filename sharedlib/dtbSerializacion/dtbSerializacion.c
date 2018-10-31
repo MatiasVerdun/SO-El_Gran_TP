@@ -46,7 +46,7 @@ DTB* recibirDTB(int socket){
 void imprimirDTB(DTB *miDTB){
 	int cantElementos;
 
-    myPuts("ID_GDT: %d Ruta_Escriptorio: %s PC: %d Flag_EstadoGDT: %d Lista:",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_EstadoGDT);
+    myPuts("ID_GDT: %d Ruta_Escriptorio: %s PC: %d Flag_EstadoGDT: %d Lista:",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_GDTInicializado);
 
     cantElementos = list_size(miDTB->tablaArchivosAbiertos);
 
@@ -70,7 +70,7 @@ char* DTBStruct2String(DTB *miDTB){
 
 	miStringDTB = malloc(264 + (lenLista * (128 + 10)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3)
 
-	sprintf(miStringDTB,"%02d%-256s%2d%1d%03d",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_EstadoGDT,lenLista);
+	sprintf(miStringDTB,"%02d%-256s%2d%1d%03d",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_GDTInicializado,lenLista);
 	//El %03 me dice que puede llegar a tener 999 archivos abiertos
 
 	for(int indice = 0;indice < lenLista;indice++){
@@ -132,7 +132,7 @@ DTB* DTBString2Struct (char *miStringDTB){
 	nProxLectura = 1;
 	strncpy(Flag_EstadoGDT,miStringDTB + nTotDesplaza,nProxLectura);
 	Flag_EstadoGDT[nProxLectura] = '\0';
-	miDTB->Flag_EstadoGDT = atoi(Flag_EstadoGDT);
+	miDTB->Flag_GDTInicializado = atoi(Flag_EstadoGDT);
 	nTotDesplaza += nProxLectura;
 
 	miDTB->tablaArchivosAbiertos = list_create();
