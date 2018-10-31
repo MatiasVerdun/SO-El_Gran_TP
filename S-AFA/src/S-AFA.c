@@ -258,7 +258,7 @@ void parsear(char *nombreArchivo){
 	ssize_t read;
 	sentencia *laSentencia;
 
-	fdScript = fopen((char*)nombreArchivo, "a+");
+	fdScript = fopen((char*)nombreArchivo, "r");
 	if (fdScript == NULL){
 		perror("Error al abrir el archivo: ");
 		exit(EXIT_FAILURE);

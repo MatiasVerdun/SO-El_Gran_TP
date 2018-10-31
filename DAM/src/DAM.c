@@ -174,10 +174,10 @@ void gestionarConexionFM9(){
 
 void gestionarConexionMDJ(){
 
-	//validarArchivo("root/fifa/jugadores/bou.txt");
-	//crearArchivo("root/fifa/jugadores/bou.txt");
+	validarArchivo("../bou.txt");
+	//crearArchivo("../root/bou.txt");
 	//obtenerDatos("root/fifa/jugadores/bou.txt",40,100);
-	guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
+	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
 }
 
 	///FUNCIONES DE CONEXION///
