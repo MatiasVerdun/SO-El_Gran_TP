@@ -38,7 +38,7 @@ void mostrarConfig(){
 ///GESTION DE CONEXIONES///
 void gestionArchivos(int socketDAM,int operacion){
 	char path[50];
-	u_int32_t respuesta;
+	u_int32_t respuesta,size;
 	myRecibirDatosFijos(socketDAM,(char*)path,50);
 
 	switch(operacion){
@@ -57,9 +57,10 @@ void gestionArchivos(int socketDAM,int operacion){
 			}
 			break;
 		case(2):
+			myRecibirDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t));
 			printf(BLUE "Creando archivo '%s'" ,path);
 			loading(1);
-			if(crearArchivo(path)==0){
+			if(crearArchivo(path,ntohl(size))==0){
 				myPuts(BOLDGREEN"Archivo creado" COLOR_RESET "\n");
 				respuesta=htonl(0);
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));

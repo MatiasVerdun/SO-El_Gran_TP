@@ -45,14 +45,16 @@ void validarArchivo(char* path){
 
 }
 
-void crearArchivo(char* path){
+void crearArchivo(char* path,u_int32_t size){
 
 	u_int32_t respuesta=0;
 	u_int32_t operacion = htonl(2);
+	u_int32_t sizeFile = htonl(size);
 
 	myPuts(BLUE "Creando '%s' ",path);
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
 	myEnviarDatosFijos(socketGMDJ,path,50);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&sizeFile,sizeof(u_int32_t));
 	loading(1);
 	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 
@@ -178,8 +180,8 @@ void gestionarConexionFM9(){
 
 void gestionarConexionMDJ(){
 
-	validarArchivo("../bou.txt");
-	//crearArchivo("../root/bou.txt");
+	//validarArchivo("../root/bou.txt");
+	crearArchivo("../root/bou.txt",256);
 	//obtenerDatos("root/fifa/jugadores/bou.txt",40,100);
 	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
 }
@@ -277,10 +279,10 @@ int main() {
 
 	configDAM=config_create(PATHCONFIGDAM);
 
-    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
     //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
-    //pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

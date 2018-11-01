@@ -10,7 +10,7 @@
 #define INTERFAZ_H_
 
 int validarArchivo(char* path);
-int crearArchivo(char* path);
+int crearArchivo(char* path,u_int32_t size);
 int obtenerDatos(char* path,int offset,int size);
 int guardarDatos(char* path,int offset,int size);
 #endif /* INTERFAZ_H_ */

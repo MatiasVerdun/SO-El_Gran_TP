@@ -13,11 +13,14 @@ int validarArchivo(char *path){
 	return existe;
 }
 
-int crearArchivo(char* path){
-	int resultado=1;
+int crearArchivo(char* path,u_int32_t size){
 	FILE *fp = fopen(path, "ab+");
-	if (fp) resultado=0;
-	return resultado;
+	if (!fp) return 1;
+	for(int i=0;i<size;i++){
+		fputc('\n',fp);
+	}
+    fclose(fp);
+	return 0;
 }
 
 
