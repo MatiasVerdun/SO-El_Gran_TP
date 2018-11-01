@@ -20,6 +20,7 @@ u_int32_t socketSAFA;
 
 //Configuracion de Planificacion
 int quantum;
+int remanente;
 int retardoPlanificacion;
 char tipoPlanificacion[5];
 int  estoyEjecutando = 0 ; // 0 no 1 si
@@ -73,6 +74,17 @@ void recibirQyPlanificacion(){
 	}
 }
 
+void recibirRemanente(){
+	int resultRecv;
+
+	resultRecv = myRecibirDatosFijos(socketSAFA,&remanente,sizeof(int));
+
+	if(resultRecv !=0){
+			printf("Error al recibir el Remanente");
+	}
+
+}
+
 void operacionDummy(DTB *miDTB){
 	int largoRuta;
 	char *strLenRuta;
@@ -95,6 +107,10 @@ void operacionDummy(DTB *miDTB){
 }
 
 bool hayQuantum(int inst){
+	if(strcmp(tipoPlanificacion,"VRR")==0 && remanente > 0){
+		return inst < remanente;
+	}
+
 	return inst < quantum || quantum < 0;
 }
 
@@ -108,7 +124,6 @@ bool DTBBloqueado(){
 
 void ejecutarInstruccion(DTB* miDTB){
 	int instruccionesEjecutadas = 0;
-
 
 	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() ){
 
@@ -161,6 +176,10 @@ void gestionarConexionSAFA(){
 	while(1){
 
 		DTB *miDTB;
+
+		if(strcmp(tipoPlanificacion,"VRR")==0){
+			recibirRemanente();
+		}
 
 		miDTB = recibirDTB(socketSAFA);
 

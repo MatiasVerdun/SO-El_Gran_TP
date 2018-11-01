@@ -58,6 +58,11 @@ typedef struct metrica {
 	int sentenciasEjecutadasHastaEXIT;
 } metrica;
 
+typedef struct DTBPrioridadVRR{
+	DTB* unDTB;
+	int remanente;
+} DTBPrioridadVRR;
+
 typedef struct sentencia {
 	int operacion;
 	char *param1;
@@ -76,6 +81,7 @@ t_queue *colaREADY;
 t_queue *colaEXEC;
 t_queue *colaBLOCK;
 t_queue *colaEXIT;
+t_queue *colaVRR;
 
 t_list *listaSentencias;
 t_list *listaMetricas;
@@ -127,11 +133,22 @@ metrica* crearMetricasParaDTB(int IDDTB){
 	miMetrica = malloc(sizeof(metrica));
 
 	miMetrica->ID_DTB = IDDTB;
-	miMetrica->sentenciasEjecutadasEnNEW = 0;
-	miMetrica->sentenciasEjecutadasHastaEXIT = 0;
+	miMetrica->sentenciasEjecutadasEnNEW = cantHistoricaDeSentencias;
+	miMetrica->sentenciasEjecutadasHastaEXIT = cantHistoricaDeSentencias;
 
 	return miMetrica;
 }
+
+DTBPrioridadVRR *crearDTBVRR(DTB* miDTB, int sobra){
+	DTBPrioridadVRR *miDTBVRR;
+	miDTBVRR = malloc(sizeof(DTBPrioridadVRR));
+
+	miDTBVRR->unDTB = miDTB;
+	miDTBVRR->remanente = sobra;
+
+	return miDTB;
+}
+
 
 void enviarQyPlanificacionACPU(int CPU){
 	char planificacion[5];
@@ -164,7 +181,7 @@ void PLP(int esDummy){
 		esDummy = 0;
 		PCP(auxDTB,esDummy);
 		DTBenPCP++;
-		//queue_push(colaREADY,auxDTB);
+		//TODO queue_push(colaREADY,auxDTB); //Metrica
 	}
 }
 
@@ -184,6 +201,79 @@ void NuevoDTByPlanificacion(char *rutaScript){
 
 	///PLANIFICACION A CORTO PLAZO///
 
+void actualizarMetricaEXIT(int idDTB){
+
+	bool esMetricaDelDTB(metrica *metricaAux){
+		return metricaAux->ID_DTB == idDTB;
+	}
+
+	metrica *laMetrica;
+	laMetrica = list_find(listaMetricas, (void*) esMetricaDelDTB);
+
+	laMetrica->sentenciasEjecutadasHastaEXIT = cantHistoricaDeSentencias - laMetrica->sentenciasEjecutadasHastaEXIT;
+}
+
+void actualizarMetricaNEW(int idDTB){
+
+	bool esMetricaDelDTB(metrica *metricaAux){
+		return metricaAux->ID_DTB == idDTB;
+	}
+
+	metrica *laMetrica;
+	laMetrica = list_find(listaMetricas, (void*) esMetricaDelDTB);
+
+	laMetrica->sentenciasEjecutadasEnNEW = cantHistoricaDeSentencias - 	laMetrica->sentenciasEjecutadasEnNEW;
+}
+
+
+void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instruccionesRealizadas){
+	//0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error
+	//TODO Supongo que siempre esta en la colaEXEC
+
+	cantHistoricaDeSentencias += instruccionesRealizadas;
+
+	int indice;
+
+	switch(motivoLiberacionCPU){
+	case 0:
+		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
+		list_remove(colaEXEC->elements, indice);
+		queue_push(colaREADY,miDTB);
+	break;
+
+	case 1:
+		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
+		list_remove(colaEXEC->elements, indice);
+		actualizarMetricaEXIT(miDTB->ID_GDT);
+	break;
+
+	case 2:
+		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
+		list_remove(colaEXEC->elements, indice);
+
+		if(strcmp(configModificable.algoPlani,"FIFO")==0 || strcmp(configModificable.algoPlani,"RR")==0){
+			queue_push(colaBLOCK,miDTB);
+		}
+
+		int sobra = configModificable.quantum - instruccionesRealizadas;
+
+		if(strcmp(configModificable.algoPlani,"VRR") && sobra > 0){
+			DTBPrioridadVRR * miDTBVRR;
+			miDTBVRR = crearDTBVRR(miDTB,sobra);
+			queue_push(colaVRR,miDTBVRR);
+		}
+
+	break;
+
+	case 3:
+		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
+		list_remove(colaEXEC->elements, indice);
+		actualizarMetricaEXIT(miDTB->ID_GDT);
+	break;
+	}
+
+}
+
 void recibirDTByMotivo(int socketCPU){
 	DTB *miDTB;
 
@@ -197,9 +287,7 @@ void recibirDTByMotivo(int socketCPU){
 
 	myRecibirDatosFijos(socketCPU,&instruccionesRealizadas,sizeof(int));
 
-	if (motivoLiberacionCPU == 2){
-		queue_push(colaBLOCK,miDTB);
-	}
+	accionSegunPlanificacion(miDTB,motivoLiberacionCPU,instruccionesRealizadas);
 }
 
 bool hayCPUDisponible(){
@@ -210,7 +298,7 @@ bool hayCPUDisponible(){
 
 }
 
-int buscarCPUDisponible(){
+clienteCPU* buscarCPUDisponible(){
 
 	for(int i = 0 ; i < list_size(listaCPU); i++){
 
@@ -219,8 +307,10 @@ int buscarCPUDisponible(){
 		elemento = list_get(listaCPU,i);
 
 		if(elemento->libre == 1)
-			return elemento->socketCPU;
+			return elemento;
 	}
+
+	return NULL;
 
 }
 
@@ -231,29 +321,70 @@ void PCP(DTB *miDTB, int esDummy){
 		if(esDummy == 1){
 			char* strDTB;
 
-					int socketCPULibre;
+			clienteCPU*CPULibre;
 
-					miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
+			miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
 
-					//Mandar a CPU y ver si va a READY o EXEC
+			//Mandar a CPU y ver si va a READY o EXEC
 
-					socketCPULibre = buscarCPUDisponible();
+			CPULibre = buscarCPUDisponible();
 
-					strDTB = DTBStruct2String (miDTB);
+			CPULibre->libre = 0;
 
-					myEnviarDatosFijos(socketCPULibre, strDTB, strlen(strDTB));
+			strDTB = DTBStruct2String (miDTB);
 
-					/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
-					en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
-					bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
-					programa G.DT que se había ejecutado en la cola de Bloqueados.
-					Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
-					FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
+			myEnviarDatosFijos(CPULibre->socketCPU, strDTB, strlen(strDTB));
 
-					recibirDTByMotivo(socketCPULibre);
-					//queue_push(colaREADY,miDTB);
+			/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
+			en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
+			bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
+			programa G.DT que se había ejecutado en la cola de Bloqueados.
+			Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
+			FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
+
+			recibirDTByMotivo(CPULibre->socketCPU);
+			//TODO queue_push(colaREADY,miDTB);
+			//TODO actualizarMetricaNEW(miDTB->ID_GDT);
 		}else{
-			//TODO cuando no es dummy
+			//TODO cuando no es dummy de READY -> EXEC
+			char* strDTB;
+
+			clienteCPU*CPULibre;
+
+			CPULibre = buscarCPUDisponible();
+
+			CPULibre->libre = 0;
+
+			DTB * miDTB;
+
+			if(strcmp(configModificable.algoPlani,"FIFO")==0|| strcmp(configModificable.algoPlani,"RR")==0){
+				miDTB = queue_pop(colaREADY);
+			}
+
+			if(strcmp(configModificable.algoPlani,"VRR")==0){
+				if(!queue_is_empty(colaVRR)){
+					DTBPrioridadVRR *DTBVRR;
+
+					int remanente = DTBVRR->remanente;
+
+					DTBVRR = queue_pop(colaVRR);
+
+					miDTB = DTBVRR->unDTB;
+
+					myEnviarDatosFijos(CPULibre->socketCPU, &remanente, sizeof(int));
+
+					//TODO free(DTBVRR);
+				}else{
+					myEnviarDatosFijos(CPULibre->socketCPU,0, sizeof(int));
+
+					miDTB = queue_pop(colaREADY);
+
+				}
+			}
+
+			strDTB = DTBStruct2String (miDTB);
+
+			myEnviarDatosFijos(CPULibre->socketCPU, strDTB, strlen(strDTB));
 		}
 
 	}
@@ -478,7 +609,7 @@ void parsear(char *nombreArchivo){
 		free(line);
 
 	myPuts("El archivo parseado es el siguiente: \n");
-	list_iterate(listaSentencias,imprimirSentencia);
+	list_iterate(listaSentencias,(void*)imprimirSentencia);
 }
 
 	///FUNCIONES DE INICIALIZACION///
@@ -494,6 +625,7 @@ void creacionDeColas(){
 	colaEXEC = queue_create();
 	colaBLOCK = queue_create();
 	colaEXIT = queue_create();
+	colaVRR = queue_create();
 }
 
 	///GESTION DE CONEXIONES///
@@ -676,7 +808,7 @@ int main(void)
 					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
 					    indice++;
 					}
-					list_iterate(colaNEW->elements,imprimirIdDTB);
+					list_iterate(colaNEW->elements,(void*)imprimirIdDTB);
 				}
 
 				if (queue_is_empty(colaREADY)){
@@ -689,7 +821,7 @@ int main(void)
 					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
 					    indice++;
 					}
-					list_iterate(colaREADY->elements,imprimirIdDTB);
+					list_iterate(colaREADY->elements,(void*)imprimirIdDTB);
 				}
 
 				if (queue_is_empty(colaBLOCK)){
@@ -702,7 +834,7 @@ int main(void)
 					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
 					    indice++;
 					}
-					list_iterate(colaBLOCK->elements,imprimirIdDTB);
+					list_iterate(colaBLOCK->elements,(void*)imprimirIdDTB);
 				}
 
 				if (queue_is_empty(colaEXEC)){
@@ -715,7 +847,7 @@ int main(void)
 					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
 					    indice++;
 					}
-					list_iterate(colaEXEC->elements,imprimirIdDTB);
+					list_iterate(colaEXEC->elements,(void*)imprimirIdDTB);
 				}
 
 				if (queue_is_empty(colaEXIT)){
@@ -728,7 +860,7 @@ int main(void)
 					    myPuts("Posicion: %d ID_GDT: %d\n",indice,miDTB->ID_GDT);
 					    indice++;
 					}
-					list_iterate(colaEXIT->elements,imprimirIdDTB);
+					list_iterate(colaEXIT->elements,(void*)imprimirIdDTB);
 				}
 
 			} else {
@@ -748,7 +880,7 @@ int main(void)
 							if (miDTB == NULL){
 								miDTB = buscarDTBPorID(colaEXIT, id);
 								if (miDTB == NULL){
-									printf("El id %d es un id erroneo, no se encuentra en ninguna cola\n");
+									printf("El id %d es un id erroneo, no se encuentra en ninguna cola\n",id);
 								} else {
 									printf("Cola EXIT:\n");
 									imprimirDTB(miDTB);
@@ -800,7 +932,7 @@ int main(void)
 						if (miDTB == NULL){
 							miDTB = buscarDTBPorID(colaEXIT, id);
 							if (miDTB == NULL){
-								printf("El id %d es un id erroneo, no se encuentra en ninguna cola\n");
+								printf("El id %d es un id erroneo, no se encuentra en ninguna cola\n",id);
 							} else {
 								printf("El DTB con id %d ya se encuentra en la cola EXIT.\n",id);
 							}
