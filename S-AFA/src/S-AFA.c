@@ -325,20 +325,19 @@ void recibirDesbloqueoDAM(DTB *miDTB) {
 	if (aperturaEscriptorio == 1){
 		int indice = buscarIndicePorIdGDT(colaBLOCK,miDTB->ID_GDT);
 		list_remove(colaBLOCK->elements, indice);
+
 		miDTB->Flag_GDTInicializado = 1;
+		DTBenPCP++;
+
 		queue_push(colaREADY,miDTB);
+
+		PCP(NULL,0);
 		actualizarMetricaNEW(miDTB->ID_GDT);
 	} else if (aperturaEscriptorio == 0){
-		int indice;
-			
-		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
-			
+		int indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
 		list_remove(colaEXEC->elements, indice);
-			
+
 		actualizarMetricaEXIT(miDTB->ID_GDT);
-			
-		DTBenPCP--;
-			
 		PLP();
 	}
 }
@@ -417,7 +416,7 @@ void PCP(DTB *miDTB, int esDummy){
 			DTB * miDTB;
 
 			if(strcmp(configModificable.algoPlani,"FIFO")==0|| strcmp(configModificable.algoPlani,"RR")==0){
-				myEnviarDatosFijos(CPULibre->socketCPU,0, sizeof(int));
+				myEnviarDatosFijos(CPULibre->socketCPU,0, sizeof(int)); //Remanente
 				miDTB = queue_pop(colaREADY);
 			}else if(strcmp(configModificable.algoPlani,"VRR")==0){
 				if(!queue_is_empty(colaVRR)){

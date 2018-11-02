@@ -121,6 +121,49 @@ bool terminoElDTB(){
 bool DTBBloqueado(){
 	return motivoLiberacionCPU != 2;
 }
+/*
+bool validarArchivoEnLaLista(t_list *listaArchivos,char* nombreArchivo){
+	for (int indice = 0;indice < list_size(listaArchivos);indice++){
+		datosArchivo miArchivo = list_get(listaArchivos,indice);
+		if(strcmp(miArchivo.nombreArchivo,nombreArchivo) == 0){
+				return true;
+		}
+	}
+	return false;
+}
+
+void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
+
+	switch(miSentencia.operacion){
+
+		case OPERACION_ABRIR:
+			bool existeArchivoAbierto;
+			exiteArchivoAbierto = validarArchivoEnLaLista(miDTB,miSentencia.param1);
+			if(!existeArchivoAbierto){
+				operacionDummy(miDTB);
+			}else{
+				//SiguienteSentencia
+			}
+		break;
+		case OPERACION_CONCENTRAR:
+		break;
+		case OPERACION_ASIGNAR:
+		break;
+		case OPERACION_WAIT:
+		break;
+		case OPERACION_SIGNAL:
+		break;
+		case OPERACION_FLUSH:
+		break;
+		case OPERACION_CLOSE:
+		break;
+		case OPERACION_CREAR:
+		break;
+		case OPERACION_BORRAR:
+		break;
+	}
+
+}*/
 
 void ejecutarInstruccion(DTB* miDTB){
 	int instruccionesEjecutadas = 0;
@@ -128,6 +171,8 @@ void ejecutarInstruccion(DTB* miDTB){
 	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() ){
 
 		estoyEjecutando = 1;
+
+		//gestionDeSentencia();
 
 		miDTB->PC++;
 
