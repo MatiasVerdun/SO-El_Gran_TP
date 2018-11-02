@@ -207,27 +207,20 @@ void enviarQyPlanificacionACPU(int CPU){
 
 }
 
-void PLP(int esDummy){
+void PLP(){
 	while((!queue_is_empty(colaNEW)) && (DTBenPCP < configModificable.gradoMultiprogramacion)){
 		DTB *auxDTB;
 
 		auxDTB = queue_pop(colaNEW);
 
-		if(esDummy == 1){
-			PCP(auxDTB,esDummy);
-		} else {
-			esDummy = 0;
-			PCP(auxDTB,esDummy);
-			DTBenPCP++;
-		}
-		//TODO queue_push(colaREADY,auxDTB); //Metrica
+		PCP(auxDTB,1); //ES DUMMY
+		
 	}
 }
 
 void NuevoDTByPlanificacion(char *rutaScript){
 	DTB *elDTB;
 	metrica *laMetrica;
-	int dummy = 1;
 
 	elDTB = crearDTB(rutaScript);
 	queue_push(colaNEW,elDTB);
@@ -235,7 +228,7 @@ void NuevoDTByPlanificacion(char *rutaScript){
 	laMetrica = crearMetricasParaDTB(elDTB->ID_GDT);
 	list_add(listaMetricas,laMetrica);
 
-	PLP(dummy); //Cuando lo recibe en 1 es porque me llego por ejecutar
+	PLP(); 
 }
 
 	///PLANIFICACION A CORTO PLAZO///
@@ -264,6 +257,20 @@ void actualizarMetricaNEW(int idDTB){
 	laMetrica->sentenciasEjecutadasEnNEW = cantHistoricaDeSentencias - 	laMetrica->sentenciasEjecutadasEnNEW;
 }
 
+void finalizarDTB(int idDTB){
+	int indice;
+	
+	indice=buscarIndicePorIdGDT(colaEXEC,idDTB);
+	
+	list_remove(colaEXEC->elements, indice);
+	
+	actualizarMetricaEXIT(idDTB);
+	
+	DTBenPCP--;
+	
+	PLP();
+}
+
 void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instruccionesRealizadas){
 	//0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error
 	//TODO Supongo que siempre esta en la colaEXEC
@@ -276,13 +283,12 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 	case 0:
 		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
 		list_remove(colaEXEC->elements, indice);
+		PCP(NULL,0);
 		queue_push(colaREADY,miDTB);
 	break;
 
 	case 1:
-		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
-		list_remove(colaEXEC->elements, indice);
-		actualizarMetricaEXIT(miDTB->ID_GDT);
+		finalizarDTB(miDTB->ID_GDT);
 	break;
 
 	case 2:
@@ -301,12 +307,11 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 			queue_push(colaVRR,miDTBVRR);
 		}
 
+		PCP(NULL,0);
 	break;
 
 	case 3:
-		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
-		list_remove(colaEXEC->elements, indice);
-		actualizarMetricaEXIT(miDTB->ID_GDT);
+		finalizarDTB(miDTB->ID_GDT);
 	break;
 	}
 
@@ -323,11 +328,18 @@ void recibirDesbloqueoDAM(DTB *miDTB) {
 		miDTB->Flag_GDTInicializado = 1;
 		queue_push(colaREADY,miDTB);
 		actualizarMetricaNEW(miDTB->ID_GDT);
-	} else if (aperturaEscriptorio == 1){
-		int indice = buscarIndicePorIdGDT(colaBLOCK,miDTB->ID_GDT);
-		list_remove(colaBLOCK->elements, indice);
-		queue_push(colaEXIT,miDTB);
+	} else if (aperturaEscriptorio == 0){
+		int indice;
+			
+		indice=buscarIndicePorIdGDT(colaEXEC,miDTB->ID_GDT);
+			
+		list_remove(colaEXEC->elements, indice);
+			
 		actualizarMetricaEXIT(miDTB->ID_GDT);
+			
+		DTBenPCP--;
+			
+		PLP();
 	}
 }
 
@@ -407,9 +419,7 @@ void PCP(DTB *miDTB, int esDummy){
 			if(strcmp(configModificable.algoPlani,"FIFO")==0|| strcmp(configModificable.algoPlani,"RR")==0){
 				myEnviarDatosFijos(CPULibre->socketCPU,0, sizeof(int));
 				miDTB = queue_pop(colaREADY);
-			}
-
-			if(strcmp(configModificable.algoPlani,"VRR")==0){
+			}else if(strcmp(configModificable.algoPlani,"VRR")==0){
 				if(!queue_is_empty(colaVRR)){
 					DTBPrioridadVRR *DTBVRR;
 
@@ -434,6 +444,8 @@ void PCP(DTB *miDTB, int esDummy){
 			strDTB = DTBStruct2String (miDTB);
 
 			myEnviarDatosFijos(CPULibre->socketCPU, strDTB, strlen(strDTB));
+
+			recibirDTByMotivo(CPULibre->socketCPU);
 		}
 
 	}
