@@ -17,6 +17,8 @@ u_int32_t socketGMDJ;
 #define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAM.txt"
 t_config *configDAM;
 
+int GsockSAFA;
+
 
 /*typedef struct datosProceso {
 	char nombreServidor[50];
@@ -165,11 +167,16 @@ void gestionarConexionCPU(int *sock_cliente){
 		myRecibirDatosFijos(socketCPU,buffer,largoRuta);
 
 		myPuts("La ruta del Escriptorio que se recibio es: %s\n",buffer);
+
+		int apertura = 1;
+
+		myEnviarDatosFijos(GsockSAFA,&apertura,sizeof(int)); //Enviando apertura de script a SAFA
 	}
 }
 
 void gestionarConexionSAFA(int socketSAFA){
 	while (1){
+		GsockSAFA = socketSAFA;
 		//Avisar a Safa que se abrio el archivo para que lo pase a ready
 	}
 }
@@ -279,10 +286,10 @@ int main() {
 
 	configDAM=config_create(PATHCONFIGDAM);
 
-    //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
     //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
-    pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    //pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

@@ -91,6 +91,44 @@ static sem_t semCPU;
 static sem_t semDAM;
 static bool conectionDAM = false;
 
+bool hayCPUDisponible(){
+	bool estaLibre(clienteCPU *unaCPU) {
+				return unaCPU->libre == 1;
+	}
+	return list_any_satisfy(listaCPU, (void*) estaLibre);
+
+}
+
+clienteCPU* buscarCPUporSock(int sockCPU){
+	for(int i = 0 ; i < list_size(listaCPU); i++){
+
+		clienteCPU * elemento;
+
+		elemento = list_get(listaCPU,i);
+
+		if(elemento->socketCPU == sockCPU)
+			return elemento;
+	}
+
+	return NULL;
+}
+
+clienteCPU* buscarCPUDisponible(){
+
+	for(int i = 0 ; i < list_size(listaCPU); i++){
+
+		clienteCPU * elemento;
+
+		elemento = list_get(listaCPU,i);
+
+		if(elemento->libre == 1)
+			return elemento;
+	}
+
+	return NULL;
+
+}
+
 DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
 	for (int indice = 0;indice < list_size(miCola->elements);indice++){
 			DTB *miDTB= list_get(miCola->elements,indice);
@@ -177,10 +215,11 @@ void PLP(int esDummy){
 
 		if(esDummy == 1){
 			PCP(auxDTB,esDummy);
+		} else {
+			esDummy = 0;
+			PCP(auxDTB,esDummy);
+			DTBenPCP++;
 		}
-		esDummy = 0;
-		PCP(auxDTB,esDummy);
-		DTBenPCP++;
 		//TODO queue_push(colaREADY,auxDTB); //Metrica
 	}
 }
@@ -225,7 +264,6 @@ void actualizarMetricaNEW(int idDTB){
 	laMetrica->sentenciasEjecutadasEnNEW = cantHistoricaDeSentencias - 	laMetrica->sentenciasEjecutadasEnNEW;
 }
 
-
 void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instruccionesRealizadas){
 	//0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error
 	//TODO Supongo que siempre esta en la colaEXEC
@@ -257,7 +295,7 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 
 		int sobra = configModificable.quantum - instruccionesRealizadas;
 
-		if(strcmp(configModificable.algoPlani,"VRR") && sobra > 0){
+		if(strcmp(configModificable.algoPlani,"VRR") == 0 && sobra > 0){
 			DTBPrioridadVRR * miDTBVRR;
 			miDTBVRR = crearDTBVRR(miDTB,sobra);
 			queue_push(colaVRR,miDTBVRR);
@@ -274,8 +312,28 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 
 }
 
-void recibirDTByMotivo(int socketCPU){
+void recibirDesbloqueoDAM(DTB *miDTB) {
+	int aperturaEscriptorio; // 1 abierto 0 error de apertura
+
+	myRecibirDatosFijos(GsocketDAM,&aperturaEscriptorio,sizeof(int));
+
+	if (aperturaEscriptorio == 1){
+		int indice = buscarIndicePorIdGDT(colaBLOCK,miDTB->ID_GDT);
+		list_remove(colaBLOCK->elements, indice);
+		miDTB->Flag_GDTInicializado = 1;
+		queue_push(colaREADY,miDTB);
+		actualizarMetricaNEW(miDTB->ID_GDT);
+	} else if (aperturaEscriptorio == 1){
+		int indice = buscarIndicePorIdGDT(colaBLOCK,miDTB->ID_GDT);
+		list_remove(colaBLOCK->elements, indice);
+		queue_push(colaEXIT,miDTB);
+		actualizarMetricaEXIT(miDTB->ID_GDT);
+	}
+}
+
+DTB *recibirDTByMotivo(int socketCPU){
 	DTB *miDTB;
+	clienteCPU *miCPU;
 
 	miDTB = recibirDTB(socketCPU);
 
@@ -287,31 +345,13 @@ void recibirDTByMotivo(int socketCPU){
 
 	myRecibirDatosFijos(socketCPU,&instruccionesRealizadas,sizeof(int));
 
+	miCPU = buscarCPUporSock(socketCPU);
+
+	miCPU->libre = 1;
+
 	accionSegunPlanificacion(miDTB,motivoLiberacionCPU,instruccionesRealizadas);
-}
 
-bool hayCPUDisponible(){
-	bool estaLibre(clienteCPU *unaCPU) {
-				return unaCPU->libre == 1;
-	}
-	return list_any_satisfy(listaCPU, (void*) estaLibre);
-
-}
-
-clienteCPU* buscarCPUDisponible(){
-
-	for(int i = 0 ; i < list_size(listaCPU); i++){
-
-		clienteCPU * elemento;
-
-		elemento = list_get(listaCPU,i);
-
-		if(elemento->libre == 1)
-			return elemento;
-	}
-
-	return NULL;
-
+	return miDTB;
 }
 
 void PCP(DTB *miDTB, int esDummy){
@@ -321,6 +361,8 @@ void PCP(DTB *miDTB, int esDummy){
 		if(esDummy == 1){
 			char* strDTB;
 
+			DTB *auxDTB;
+
 			clienteCPU*CPULibre;
 
 			miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
@@ -329,7 +371,11 @@ void PCP(DTB *miDTB, int esDummy){
 
 			CPULibre = buscarCPUDisponible();
 
-			CPULibre->libre = 0;
+			CPULibre->libre = 0; // Cpu ocupada
+
+			if(strcmp(configModificable.algoPlani,"VRR")==0){
+				myEnviarDatosFijos(CPULibre->socketCPU,0, sizeof(int));
+			}
 
 			strDTB = DTBStruct2String (miDTB);
 
@@ -342,9 +388,10 @@ void PCP(DTB *miDTB, int esDummy){
 			Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
 			FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
 
-			recibirDTByMotivo(CPULibre->socketCPU);
-			//TODO queue_push(colaREADY,miDTB);
-			//TODO actualizarMetricaNEW(miDTB->ID_GDT);
+			auxDTB = recibirDTByMotivo(CPULibre->socketCPU);
+
+			recibirDesbloqueoDAM(auxDTB);
+
 		}else{
 			//TODO cuando no es dummy de READY -> EXEC
 			char* strDTB;
@@ -353,11 +400,12 @@ void PCP(DTB *miDTB, int esDummy){
 
 			CPULibre = buscarCPUDisponible();
 
-			CPULibre->libre = 0;
+			CPULibre->libre = 0; // Cpu ocupada
 
 			DTB * miDTB;
 
 			if(strcmp(configModificable.algoPlani,"FIFO")==0|| strcmp(configModificable.algoPlani,"RR")==0){
+				myEnviarDatosFijos(CPULibre->socketCPU,0, sizeof(int));
 				miDTB = queue_pop(colaREADY);
 			}
 
@@ -373,7 +421,6 @@ void PCP(DTB *miDTB, int esDummy){
 
 					myEnviarDatosFijos(CPULibre->socketCPU, &remanente, sizeof(int));
 
-					//TODO free(DTBVRR);
 				}else{
 					myEnviarDatosFijos(CPULibre->socketCPU,0, sizeof(int));
 
@@ -381,6 +428,8 @@ void PCP(DTB *miDTB, int esDummy){
 
 				}
 			}
+
+			queue_push(colaEXEC, miDTB);
 
 			strDTB = DTBStruct2String (miDTB);
 

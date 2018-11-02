@@ -99,7 +99,7 @@ void operacionDummy(DTB *miDTB){
 
 	int inst = 0;
 
-	enviarDTByMotivo(miDTB,estado,inst);
+	enviarDTByMotivo(miDTB,estado,inst); // Avisar a S-AFA del block y sin instrucciones ejecutadas
 
 	myEnviarDatosFijos(socketGDAM,strLenRuta,3);
 
