@@ -11,6 +11,7 @@
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
 #include <dtbSerializacion/dtbSerializacion.h>
+#include <sentencias/sentencias.h>
 
 #define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt"
 t_config *configCPU;
@@ -25,7 +26,8 @@ int retardoPlanificacion;
 char tipoPlanificacion[5];
 int  estoyEjecutando = 0 ; // 0 no 1 si
 int instruccionesEjecutadas;
-int motivoLiberacionCPU = -1; // 0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error
+int abortarEjecucionModoDIABLOskereee = 0;
+int motivoLiberacionCPU = -1; // 0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error , 4-> Abortar
 
 	///FUNCIONES DE CONFIG///
 
@@ -121,11 +123,12 @@ bool terminoElDTB(){
 bool DTBBloqueado(){
 	return motivoLiberacionCPU != 2;
 }
-/*
+
 bool validarArchivoEnLaLista(t_list *listaArchivos,char* nombreArchivo){
 	for (int indice = 0;indice < list_size(listaArchivos);indice++){
-		datosArchivo miArchivo = list_get(listaArchivos,indice);
-		if(strcmp(miArchivo.nombreArchivo,nombreArchivo) == 0){
+		datosArchivo *miArchivo;
+		miArchivo = list_get(listaArchivos,indice);
+		if(strcmp(miArchivo->nombreArchivo,nombreArchivo) == 0){
 				return true;
 		}
 	}
@@ -133,12 +136,12 @@ bool validarArchivoEnLaLista(t_list *listaArchivos,char* nombreArchivo){
 }
 
 void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
+	bool existeArchivoAbierto;
 
-	switch(miSentencia.operacion){
+	switch(miSentencia->operacion){
 
 		case OPERACION_ABRIR:
-			bool existeArchivoAbierto;
-			exiteArchivoAbierto = validarArchivoEnLaLista(miDTB,miSentencia.param1);
+			existeArchivoAbierto = validarArchivoEnLaLista(miDTB->tablaArchivosAbiertos,miSentencia->param1);
 			if(!existeArchivoAbierto){
 				operacionDummy(miDTB);
 			}else{
@@ -162,37 +165,37 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 		case OPERACION_BORRAR:
 		break;
 	}
-
-}*/
+}
 
 void ejecutarInstruccion(DTB* miDTB){
 	int instruccionesEjecutadas = 0;
 
-	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() ){
+	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() && (abortarEjecucionModoDIABLOskereee == 0)){
 
 		estoyEjecutando = 1;
 
-		//gestionDeSentencia();
+		sentencia *dudoso; //TODO
+
+		gestionDeSentencia(miDTB,dudoso);
 
 		miDTB->PC++;
-
 		instruccionesEjecutadas++;
 
 	}
-	if(terminoElDTB()){
+	if(abortarEjecucionModoDIABLOskereee == 1){
+
+		abortarEjecucionModoDIABLOskereee = 0;
+		motivoLiberacionCPU = 4;
+
+	} else if(terminoElDTB()){
 
 		motivoLiberacionCPU = 1;
+	} else if(DTBBloqueado()){
 
-	}else{
-
-		if(instruccionesEjecutadas == quantum){
-			motivoLiberacionCPU =  0;
-		}
-
-	}
-
-	if(DTBBloqueado()){
 		motivoLiberacionCPU = 2;
+	} else if(instruccionesEjecutadas == quantum){
+
+		motivoLiberacionCPU =  0;
 	}
 
 	estoyEjecutando = 0;
@@ -214,39 +217,52 @@ void enviarDTByMotivo(DTB* miDTB, int motivo, int instrucciones){
 
 ///GESTION DE CONEXIONES///
 
+int recibirModoDeEjecucion(){
+	int resultRecv;
+	int modo;
+
+	resultRecv = myRecibirDatosFijos(socketSAFA,&modo,sizeof(int));
+	if(resultRecv !=0){
+		printf("Error al recibir el Modo de Ejecucion");
+	}
+	return modo;
+}
+
 void gestionarConexionSAFA(){
 
-	recibirQyPlanificacion();
-	//INICIAR GDT//
 	while(1){
-
+		int miModo = recibirModoDeEjecucion();
 		DTB *miDTB;
 
-		if(strcmp(tipoPlanificacion,"VRR")==0){
-			recibirRemanente();
-		}
+		switch(miModo){
+			case MODO_DTB:
 
-		miDTB = recibirDTB(socketSAFA);
+				if(strcmp(tipoPlanificacion,"VRR")==0){
+					recibirRemanente();
+				}
 
-		myPuts("El DTB que se recibio es:\n");
-		imprimirDTB(miDTB);
+				miDTB = recibirDTB(socketSAFA);
 
-		if(miDTB->Flag_GDTInicializado == 0){
-			operacionDummy(miDTB);
-		}else{
-			ejecutarInstruccion(miDTB);
+				myPuts("El DTB que se recibio es:\n");
+				imprimirDTB(miDTB);
+
+				if(miDTB->Flag_GDTInicializado == 0){
+					operacionDummy(miDTB);
+				}else{
+					ejecutarInstruccion(miDTB);
+					enviarDTByMotivo(miDTB,motivoLiberacionCPU,instruccionesEjecutadas);
+				}
+			break;
+
+			case MODO_QyP:
+				recibirQyPlanificacion();
+			break;
+
+			case MODO_FINALIZAR:
+				abortarEjecucionModoDIABLOskereee = 1;
+			break;
 		}
 	}
-
-	/*while(1){
-		if(gestionarDesconexion((int)socketSAFA,"SAFA")!=0)
-			break;
-	}*/
-
-	/*//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
-	char buffer[5];
-	myRecibirDatosFijos(socketSAFA,buffer,5);
-	printf("El buffer que recibi por socket es %s\n",buffer);*/
 }
 
 void gestionarConexionDAM(int socketDAM){

@@ -1,33 +1,25 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <commons/config.h>
-#include <commons/string.h>
 #include <commons/collections/list.h>
 #include <commons/collections/queue.h>
-#include <readline/readline.h>
-#include <readline/history.h>
+#include <commons/config.h>
+#include <commons/string.h>
 #include <conexiones/mySockets.h>
 #include <console/myConsole.h>
-#include <parser/parser.h>
 #include <dtbSerializacion/dtbSerializacion.h>
-#include <errno.h>
-#include <sys/types.h>
+#include <netinet/in.h>
+#include <parser/parser.h>
+#include <pthread.h>
+#include <readline/history.h>
+#include <readline/readline.h>
+#include <semaphore.h>
+#include <sentencias/sentencias.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/inotify.h>
-
-
-const int OPERACION_ABRIR = 1;
-const int OPERACION_CONCENTRAR = 2;
-const int OPERACION_ASIGNAR = 3;
-const int OPERACION_WAIT = 4;
-const int OPERACION_SIGNAL = 5;
-const int OPERACION_FLUSH = 6;
-const int OPERACION_CLOSE = 7;
-const int OPERACION_CREAR = 8;
-const int OPERACION_BORRAR = 9;
+#include <sys/types.h>
+#include <unistd.h>
 
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 //t_config *configSAFA;
@@ -36,9 +28,8 @@ int	nroSentenciaActual;
 int IDGlobal = 0;
 int DTBenPCP = 0;
 int estadoSistema = -1; // 0 = Estado Operativo
-//int GsocketCPU;  // TODO ¿Es global con la lista de CPU's?
-int GsocketDAM;
 int cantHistoricaDeSentencias;
+int GsocketDAM;
 
 typedef struct ModiConfig {
 	char IP_ESCUCHA[15];
@@ -63,18 +54,11 @@ typedef struct DTBPrioridadVRR{
 	int remanente;
 } DTBPrioridadVRR;
 
-typedef struct sentencia {
-	int operacion;
-	char *param1;
-	int param2;
-	char *param3;
-} sentencia;
-
 typedef struct clienteCPU {
 	int socketCPU;
 	int libre; // 1 si 0 no
+	int idDTB;
 } clienteCPU;
-
 
 t_queue *colaNEW;
 t_queue *colaREADY;
@@ -107,6 +91,20 @@ clienteCPU* buscarCPUporSock(int sockCPU){
 		elemento = list_get(listaCPU,i);
 
 		if(elemento->socketCPU == sockCPU)
+			return elemento;
+	}
+
+	return NULL;
+}
+
+clienteCPU* buscarCPUporIdDTB(int miID){
+	for(int i = 0 ; i < list_size(listaCPU); i++){
+
+		clienteCPU * elemento;
+
+		elemento = list_get(listaCPU,i);
+
+		if(elemento->idDTB == miID)
 			return elemento;
 	}
 
@@ -186,7 +184,6 @@ DTBPrioridadVRR *crearDTBVRR(DTB* miDTB, int sobra){
 
 	return miDTB;
 }
-
 
 void enviarQyPlanificacionACPU(int CPU){
 	char planificacion[5];
@@ -372,8 +369,6 @@ void PCP(DTB *miDTB, int esDummy){
 		if(esDummy == 1){
 			char* strDTB;
 
-			DTB *auxDTB;
-
 			clienteCPU*CPULibre;
 
 			miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
@@ -381,37 +376,33 @@ void PCP(DTB *miDTB, int esDummy){
 			//Mandar a CPU y ver si va a READY o EXEC
 
 			CPULibre = buscarCPUDisponible();
+			myEnviarDatosFijos(CPULibre->socketCPU,MODO_DTB, sizeof(int));
 
 			CPULibre->libre = 0; // Cpu ocupada
+			CPULibre->idDTB = miDTB->ID_GDT;
 
 			if(strcmp(configModificable.algoPlani,"VRR")==0){
 				myEnviarDatosFijos(CPULibre->socketCPU,0, sizeof(int));
 			}
 
 			strDTB = DTBStruct2String (miDTB);
-
 			myEnviarDatosFijos(CPULibre->socketCPU, strDTB, strlen(strDTB));
 
-			/*Esta operación dummy consta de solicitarle a El Diego que busque en el MDJ el Escriptorio indicado
-			en el DTB. Una vez realizado esto, el CPU desaloja a dicho DTB Dummy, avisando a S-AFA que debe
-			bloquearlo. Si S-AFA recibe el DTB con el flag de inicialización en 0, moverá el DTB asociado al
-			programa G.DT que se había ejecutado en la cola de Bloqueados.
-			Cuando El Diego finaliza su operatoria, le comunicará a S-AFA si pudo o no alojar el Escriptorio en
-			FM9, para que el primero pueda pasarlo a la cola de Ready o Exit (según como corresponda).*/
-
+			DTB *auxDTB;
 			auxDTB = recibirDTByMotivo(CPULibre->socketCPU);
 
 			recibirDesbloqueoDAM(auxDTB);
 
 		}else{
-			//TODO cuando no es dummy de READY -> EXEC
 			char* strDTB;
 
 			clienteCPU*CPULibre;
 
 			CPULibre = buscarCPUDisponible();
+			myEnviarDatosFijos(CPULibre->socketCPU,MODO_DTB, sizeof(int));
 
 			CPULibre->libre = 0; // Cpu ocupada
+			CPULibre->idDTB = miDTB->ID_GDT;
 
 			DTB * miDTB;
 
@@ -476,6 +467,7 @@ void mostrarConfig(){
 	    free(myText);
 }
 
+
 void actualizarConfig(){
 	t_config *configAux= config_create(PATHCONFIGSAFA);
 
@@ -486,6 +478,7 @@ void actualizarConfig(){
 
 	config_destroy(configAux);
 }
+
 
 void cargarConfig(){
 	t_config *configSAFA= config_create(PATHCONFIGSAFA);
@@ -540,6 +533,13 @@ void notifyConfig(){
 							if(strcmp(event->name,"S-AFA.txt") == 0){
 								printf("Se modifico el archivo %s.\n", event->name);
 								actualizarConfig();
+								for(int i = 0 ; i < list_size(listaCPU); i++){
+									clienteCPU *miCPU;
+
+									miCPU = list_get(listaCPU, i);
+
+									myEnviarDatosFijos(miCPU->socketCPU,MODO_QyP, sizeof(int));
+								}
 							}
 						}
 					}
@@ -701,9 +701,8 @@ clienteCPU* crearClienteCPU(int socket){
 
 }
 
-
 void gestionarConexionCPU(int* sock){
-	int socketCPU = *(int*)sock; //TODO
+	int socketCPU = *(int*)sock;
 	clienteCPU *nuevoClienteCPU;
 
 	nuevoClienteCPU =crearClienteCPU(socketCPU);
@@ -713,6 +712,8 @@ void gestionarConexionCPU(int* sock){
 	if(conectionDAM==true && !(list_is_empty(listaCPU))){
 		estadoSistema = 0;
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
+
+	myEnviarDatosFijos(socketCPU,MODO_QyP, sizeof(int));
 
 	enviarQyPlanificacionACPU(socketCPU);
 	}
@@ -999,9 +1000,10 @@ int main(void)
 						} else {
 							//printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
 							printf("Cola EXEC:\n");
-							//TURBIO//
-							/* el G.DT se encuentra en la cola EXEC se deberá esperar a terminar la
-							operación actual, para luego moverlo a la cola EXIT. */
+							clienteCPU *CPUconDTB;
+
+							CPUconDTB = buscarCPUporIdDTB(id);
+							myEnviarDatosFijos(CPUconDTB->socketCPU,MODO_FINALIZAR, sizeof(int));
 						}
 					} else {
 						printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
