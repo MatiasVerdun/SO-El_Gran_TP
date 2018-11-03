@@ -376,7 +376,8 @@ void PCP(DTB *miDTB, int esDummy){
 			//Mandar a CPU y ver si va a READY o EXEC
 
 			CPULibre = buscarCPUDisponible();
-			myEnviarDatosFijos(CPULibre->socketCPU,MODO_DTB, sizeof(int));
+			int modo = MODO_DTB;
+			myEnviarDatosFijos(CPULibre->socketCPU,&modo, sizeof(int));
 
 			CPULibre->libre = 0; // Cpu ocupada
 			CPULibre->idDTB = miDTB->ID_GDT;
@@ -399,7 +400,8 @@ void PCP(DTB *miDTB, int esDummy){
 			clienteCPU*CPULibre;
 
 			CPULibre = buscarCPUDisponible();
-			myEnviarDatosFijos(CPULibre->socketCPU,MODO_DTB, sizeof(int));
+			int modo = MODO_DTB;
+			myEnviarDatosFijos(CPULibre->socketCPU,&modo, sizeof(int));
 
 			CPULibre->libre = 0; // Cpu ocupada
 			CPULibre->idDTB = miDTB->ID_GDT;
@@ -713,7 +715,9 @@ void gestionarConexionCPU(int* sock){
 		estadoSistema = 0;
 		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
 
-	myEnviarDatosFijos(socketCPU,MODO_QyP, sizeof(int));
+	int modo = MODO_QyP;
+
+	myEnviarDatosFijos(socketCPU,&modo, sizeof(int));
 
 	enviarQyPlanificacionACPU(socketCPU);
 	}
@@ -1003,7 +1007,8 @@ int main(void)
 							clienteCPU *CPUconDTB;
 
 							CPUconDTB = buscarCPUporIdDTB(id);
-							myEnviarDatosFijos(CPUconDTB->socketCPU,MODO_FINALIZAR, sizeof(int));
+							int modo = MODO_DTB;
+							myEnviarDatosFijos(CPUconDTB->socketCPU,&modo, sizeof(int));
 						}
 					} else {
 						printf("Se mando el DTB con ID %d a la cola de EXIT\n",id);
