@@ -71,10 +71,15 @@ void crearArchivo(char* path,u_int32_t size){
 void obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 
 	u_int32_t respuesta=0;
-	char *buffer=malloc(size);
-	u_int32_t operacion= htonl(3);
+	u_int32_t tamDatos=0;
+	u_int32_t operacion;
 	u_int32_t tempOffset = htonl(offset);
 	u_int32_t tempSize = htonl(size);
+
+	if(size==0)
+		operacion=htonl(5);
+	else
+		operacion=htonl(3);
 
 	myPuts(BLUE "Obteniendo datos '%s' ",path);
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
@@ -83,17 +88,21 @@ void obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 
 	if(ntohl(respuesta)==0){
-		myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempOffset,sizeof(u_int32_t));
-		myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempSize,sizeof(u_int32_t));
-
-		myRecibirDatosFijos(socketGMDJ,(char*)buffer,30);//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
-		memset(buffer+30,'\0',1);
-		myPuts("Los datos recibidos son: %s\n",buffer);
+		if(size==0){
+			myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&tamDatos,sizeof(u_int32_t));
+			char* buffer= malloc(ntohl(tamDatos)+1);
+			myRecibirDatosFijos(socketGMDJ,(char*)buffer,ntohl(tamDatos));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
+			memset(buffer+ntohl(tamDatos),'\0',1);
+			myPuts("\n%s\n",buffer);
+			//free(buffer);
+		}else{//TODO obtener datos con offset y size
+			myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempOffset,sizeof(u_int32_t));
+			myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempSize,sizeof(u_int32_t));
+		}
 	}else{
 		myPuts(RED "El archivo solicitado no existe" COLOR_RESET "\n");
 	}
 
-	free(buffer);
 }
 
 void enviarScript(char* script,u_int32_t tamScript){
@@ -227,9 +236,9 @@ void gestionarConexionMDJ(){
 
 	//validarArchivo("../root/bou.txt");
 	//crearArchivo("../root/bou.txt",256);
-	//obtenerDatos("root/fifa/jugadores/bou.txt",40,100);
+	obtenerDatos("scripts/checkpoint.escriptorio",0,0);
 	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
-	obtenerScript("scripts/checkpoint.escriptorio");
+	//obtenerScript("scripts/checkpoint.escriptorio");
 }
 
 	///FUNCIONES DE CONEXION///
@@ -327,8 +336,8 @@ int main() {
 
 
     //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
-    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
-    pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+	pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();

@@ -161,7 +161,7 @@ void gestionDatos(int socketDAM, int operacion){
 			pathFS=string_from_format("%sArchivos/%s", (char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),path);
 
 			if(validarArchivo(pathFS)==0){
-				myPuts(BOLDGREEN"Archivo existente" COLOR_RESET "\n");
+				myPuts(BOLDGREEN"Archivo existente enviando script" COLOR_RESET "\n");
 				respuesta=htonl(0);
 
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t)); //Le indico al DAM que el archivo existe para que siga operando
