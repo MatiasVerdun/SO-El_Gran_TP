@@ -81,7 +81,7 @@ void leerArchivoDesdeHasta(char* FILEPATH,char* bloque,int byteInicio,int byteFi
 			j++;
 		}
     }
-    buffer[j+1]='\0';
+    //buffer[j]='\0';
     for(i=0;i<j;i++){
     	bloque[i]=buffer[i];
     }
