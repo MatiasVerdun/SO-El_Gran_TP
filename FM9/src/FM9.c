@@ -60,11 +60,39 @@ void mostrarConfig(){
 
 	///GESTION DE CONEXIONES///
 
+void recibirScript(int socketDAM){
+	u_int32_t respuesta=0;
+	u_int32_t tamScript=0;
+	myPuts(BLUE "Obteniendo script");
+	loading(1);
+	myRecibirDatosFijos(socketDAM,(u_int32_t*)&tamScript,sizeof(u_int32_t)); //Recibo el size
+	char* buffer= malloc(ntohl(tamScript)+1);
+	myRecibirDatosFijos(socketDAM,(char*)buffer,ntohl(tamScript));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
+	/*memset(buffer+ntohl(tamScript),'\0',1);*/
+	myPuts("\n%s\n",buffer);
+	//free(buffer);
+
+
+}
+
 void gestionarConexionDAM(int *sock){
 	int socketDAM = *(int*)sock;
+	u_int32_t buffer=0,operacion=0;
 	while(1){
-		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
+
+		if(myRecibirDatosFijos(socketDAM,(u_int32_t*)&buffer,sizeof(u_int32_t))==0){
+			operacion=ntohl(buffer);
+
+			switch(operacion){
+				case(1):
+					recibirScript(socketDAM);
+					break;
+			}
+		}else{
+			myPuts(RED "Se desconecto el proceso DAM" COLOR_RESET "\n");
 			break;
+		}
+
 	}
 }
 
@@ -179,7 +207,7 @@ int main() {
 
 	mostrarConfig();
 
-    //pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+    pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 	inicializarMemoria();
 	pruebaGuardadoDTB();

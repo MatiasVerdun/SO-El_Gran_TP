@@ -1,0 +1,9 @@
+abrir path/A/abrir.gaga
+concentrar
+asignar otro/path/asig.gaga 8 sePromociona
+wait semW
+signal semS
+flush algo/de/flush.gaga
+close path/a/cerrar.gaga
+crear mi/path/a/crear.gaga 48
+borrar /mi/archivo/borrar.gaga
