@@ -12,6 +12,8 @@
 #include <console/myConsole.h>
 #include <commons/string.h>
 #include <commons/config.h>
+#include <stdio.h>
+#include <dirent.h>
 
 #define PATHD "/home/utnso/tp-2018-2c-smlc/MDJ/Metadata/directorios.dat"
 #define PATHCONFIGMDJ "/home/utnso/tp-2018-2c-smlc/Config/MDJ.txt"
@@ -28,6 +30,7 @@ t_config *configMDJ;
 size_t tamBloque;
 size_t cantBloques;
 
+int listar(char* linea);
 void cargarFS();
 int existeArchivoFS(char* pathArchivoFS);
 void leerArchivoMDJ(char* pathFSArchivo);

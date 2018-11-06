@@ -616,3 +616,53 @@ int array_length(void* array){
 	else
 		return -1;
 }
+
+int esArchivo(char* nombre)
+{
+	for(int i=0;i<strlen(nombre);i++){
+		if(nombre[i]=='.')
+			return 0;
+	}
+	return 1;
+}
+
+int listar(char* linea){
+    struct dirent *de;  // Pointer for directory entry
+	char **split;
+	split=(char**)string_split(linea," ");
+	char* realpath;
+
+	if(split[1]){
+		printf(BOLDCYAN "(%s):" COLOR_RESET "\n",split[1]);
+		realpath=string_from_format("%sArchivos/%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),split[1]);
+	}else{
+		printf(BOLDCYAN "(root):" COLOR_RESET "\n");
+		realpath= string_from_format("%sArchivos/",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	}
+
+    // opendir() returns a pointer of DIR type.
+    DIR *dr = opendir(realpath);
+
+    if (dr == NULL)  // opendir returns NULL if couldn't open directory
+    {
+        printf("Could not open current directory" );
+        return 1;
+    }
+
+    // Refer http://pubs.opengroup.org/onlinepubs/7990989775/xsh/readdir.html
+    // for readdir()
+    while ((de = readdir(dr)) != NULL){
+    	if(esArchivo(de->d_name)==0){
+    		printf("%s\n", de->d_name);
+    	}else{
+    		printf(BOLDBLUE "%s" COLOR_RESET"\n", de->d_name);
+    	}
+
+    }
+
+
+    closedir(dr);
+    liberarSplit(split);
+    free(realpath);
+    return 0;
+}

@@ -316,10 +316,10 @@ void consola(){
 	 	if(!strncmp(linea,"mkdir",5)){
 	 		mkdirr(linea,t_directorios);
 	 	}
-	 	if(!strncmp(linea,"ls",3)){
-	 		printf("Listado de directorios:\n");
-	 		cargarStructDirectorio(t_directorios);
-			listarDirectorios(t_directorios,0,0);
+	 	if(!strncmp(linea,"ls",2)){
+	 		listar(linea);
+	 		/*cargarStructDirectorio(t_directorios);
+			listarDirectorios(t_directorios,0,0);*/
 	 	}
 	 	if(!strncmp(linea,"directorio",1)){
 			listarDirectorioIndice(linea,t_directorios);
