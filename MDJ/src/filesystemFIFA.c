@@ -5,9 +5,184 @@
  *      Author: utnso
  */
 #include "filesystemFIFA.h"
-#include <archivos/archivos.h>
-#include <console/myConsole.h>
-#include <commons/string.h>
+
+void cargarFS(){
+	struct stat st = {0};
+	t_config *configFS;
+	char *metadata ;
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+
+	if (stat(puntoMontaje, &st) == -1) {//TODO Crear nuevo punto de montaje
+	    //mkdir("/some/directory", 0700);
+		printf("La carpeta %s no existe\n",puntoMontaje);
+	}else{
+		metadata=string_from_format("%sMetadata/Metadata.bin", puntoMontaje);
+		configFS=config_create(metadata);
+		tamBloque=(int)getConfigR("TAMANIO_BLOQUES",1,configFS);
+		cantBloques=(int)getConfigR("CANTIDAD_BLOQUES",1,configFS);
+		printf("Tamanio bloques: %d\n", tamBloque);
+		printf("Cantidad de bloques: %d\n", cantBloques);
+
+	}
+	free(puntoMontaje);
+	free(metadata);
+	config_destroy(configFS);
+}
+
+char* leerBloque(char* nroBloque){
+	char* contenidoBloque=malloc(tamBloque+1);
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	memset(contenidoBloque,'\0',tamBloque+1);
+	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
+	leerArchivoDesdeHasta(pathBloque,contenidoBloque,0,tamBloque);
+	//printf("Contenido bloque %s:\n%s\n",nroBloque,contenidoBloque);
+	free(puntoMontaje);
+	free(pathBloque);
+	return contenidoBloque;
+}
+
+
+void leerArchivoMDJ(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo en el FileSystem Fifa, pathABSArchivo-> Path absoluto del archivo en filesystem Unix
+	struct stat st = {0};
+	t_config *configFS;
+	char *pathABSarchivo ;
+	u_int32_t tamArchivo,cantBloquesArchivo;
+	char** bloques;
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+
+	if (stat(puntoMontaje, &st) == -1) {
+	    //mkdir("/some/directory", 0700);
+		printf("La carpeta %s no existe\n",puntoMontaje);
+	}else{
+		pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
+		configFS=config_create(pathABSarchivo);
+		tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
+		bloques=config_get_array_value(configFS, "BLOQUES");
+		cantBloquesArchivo=array_length(bloques);
+		char *archivo=string_new();
+		//printf("Tamanio : %d\n", tamArchivo);
+		//printf("Cantidad de bloques: %d\n", cantBloquesArchivo);
+		for(int i=0;i<cantBloquesArchivo;i++){
+			//printf("Bloque %d: %s\n",i,bloques[i]);
+			char *contenidoBloque=(char*)leerBloque(bloques[i]);
+			//printf("Contenido del bloque:\n%s\n",contenidoBloque);
+			string_append(&archivo,contenidoBloque);
+			free(contenidoBloque);
+		}
+		printf("Contenido Archivo:\n%s\n",archivo);
+		free(archivo);
+	}
+
+	free(puntoMontaje);
+	free(pathABSarchivo);
+	liberarSplit(bloques);
+	config_destroy(configFS);
+}
+
+
+char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo en el FileSystem Fifa, pathABSArchivo-> Path absoluto del archivo en filesystem Unix
+	struct stat st = {0};
+	t_config *configFS;
+
+	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	u_int32_t tamArchivo,cantBloquesArchivo;
+	char** bloques;
+
+	if (stat(puntoMontaje, &st) == -1) {
+	    //mkdir("/some/directory", 0700);
+		printf("La carpeta %s no existe\n",puntoMontaje);
+		return "ERROR";
+	}else{
+		if(existeArchivoFS(pathFSArchivo)==0){
+			char *pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
+			configFS=config_create(pathABSarchivo);
+			tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
+			bloques=config_get_array_value(configFS, "BLOQUES");
+			cantBloquesArchivo=array_length(bloques);
+			char *archivo=string_new();
+
+			//printf("Tamanio : %d\n", tamArchivo);
+			//printf("Cantidad de bloques: %d\n", cantBloquesArchivo);
+			for(int i=0;i<cantBloquesArchivo;i++){
+				//printf("Bloque %d: %s\n",i,bloques[i]);
+				char *contenidoBloque=(char*)leerBloque(bloques[i]);
+				//printf("Contenido del bloque:\n%s\n",contenidoBloque);
+				string_append(&archivo,contenidoBloque);
+				free(contenidoBloque);
+			}
+			free(puntoMontaje);
+			free(pathABSarchivo);
+			liberarSplit(bloques);
+			config_destroy(configFS);
+			return archivo;
+		}else{
+			free(puntoMontaje);
+			return "ERROR";
+		}
+	}
+}
+
+
+int existeCarpetaFS(){
+	struct stat st = {0};
+	char* puntoMontaje = string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	if (stat(puntoMontaje, &st) == -1){
+		free(puntoMontaje);
+		return 1;
+	}else{
+		free(puntoMontaje);
+		return 0;
+	}
+
+}
+
+
+int existeArchivoFS(char* pathArchivoFS){
+	char* puntoMontaje = string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* pathABSarchivo = string_from_format("%sArchivos/%s", puntoMontaje,pathArchivoFS);;
+	FILE *f=fopen(pathABSarchivo,"r");
+	if(f==NULL){
+		free(puntoMontaje);
+		free(pathABSarchivo);
+
+		printf("No existe papa %s \n",puntoMontaje);
+		return 1;
+	}else{
+		free(puntoMontaje);
+		free(pathABSarchivo);
+		fclose(f);
+		return 0;
+	}
+}
+
+
+int obtenerTamArchivoFS(char* pathFSArchivo){
+	t_config *configFS;
+	char *pathABSarchivo ;
+	u_int32_t tamArchivo;
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+
+	if (existeCarpetaFS()==0){
+		if(existeArchivoFS(pathFSArchivo)==0){
+			pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
+			configFS=config_create(pathABSarchivo);
+			tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
+		}else{
+			printf("El archivo especificado no existe\n");
+			exit(1);
+		}
+
+		free(puntoMontaje);
+		free(pathABSarchivo);
+		config_destroy(configFS);
+		return tamArchivo;
+	}else{
+		printf("El punto de montaje especificado no existe\n");
+		exit(1);
+	}
+
+}
+
 
 void escribirDirectorioIndice(char* datos,int indice){//Escribe los datos del directorio en la posicion del indice indicado
    int fd,desplazamiento;
@@ -48,6 +223,7 @@ void escribirDirectorioIndice(char* datos,int indice){//Escribe los datos del di
    close(fd);
 }
 
+
 void actualizarArchivoDirectorio(struct tablaDirectory *t_directorios){// ESCRIBE TODOS LOS DATOS DEL STRUCT EN EL ARCHIVO
 	//memset(buffer,0,sizeof(t_directorios));
 	int i;
@@ -77,6 +253,7 @@ void actualizarArchivoDirectorio(struct tablaDirectory *t_directorios){// ESCRIB
 
 }
 
+
 int obtenerPadreDir(char* nombreDir){
 	int i,resultado;
 	i=resultado=0;
@@ -91,6 +268,7 @@ int obtenerPadreDir(char* nombreDir){
 	return -1;
 }
 
+
 int obtenerIndiceDir(char* nombreDir){
 	int i,resultado;
 	i=resultado=0;
@@ -104,6 +282,7 @@ int obtenerIndiceDir(char* nombreDir){
 	}
 	return -1;
 }
+
 
 int crearDirectorio(struct tablaDirectory *t_directorios,char* pathDir){
 	int i=0,j=0;
@@ -170,6 +349,7 @@ int crearDirectorio(struct tablaDirectory *t_directorios,char* pathDir){
 	return 0;
 }
 
+
 void crearDirectorioRoot(struct tablaDirectory *t_directorios){
 	tableDirectory *directorio=malloc(sizeof(tableDirectory));
 	directorio->index=0;
@@ -178,6 +358,7 @@ void crearDirectorioRoot(struct tablaDirectory *t_directorios){
 	t_directorios[0]=*directorio;
 	free(directorio);
 }
+
 
 void inicializarTdir(struct tablaDirectory *t_directorios){
 	int i;
@@ -188,11 +369,13 @@ void inicializarTdir(struct tablaDirectory *t_directorios){
 	}
 }
 
+
 void inicializarDir(struct tablaDirectory *t_directorios){
 	inicializarTdir(t_directorios);
 	crearDirectorioRoot(t_directorios);
 	actualizarArchivoDirectorio(t_directorios);
 }
+
 
 void crearArchivoDirectorio(){
 	   int fd;
@@ -210,6 +393,7 @@ void crearArchivoDirectorio(){
 	   }
 }
 
+
 void crearMetadata(){
 	tableDirectory t_directorios[100];
 
@@ -223,6 +407,7 @@ void crearMetadata(){
 
 }
 
+
 void listarPadresDir(struct tablaDirectory *t_directorios,int i){
 	if(i<100){
 		if(obtenerPadreDir(t_directorios[i].nombre)!=0){
@@ -231,6 +416,7 @@ void listarPadresDir(struct tablaDirectory *t_directorios,int i){
 		}
 	}
 }
+
 
 void listarDirectorios(struct tablaDirectory *t_directorios,int i,int nivel){
 	int j=1;
@@ -258,6 +444,7 @@ void listarDirectorios(struct tablaDirectory *t_directorios,int i,int nivel){
 		}
 	}
 }
+
 
 int validarPathDir(char* pathDir){
 	char** nombresDirectorios,**splitaux;
@@ -299,6 +486,7 @@ int validarPathDir(char* pathDir){
 	liberarSplit(nombresDirectorios);
 	return 0;
 }
+
 
 int borrarDirectorio(struct tablaDirectory *t_directorios,char* pathDir){
 	int i,j,k,resultado,resultadoAux;
@@ -343,6 +531,7 @@ int borrarDirectorio(struct tablaDirectory *t_directorios,char* pathDir){
 	liberarSplit(nombresDirectorios);
 	return 0;
 }
+
 
 int leerArchivoDirectorio(struct tablaDirectory *t_directorios,int numeroDirectorio){
     int i,fd,posicionDirectorioActual,posicionDirectorioSiguiente,j=0;
@@ -410,6 +599,7 @@ int leerArchivoDirectorio(struct tablaDirectory *t_directorios,int numeroDirecto
     return 0;
 }
 
+
 void cargarStructDirectorio(struct tablaDirectory *t_directorios){
 	int i,resultado;
 	i=resultado=0;
@@ -419,3 +609,10 @@ void cargarStructDirectorio(struct tablaDirectory *t_directorios){
 	}
 }
 
+
+int array_length(void* array){
+	if(array)
+		return (sizeof(array)/sizeof(array[0]))+1;
+	else
+		return -1;
+}

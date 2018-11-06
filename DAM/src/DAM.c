@@ -68,7 +68,7 @@ void crearArchivo(char* path,u_int32_t size){
 
 }
 
-void obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
+char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 
 	u_int32_t respuesta=0;
 	u_int32_t tamDatos=0;
@@ -93,54 +93,28 @@ void obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 			char* buffer= malloc(ntohl(tamDatos)+1);
 			myRecibirDatosFijos(socketGMDJ,(char*)buffer,ntohl(tamDatos));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
 			memset(buffer+ntohl(tamDatos),'\0',1);
-			myPuts("\n%s\n",buffer);
-			//free(buffer);
+
+			return buffer;
 		}else{//TODO obtener datos con offset y size
 			myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempOffset,sizeof(u_int32_t));
 			myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempSize,sizeof(u_int32_t));
+			return "ERROR";
 		}
 	}else{
 		myPuts(RED "El archivo solicitado no existe" COLOR_RESET "\n");
+		return "ERROR";
 	}
 
 }
 
-void enviarScript(char* script,u_int32_t tamScript){
+void enviarDatosFM9(char* datos,u_int32_t tamDatos){
 	myPuts(BLUE "Enviando script a FM9 " COLOR_RESET);
 	loading(1);
 	u_int32_t operacion= htonl(1);
 	myEnviarDatosFijos(socketGFM9,(u_int32_t*)&operacion,sizeof(u_int32_t));
-	u_int32_t size=htonl(tamScript);
+	u_int32_t size=htonl(tamDatos);
 	myEnviarDatosFijos(socketGFM9,(u_int32_t*)&size,sizeof(u_int32_t));
-	myEnviarDatosFijos(socketGFM9,(char*)script,tamScript);
-}
-
-void obtenerScript(char* path){
-
-	u_int32_t respuesta=0;
-	u_int32_t tamScript=0;
-	u_int32_t operacion= htonl(5);
-
-	myPuts(BLUE "Obteniendo script '%s' ",path);
-	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
-	myEnviarDatosFijos(socketGMDJ,path,50);
-	loading(1);
-	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
-
-	if(ntohl(respuesta)==0){
-
-		myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&tamScript,sizeof(u_int32_t)); //Recibo el size
-
-		char* buffer= malloc(ntohl(tamScript)+1);
-		myRecibirDatosFijos(socketGMDJ,(char*)buffer,ntohl(tamScript));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
-		memset(buffer+ntohl(tamScript),'\0',1);
-		//myPuts("\n%s\n",buffer);
-		enviarScript(buffer,ntohl(tamScript));
-		//free(buffer);
-	}else{
-		myPuts(RED "El archivo solicitado no existe" COLOR_RESET "\n");
-	}
-
+	myEnviarDatosFijos(socketGFM9,(char*)datos,tamDatos);
 }
 
 void guardarDatos(char* path,u_int32_t offset, u_int32_t size,char* buffer){
@@ -236,7 +210,9 @@ void gestionarConexionMDJ(){
 
 	//validarArchivo("../root/bou.txt");
 	//crearArchivo("../root/bou.txt",256);
-	obtenerDatos("scripts/checkpoint.escriptorio",0,0);
+	char *archivo=obtenerDatos("scripts/checkpoint.escriptorio",0,0);
+	enviarDatosFM9(archivo,strlen(archivo));
+	free(archivo);
 	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
 	//obtenerScript("scripts/checkpoint.escriptorio");
 }
@@ -337,7 +313,7 @@ int main() {
 
     //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
 	pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();

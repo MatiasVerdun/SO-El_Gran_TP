@@ -15,37 +15,7 @@
 #include "filesystemFIFA.h"
 #include "interfaz.h"
 
-
-t_config *configMDJ;
-size_t tamBloque;
-size_t cantBloques;
-char* obtenerArchivoMDJ(char* pathFSArchivo);
-int obtenerTamArchivoFS(char* pathFSArchivo);
 ///FUNCIONES DE CONFIG///
-
-void cargarFS(){
-	struct stat st = {0};
-	t_config *configFS;
-	char *puntoMontaje= string_new();
-	char *metadata ;
-	string_append(&puntoMontaje,(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-
-	if (stat(puntoMontaje, &st) == -1) {
-	    //mkdir("/some/directory", 0700);
-		printf("La carpeta %s no existe\n",puntoMontaje);
-	}else{
-		metadata=string_from_format("%sMetadata/Metadata.bin", puntoMontaje);
-		configFS=config_create(metadata);
-		tamBloque=(int)getConfigR("TAMANIO_BLOQUES",1,configFS);
-		cantBloques=(int)getConfigR("CANTIDAD_BLOQUES",1,configFS);
-		printf("Tamanio bloques: %d\n", tamBloque);
-		printf("Cantidad de bloques: %d\n", cantBloques);
-
-	}
-	free(puntoMontaje);
-	free(metadata);
-	config_destroy(configFS);
-}
 
 void mostrarConfig(){
 
@@ -104,7 +74,6 @@ void gestionArchivos(int socketDAM,int operacion){
 
 void gestionDatos(int socketDAM, int operacion){
 	char path[50];
-	char *pathFS;
 	char datosDummy[30];
 	u_int32_t offset,size,respuesta;
 	offset=size=respuesta=0;
@@ -158,26 +127,23 @@ void gestionDatos(int socketDAM, int operacion){
 			printf(BLUE "Validando si existe el archivo '%s'" ,path);
 			loading(1);
 
-			pathFS=string_from_format("%sArchivos/%s", (char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),path);
-
-			if(validarArchivo(pathFS)==0){
+			if(validarArchivo(path)==0){
 				myPuts(BOLDGREEN"Archivo existente enviando script" COLOR_RESET "\n");
 				respuesta=htonl(0);
 
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t)); //Le indico al DAM que el archivo existe para que siga operando
-				char *script=obtenerArchivoMDJ(path);
+				char* archivo=obtenerArchivoFS(path);
 				size=htonl(obtenerTamArchivoFS(path));
 
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t));
-				myEnviarDatosFijos(socketDAM,(char*)script,ntohl(size));
-				free(script);
+				myEnviarDatosFijos(socketDAM,(char*)archivo,ntohl(size));
+				free(archivo);
 			}
 			else{
 				myPuts(RED "Archivo inexistente" COLOR_RESET "\n");
 				respuesta=htonl(1);
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 			}
-			free(pathFS);
 			break;
 	}
 
@@ -193,19 +159,19 @@ void gestionarConexionDAM(int sock)
 			operacion=ntohl(buffer);
 
 			switch(operacion){
-				case(1):
+				case(1): //Verificar archivo
 					gestionArchivos(socketDAM,1);
 					break;
-				case(2):
+				case(2): //Crear archivo
 					gestionArchivos(socketDAM,2);
 					break;
-				case(3):
+				case(3): //Obtener datos
 					gestionDatos(socketDAM,3);
 					break;
-				case(4):
+				case(4): //Guardar datos
 					gestionDatos(socketDAM,4);
 					break;
-				case(5):
+				case(5): //Obtener archivo completo
 					gestionDatos(socketDAM,5);
 					break;
 			}
@@ -247,131 +213,6 @@ void* connectionDAM()
 	return 0;
 }
 
-//DEVELOP//
-int array_length(void* array){
-	if(array)
-		return (sizeof(array)/sizeof(array[0]))+1;
-	else
-		return -1;
-}
-
-char* leerBloque(char* nroBloque,char* puntoMontaje){
-	char* contenidoBloque=malloc(tamBloque+1);
-	memset(contenidoBloque,'\0',tamBloque+1);
-	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
-	leerArchivoDesdeHasta(pathBloque,contenidoBloque,0,tamBloque);
-	//printf("Contenido bloque %s:\n%s\n",nroBloque,contenidoBloque);
-	free(pathBloque);
-	return contenidoBloque;
-}
-
-int verificarCarpeta(char* path){
-	struct stat st = {0};
-	if (stat(path, &st) == -1)
-		return 0;
-	else
-		return 1;
-}
-
-void leerArchivoMDJ(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo en el FileSystem Fifa, pathABSArchivo-> Path absoluto del archivo en filesystem Unix
-	struct stat st = {0};
-	t_config *configFS;
-	char *puntoMontaje= string_new();
-	char *pathABSarchivo ;
-	u_int32_t tamArchivo,cantBloquesArchivo;
-	char** bloques;
-	string_append(&puntoMontaje,(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-
-	if (stat(puntoMontaje, &st) == -1) {
-	    //mkdir("/some/directory", 0700);
-		printf("La carpeta %s no existe\n",puntoMontaje);
-	}else{
-		pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
-		configFS=config_create(pathABSarchivo);
-		tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
-		bloques=config_get_array_value(configFS, "BLOQUES");
-		cantBloquesArchivo=array_length(bloques);
-		char *archivo=string_new();
-		//printf("Tamanio : %d\n", tamArchivo);
-		//printf("Cantidad de bloques: %d\n", cantBloquesArchivo);
-		for(int i=0;i<cantBloquesArchivo;i++){
-			//printf("Bloque %d: %s\n",i,bloques[i]);
-			char *contenidoBloque=(char*)leerBloque(bloques[i],puntoMontaje);
-			//printf("Contenido del bloque:\n%s\n",contenidoBloque);
-			string_append(&archivo,contenidoBloque);
-			free(contenidoBloque);
-		}
-		printf("Contenido Archivo:\n%s\n",archivo);
-		free(archivo);
-	}
-
-	free(puntoMontaje);
-	free(pathABSarchivo);
-	liberarSplit(bloques);
-	config_destroy(configFS);
-}
-
-char* obtenerArchivoMDJ(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo en el FileSystem Fifa, pathABSArchivo-> Path absoluto del archivo en filesystem Unix
-	struct stat st = {0};
-	t_config *configFS;
-	char *puntoMontaje= string_new();
-	char *pathABSarchivo ;
-	char *archivo= string_new();
-	u_int32_t tamArchivo,cantBloquesArchivo;
-	char** bloques;
-	string_append(&puntoMontaje,(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-
-	if (stat(puntoMontaje, &st) == -1) {
-	    //mkdir("/some/directory", 0700);
-		printf("La carpeta %s no existe\n",puntoMontaje);
-	}else{
-		pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
-		configFS=config_create(pathABSarchivo);
-		tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
-		bloques=config_get_array_value(configFS, "BLOQUES");
-		cantBloquesArchivo=array_length(bloques);
-		//printf("Tamanio : %d\n", tamArchivo);
-		//printf("Cantidad de bloques: %d\n", cantBloquesArchivo);
-		for(int i=0;i<cantBloquesArchivo;i++){
-			//printf("Bloque %d: %s\n",i,bloques[i]);
-			char *contenidoBloque=(char*)leerBloque(bloques[i],puntoMontaje);
-			//printf("Contenido del bloque:\n%s\n",contenidoBloque);
-			string_append(&archivo,contenidoBloque);
-			free(contenidoBloque);
-		}
-		//printf("Contenido Archivo:\n%s\n",archivo);
-	}
-
-	free(puntoMontaje);
-	free(pathABSarchivo);
-	liberarSplit(bloques);
-	config_destroy(configFS);
-	return archivo;
-}
-
-int obtenerTamArchivoFS(char* pathFSArchivo){
-	struct stat st = {0};
-	t_config *configFS;
-	char *puntoMontaje= string_new();
-	char *pathABSarchivo ;
-	u_int32_t tamArchivo;
-	string_append(&puntoMontaje,(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-
-	if (stat(puntoMontaje, &st) == -1) {
-		printf("La carpeta %s no existe\n",puntoMontaje);
-		return -1;
-	}else{
-		pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
-		configFS=config_create(pathABSarchivo);
-		tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
-
-		free(puntoMontaje);
-		free(pathABSarchivo);
-		config_destroy(configFS);
-		return tamArchivo;
-	}
-
-}
 //CONSOLA//
 
 void mkdirr(char* linea,struct tablaDirectory *t_directorios){
@@ -437,20 +278,29 @@ void listarDirectorioIndice(char* linea,struct tablaDirectory *t_directorios){
 }
 
 void cat(char* linea){
-	char *pathArchivoFIFAFS;
+	char *pathArchivoFIFAFS,*archivo;
 	char **split;
 	split=(char**)string_split(linea," ");
 	pathArchivoFIFAFS=malloc(strlen(split[1])+1);
 	strcpy(pathArchivoFIFAFS,split[1]);
-	leerArchivoMDJ(pathArchivoFIFAFS);
-}
+	archivo=obtenerArchivoFS(pathArchivoFIFAFS);
+	if(strcmp(archivo,"ERROR")==0){
+		printf("El archivo especificado no existe\n");
+	}else{
+		printf("Contenido del archivo:\n%s\n",archivo);
+		free(archivo);
+	}
+	free(pathArchivoFIFAFS);
+	liberarSplit(split);
 
+}
 
 void consola(){
 	char* linea;
 	tableDirectory t_directorios[100];
 	while(1){
 		linea = readline(">");
+		add_history("cat scripts/checkpoint.escriptorio");
 		if (linea)
 			add_history(linea);
 
@@ -481,7 +331,7 @@ void consola(){
 			cargarFS();
 		}
 		if(!strncmp(linea,"cat",2)){
-			leerArchivoMDJ("scripts/checkpoint.escriptorio");
+			cat(linea);
 		}
 		free(linea);
 	}
@@ -496,7 +346,7 @@ int main(void) {
 	crearMetadata();
 	cargarFS();
 	consola();
-	config_destroy(configMDJ); //No llega acá porque se queda en el while(1) de la consola
+	config_destroy(configMDJ);
 	return EXIT_SUCCESS;
 
 }

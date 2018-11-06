@@ -10,7 +10,7 @@
 #include <math.h>
 #include "../conexiones/mySockets.h"
 
-
+int verificarCarpeta(char* path);
 void escribir(char* FILEPATH,char* datos);
 void leerArchivo(char* FILEPATH,char* buffer);
 void escribirArchivo(char* FILEPATH,char* datos);

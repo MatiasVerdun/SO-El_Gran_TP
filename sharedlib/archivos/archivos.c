@@ -11,6 +11,14 @@ typedef struct paqueteDatos{
 	char nombre[255];
 }paqueteDatos;
 
+int verificarCarpeta(char* path){
+	struct stat st = {0};
+	if (stat(path, &st) == -1)
+		return 0;
+	else
+		return 1;
+}
+
 void leerArchivo(char* FILEPATH,char* buffer){
     //const char *filepath = "/tmp/mmapped.bin";
     int i,j=0,fd;

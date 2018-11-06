@@ -9,6 +9,7 @@
 #ifndef INTERFAZ_H_
 #define INTERFAZ_H_
 
+char* obtenerArchivo(char* pathFSArchivo);
 int validarArchivo(char* path);
 int crearArchivo(char* path,u_int32_t size);
 int obtenerDatos(char* path,int offset,int size);

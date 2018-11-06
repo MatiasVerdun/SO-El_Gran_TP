@@ -17,7 +17,20 @@
 t_config *configFM9;
 void* memoriaFM9;
 
+void guardarDatos(void* datos,int size,int base){
 
+	memcpy(memoriaFM9+base,datos,size);
+
+}
+
+void leerDatos(int size,int base){
+	char* datos=malloc(size);
+
+	memcpy(datos,memoriaFM9+base,size);
+	printf("Datos leidos de memoria:\n%s\n",datos);
+
+	free(datos);
+}
 	///FUNCIONES DE CONFIG///
 void inicializarMemoria(){
 
@@ -60,6 +73,10 @@ void mostrarConfig(){
 
 	///GESTION DE CONEXIONES///
 
+void guardarScript(char* script){
+
+}
+
 void recibirScript(int socketDAM){
 	u_int32_t respuesta=0;
 	u_int32_t tamScript=0;
@@ -69,10 +86,10 @@ void recibirScript(int socketDAM){
 	char* buffer= malloc(ntohl(tamScript)+1);
 	myRecibirDatosFijos(socketDAM,(char*)buffer,ntohl(tamScript));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
 	/*memset(buffer+ntohl(tamScript),'\0',1);*/
-	myPuts("\n%s\n",buffer);
+	//myPuts("%s",buffer);
 	//free(buffer);
-
-
+	guardarDatos(buffer,ntohl(tamScript),0);
+	leerDatos(ntohl(tamScript),0);
 }
 
 void gestionarConexionDAM(int *sock){

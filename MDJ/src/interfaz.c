@@ -5,12 +5,11 @@
  *      Author: utnso
  */
 #include "interfaz.h"
+#include "filesystemFIFA.h"
+
 
 int validarArchivo(char *path){
-	int existe=1;
-	FILE *fp = fopen(path,"r");
-	if(fp) existe=0;
-	return existe;
+	return existeArchivoFS(path);
 }
 
 int crearArchivo(char* path,u_int32_t size){
@@ -23,4 +22,7 @@ int crearArchivo(char* path,u_int32_t size){
 	return 0;
 }
 
+char* obtenerArchivo(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo en el FileSystem Fifa, pathABSArchivo-> Path absoluto del archivo en filesystem Unix
 
+	return obtenerArchivoFS(pathFSArchivo);
+}
