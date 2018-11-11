@@ -11,11 +11,197 @@
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
 #include <dtbSerializacion/dtbSerializacion.h>
+#include <sentencias/sentencias.h>
 
 #define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9.txt"
 
+char modoEjecucion[4];
 t_config *configFM9;
 void* memoriaFM9;
+typedef struct SegmentoDeTabla {
+	int fileID; //Se me ocurre que sea el mismo ID que el de la tabla de archivos abiertos del S-AFA y que se pase hasta aca
+	int base; //en lineas
+	int limite; //en lineas
+} SegmentoDeTabla;
+
+int* lineasOcupadas;
+
+t_list tablaDeSegmentos; //TODO create_list() en algun lado
+
+	/// ABRIR ARCHIVO ///
+
+int espacioMaximoLibre(){
+
+	int max = 0;
+	int c = 0;
+
+	for(int i = 0; i < (sizeof(lineasOcupadas)/sizeof(int)); i++){
+		if(!lineasOcupadas[i]){
+			c++;
+			if(c > max){
+				max=c;
+
+			}
+
+		} else {
+			c=0;
+		}
+	}
+
+	return max;
+}
+
+int primeraLineaLibreDelEspacioMaximo(){
+
+	int max = 0;
+	int c = 0;
+	int posMax = -1;
+	int posActual = 0;
+
+	for(int i = 0; i < (sizeof(lineasOcupadas)/sizeof(int)); i++){
+		if(!lineasOcupadas[i]){
+			c++;
+			if(c > max){
+				max=c;
+				posMax = posActual;
+
+			}
+
+		} else {
+			c=0;
+			posActual = i+1;
+		}
+	}
+
+	return posMax;
+}
+
+void abrirArchivoSEG(int miFileID, int miTamArchivo, char* misDatos){
+
+	int miBase = primeraLineaLibreDelEspacioMaximo();
+
+	SegmentoDeTabla* miSegmento = malloc(sizeof(SegmentoDeTabla));
+
+	miSegmento->fileID = miFileID;
+	miSegmento->base = miBase;
+	miSegmento->limite = miTamArchivo;
+
+	list_add(tablaDeSegmentos, miSegmento);
+
+	free(miSegmento);
+
+	//TODO escritura de datos comenzando en memoriaFM9[miBase * tamLinea (del config)], en un for que vaya avanzando sobre
+	//un vector de split string por cambio de lineas \n de misDatos
+}
+
+void abrirArchivoTPI(){
+
+}
+
+void abrirArchivoSPA(){
+
+}
+
+void abrirArchivo(){
+	switch(modoEjecucion){
+	case "SEG":
+		abrirArchivoSEG();
+		break;
+	case "TPI":
+		abrirArchivoTPI();
+		break;
+	case "SPA":
+		abrirArchivoSPA();
+		break;
+	}
+
+}
+
+	/// ASIGNAR LINEA ///
+
+void asignarLineaSEG(){
+
+}
+
+void asignarLineaTPI(){
+
+}
+
+void asignarLineaSPA(){
+
+}
+
+void asignarLinea(){
+	switch(modoEjecucion){
+	case "SEG":
+		asignarLineaSEG();
+		break;
+	case "TPI":
+		asignarLineaTPI();
+		break;
+	case "SPA":
+		asignarLineaSPA();
+		break;
+	}
+}
+
+	/// FLUSH ///
+
+void flushSEG(){
+
+}
+
+void flushTPI(){
+
+}
+
+void flushSPA(){
+
+}
+
+void flush(){
+	switch(modoEjecucion){
+	case "SEG":
+		flushSEG();
+		break;
+	case "TPI":
+		flushTPI();
+		break;
+	case "SPA":
+		flushSPA();
+		break;
+	}
+}
+
+	/// CERRAR ARCHIVO ///
+
+void cerrarArchivoSEG(){
+
+}
+
+void cerrarArchivoTPI(){
+
+}
+
+void cerrarArchivoSPA(){
+
+}
+
+void cerrarArchivo(){
+	switch(modoEjecucion){
+	case "SEG":
+		cerrarArchivoSEG();
+		break;
+	case "TPI":
+		cerrarArchivoTPI();
+		break;
+	case "SPA":
+		cerrarArchivoSPA();
+		break;
+	}
+}
+
+	/// TEMP ///
 
 void guardarDatos(void* datos,int size,int base){
 
@@ -31,7 +217,31 @@ void leerDatos(int size,int base){
 
 	free(datos);
 }
+
 	///FUNCIONES DE CONFIG///
+
+void setModoEjecucion(){
+	modoEjecucion = (char *) getConfig("MODO_EJ","FM9.txt",1);
+	modoEjecucion[3] = '\0';
+}
+
+int inicializarLineasOcupadas(){
+	int tamMemoria=(int)getConfig("TMM","FM9.txt",1);
+	int tamLinea=(int)getConfig("TML","FM9.txt",1);
+
+	if((tamMemoria % tamLinea) != 0){
+		printf("El tamaño de memoria no es multiplo del tamaño de linea");
+		return -1;
+	}
+
+	lineasOcupadas = malloc(tamMemoria/tamLinea);
+
+	for(int i = 0; i < (sizeof(lineasOcupadas)/sizeof(int)); i++){
+		lineasOcupadas[i] = 0;
+	}
+
+}
+
 void inicializarMemoria(){
 
 	int tamMemoria=(int)getConfig("TMM","FM9.txt",1);
@@ -104,6 +314,20 @@ void gestionarConexionDAM(int *sock){
 				case(1):
 					recibirScript(socketDAM);
 					break;
+				/*case OPERACION_ABRIR:
+					//  TODO rcv tamaño en lineas, chequear si hay espacio comparando el tamaño contra espacioMaximoLibre()
+					// responder por si o por no
+					// Si hay espacio, rcv datos, llamar a abrirArchivo(), break
+				case OPERACION_ASIGNAR:
+					//TODO idealmente se recibe la linea y posicion en la linea en la cual tengo que asignar
+					//(no se si DAM sabe tanto) llamar a AsignarLinea(), break
+				case OPERACION_FLUSH:
+					//TODO se recibe la primera linea del archivo a flushear (y no se si el tamaño), flush()
+					//hago un super send del archivo en cuestion, break
+				case OPERACION_CLOSE:
+					//TODO se recibe el archivo a cerrar (y no se si el tamaño), cerrarArchivo(), break
+				*/
+
 			}
 		}else{
 			myPuts(RED "Se desconecto el proceso DAM" COLOR_RESET "\n");
@@ -223,6 +447,8 @@ int main() {
 	configFM9=config_create(PATHCONFIGFM9);
 
 	mostrarConfig();
+
+	//setModoEjecucion();
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
