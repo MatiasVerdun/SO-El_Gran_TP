@@ -32,8 +32,11 @@ t_config *configMDJ;
 size_t tamBloque;
 size_t cantBloques;
 
+void setBloqueLibre(int index);
+void setBloqueOcupado(int index);
+int getNBloqueLibre();
 void pruebaBitmap(int tipo);
-void guardarBitmap(t_bitarray* bitmap);
+void guardarBitmap();
 void cargarBitmap();
 void mostrarBitmap();
 int validarPathArchivoFS(char* pathArchivoFS);

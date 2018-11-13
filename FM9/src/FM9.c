@@ -26,7 +26,7 @@ typedef struct SegmentoDeTabla {
 
 int* lineasOcupadas;
 
-t_list tablaDeSegmentos; //TODO create_list() en algun lado
+t_list* tablaDeSegmentos; //TODO create_list() en algun lado
 
 	/// ABRIR ARCHIVO ///
 

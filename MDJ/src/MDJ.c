@@ -404,14 +404,32 @@ void consola(){
 			crearArchivo("scripts/checkpoint.escriptorio",201);
 		}
 		if(!strncmp(linea,"bm",2)){
-			//leerArchivoBitmap();
 			mostrarBitmap();
+		}
+		if(!strncmp(linea,"get",3)){
+			printf("Bloque libre: %d\n",(int)getNBloqueLibre()+1);
 		}
 		if(!strncmp(linea,"pbm",3)){
 			char **split;
 			split=(char**)string_split(linea," ");
 			int tipo= atoi(split[1]);
 			pruebaBitmap(tipo);
+			liberarSplit(split);
+
+		}
+		if(!strncmp(linea,"set",3)){
+			char **split;
+			split=(char**)string_split(linea," ");
+			int indice= atoi(split[1]);
+			setBloqueOcupado(indice);
+			liberarSplit(split);
+
+		}
+		if(!strncmp(linea,"clear",4)){
+			char **split;
+			split=(char**)string_split(linea," ");
+			int indice= atoi(split[1]);
+			setBloqueLibre(indice);
 			liberarSplit(split);
 
 		}

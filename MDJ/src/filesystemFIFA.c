@@ -6,7 +6,7 @@
  */
 #include "filesystemFIFA.h"
 
-void guardarBitmap(t_bitarray* bitmap){
+void guardarBitmap(){
 	FILE *fBitmap;
 	fBitmap = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "wb");
 	fwrite(bitmap->bitarray,8,1,fBitmap);
@@ -29,6 +29,25 @@ void cargarBitmap(){
 }
 
 
+void setBloqueOcupado(int index){
+	bitarray_set_bit(bitmap,index);
+	guardarBitmap();
+}
+
+void setBloqueLibre(int index){
+	bitarray_clean_bit(bitmap,index);
+	guardarBitmap();
+}
+
+int getNBloqueLibre(){
+	for(int i=0;i<(bitmap->size);i++){
+		if(bitarray_test_bit(bitmap,i)==0)
+			return i;
+	}
+	return -1;
+}
+
+
 void mostrarBitmap(){
 
 	for(int i=0;i<(bitmap->size);i++){
@@ -48,7 +67,7 @@ void pruebaBitmap(int tipo){
 			bitarray_clean_bit(bitmap,i);
 		}
 	}
-	guardarBitmap(bitmap);
+	guardarBitmap();
 }
 
 
