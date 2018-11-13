@@ -11,6 +11,7 @@
 #include <archivos/archivos.h>
 #include <console/myConsole.h>
 #include <commons/string.h>
+#include <commons/bitarray.h>
 #include <commons/config.h>
 #include <stdio.h>
 #include <dirent.h>
@@ -26,13 +27,20 @@ typedef struct tablaDirectory {
 	int padre;
 } tableDirectory;
 
+t_bitarray *bitmap;
 t_config *configMDJ;
 size_t tamBloque;
 size_t cantBloques;
 
-int listar(char* linea);
+void pruebaBitmap(int tipo);
+void guardarBitmap(t_bitarray* bitmap);
+void cargarBitmap();
+void mostrarBitmap();
+int validarPathArchivoFS(char* pathArchivoFS);
 void cargarFS();
+int existeCarpetaFS(char* pathCarpetaFS);
 int existeArchivoFS(char* pathArchivoFS);
+void escribirBloque(char* nroBloque,char* datos);
 void leerArchivoMDJ(char* pathFSArchivo);
 char* leerBloque(char* nroBloque);
 int obtenerTamArchivoFS(char* pathFSArchivo);

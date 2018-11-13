@@ -6,12 +6,57 @@
  */
 #include "filesystemFIFA.h"
 
+void guardarBitmap(t_bitarray* bitmap){
+	FILE *fBitmap;
+	fBitmap = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "wb");
+	fwrite(bitmap->bitarray,8,1,fBitmap);
+	fclose(fBitmap);
+}
+
+
+void cargarBitmap(){
+	size_t sizeArchivo=tamArchivo("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin");
+	char *bitmapDatos=malloc(sizeArchivo);
+	FILE *fBitmap;
+	fBitmap = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "r+b");
+	fread(bitmapDatos, 1, 8, fBitmap);
+	fclose(fBitmap);
+	bitmap = bitarray_create_with_mode(bitmapDatos, cantBloques, MSB_FIRST);
+	/*for(int i=0;i<(bitmap->size);i++){
+		printf("%d",bitarray_test_bit(bitmap,i));
+	}
+	printf("\n");*/
+}
+
+
+void mostrarBitmap(){
+
+	for(int i=0;i<(bitmap->size);i++){
+		printf("%d",bitarray_test_bit(bitmap,i));
+	}
+	printf("\n");
+}
+
+
+void pruebaBitmap(int tipo){
+	if(tipo==1){
+		for(int i=0;i<(bitmap->size);i++){
+			bitarray_set_bit(bitmap,i);
+		}
+	}else{
+		for(int i=0;i<(bitmap->size);i++){
+			bitarray_clean_bit(bitmap,i);
+		}
+	}
+	guardarBitmap(bitmap);
+}
+
+
 void cargarFS(){
 	struct stat st = {0};
 	t_config *configFS;
 	char *metadata ;
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-
 	if (stat(puntoMontaje, &st) == -1) {//TODO Crear nuevo punto de montaje
 	    //mkdir("/some/directory", 0700);
 		printf("La carpeta %s no existe\n",puntoMontaje);
@@ -22,12 +67,14 @@ void cargarFS(){
 		cantBloques=(int)getConfigR("CANTIDAD_BLOQUES",1,configFS);
 		printf("Tamanio bloques: %d\n", tamBloque);
 		printf("Cantidad de bloques: %d\n", cantBloques);
+		cargarBitmap();
 
 	}
 	free(puntoMontaje);
 	free(metadata);
 	config_destroy(configFS);
 }
+
 
 char* leerBloque(char* nroBloque){
 	char* contenidoBloque=malloc(tamBloque+1);
@@ -42,41 +89,13 @@ char* leerBloque(char* nroBloque){
 }
 
 
-void leerArchivoMDJ(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo en el FileSystem Fifa, pathABSArchivo-> Path absoluto del archivo en filesystem Unix
-	struct stat st = {0};
-	t_config *configFS;
-	char *pathABSarchivo ;
-	u_int32_t tamArchivo,cantBloquesArchivo;
-	char** bloques;
+void escribirBloque(char* nroBloque,char* datos){
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-
-	if (stat(puntoMontaje, &st) == -1) {
-	    //mkdir("/some/directory", 0700);
-		printf("La carpeta %s no existe\n",puntoMontaje);
-	}else{
-		pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
-		configFS=config_create(pathABSarchivo);
-		tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
-		bloques=config_get_array_value(configFS, "BLOQUES");
-		cantBloquesArchivo=array_length(bloques);
-		char *archivo=string_new();
-		//printf("Tamanio : %d\n", tamArchivo);
-		//printf("Cantidad de bloques: %d\n", cantBloquesArchivo);
-		for(int i=0;i<cantBloquesArchivo;i++){
-			//printf("Bloque %d: %s\n",i,bloques[i]);
-			char *contenidoBloque=(char*)leerBloque(bloques[i]);
-			//printf("Contenido del bloque:\n%s\n",contenidoBloque);
-			string_append(&archivo,contenidoBloque);
-			free(contenidoBloque);
-		}
-		printf("Contenido Archivo:\n%s\n",archivo);
-		free(archivo);
-	}
+	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
+	escribirArchivo(pathBloque,datos);
 
 	free(puntoMontaje);
-	free(pathABSarchivo);
-	liberarSplit(bloques);
-	config_destroy(configFS);
+	free(pathBloque);
 }
 
 
@@ -85,7 +104,8 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 	t_config *configFS;
 
 	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-	u_int32_t tamArchivo,cantBloquesArchivo;
+	//u_int32_t tamArchivo;
+	u_int32_t cantBloquesArchivo;
 	char** bloques;
 
 	if (stat(puntoMontaje, &st) == -1) {
@@ -96,7 +116,7 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 		if(existeArchivoFS(pathFSArchivo)==0){
 			char *pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
 			configFS=config_create(pathABSarchivo);
-			tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
+			//tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
 			bloques=config_get_array_value(configFS, "BLOQUES");
 			cantBloquesArchivo=array_length(bloques);
 			char *archivo=string_new();
@@ -123,17 +143,46 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 }
 
 
-int existeCarpetaFS(){
-	struct stat st = {0};
+char* obtenerPathCarpetaArchivoFS(char* pathArchivoFS){
+	int i=0;
+	char* carpetaArchivoFS=string_new();;
+	char** splitRuta= string_split(pathArchivoFS,"/");
+
+	while(NULL!=splitRuta[i]){
+		if(splitRuta[i+1]!=NULL){
+			string_append(&carpetaArchivoFS,splitRuta[i]);
+			string_append(&carpetaArchivoFS,"/");
+		}
+		i++;
+	}
+	liberarSplit(splitRuta);
+	return carpetaArchivoFS;
+}
+
+
+int validarPathArchivoFS(char* pathArchivoFS){
+	char* carpetaArchivoFS = obtenerPathCarpetaArchivoFS(pathArchivoFS);
+	int respuesta=0;
+	respuesta = existeCarpetaFS(carpetaArchivoFS);
+
+	free(carpetaArchivoFS);
+	return respuesta;
+}
+
+
+int existeCarpetaFS(char* pathCarpetaFS){
 	char* puntoMontaje = string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-	if (stat(puntoMontaje, &st) == -1){
+	char* pathABSCarpeta = string_from_format("%sArchivos/%s", puntoMontaje,pathCarpetaFS);;
+	struct stat st = {0};
+	if (stat(pathABSCarpeta, &st) == -1){ //Si existe devuelve 0
 		free(puntoMontaje);
+		free(pathABSCarpeta);
 		return 1;
 	}else{
 		free(puntoMontaje);
+		free(pathABSCarpeta);
 		return 0;
 	}
-
 }
 
 
@@ -145,7 +194,6 @@ int existeArchivoFS(char* pathArchivoFS){
 		free(puntoMontaje);
 		free(pathABSarchivo);
 
-		printf("No existe papa %s \n",puntoMontaje);
 		return 1;
 	}else{
 		free(puntoMontaje);
@@ -162,7 +210,7 @@ int obtenerTamArchivoFS(char* pathFSArchivo){
 	u_int32_t tamArchivo;
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 
-	if (existeCarpetaFS()==0){
+	if (existeCarpeta(puntoMontaje)==0){
 		if(existeArchivoFS(pathFSArchivo)==0){
 			pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
 			configFS=config_create(pathABSarchivo);
@@ -192,7 +240,7 @@ void escribirDirectorioIndice(char* datos,int indice){//Escribe los datos del di
    fd = open(PATHD, O_RDWR | O_CREAT, S_IRWXU);
    if (fd == -1) {
 	   perror("Error opening file for writing");
-		exit(EXIT_FAILURE);
+		exit(0);
    }
    if(stat(PATHD,&mystat)<0){
 	   perror("fstat");
@@ -208,7 +256,7 @@ void escribirDirectorioIndice(char* datos,int indice){//Escribe los datos del di
    if (data == MAP_FAILED) {
 	   close(fd);
 	   perror("Error mmapping the file");
-	   exit(EXIT_FAILURE);
+	   exit(0);
    }
    desplazamiento=indice*tamDirectorio;
 
@@ -383,7 +431,7 @@ void crearArchivoDirectorio(){
 	   fd = creat(PATHD, S_IRWXU);
 	   if (fd == -1) {
 		   perror("Error opening file for writing");
-			exit(EXIT_FAILURE);
+			exit(0);
 	   }
 	   truncate(PATHD,tamMaxDirectorios);
 	   if(stat(PATHD,&mystat)<0){
@@ -542,17 +590,17 @@ int leerArchivoDirectorio(struct tablaDirectory *t_directorios,int numeroDirecto
     fd=open(PATHD, O_RDWR, (mode_t)0600);
     if (fd == -1){
         perror("Error opening file for writing");
-        exit(EXIT_FAILURE);
+        exit(0);
     }
 
     if (fstat(fd, &fileInfo) == -1){
         perror("Error getting the file size");
-        exit(EXIT_FAILURE);
+        exit(0);
     }
 
     if (fileInfo.st_size == 0){
         fprintf(stderr, "Error: File is empty, nothing to do\n");
-        exit(EXIT_FAILURE);
+        exit(0);
     }
 
     data = mmap(0, fileInfo.st_size, PROT_READ, MAP_SHARED, fd, 0);
@@ -561,7 +609,7 @@ int leerArchivoDirectorio(struct tablaDirectory *t_directorios,int numeroDirecto
     {
         close(fd);
         perror("Error mmapping the file");
-        exit(EXIT_FAILURE);
+        exit(0);
     }
     posicionDirectorioActual=tamDirectorio*numeroDirectorio;
     posicionDirectorioSiguiente= tamDirectorio*(numeroDirectorio+1);
@@ -592,7 +640,7 @@ int leerArchivoDirectorio(struct tablaDirectory *t_directorios,int numeroDirecto
     {
         close(fd);
         perror("Error un-mmapping the file");
-        exit(EXIT_FAILURE);
+        exit(0);
     }
     free(buffer);
     close(fd);
@@ -617,52 +665,6 @@ int array_length(void* array){
 		return -1;
 }
 
-int esArchivo(char* nombre)
-{
-	for(int i=0;i<strlen(nombre);i++){
-		if(nombre[i]=='.')
-			return 0;
-	}
-	return 1;
-}
-
-int listar(char* linea){
-    struct dirent *de;  // Pointer for directory entry
-	char **split;
-	split=(char**)string_split(linea," ");
-	char* realpath;
-
-	if(split[1]){
-		printf(BOLDCYAN "(%s):" COLOR_RESET "\n",split[1]);
-		realpath=string_from_format("%sArchivos/%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),split[1]);
-	}else{
-		printf(BOLDCYAN "(root):" COLOR_RESET "\n");
-		realpath= string_from_format("%sArchivos/",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-	}
-
-    // opendir() returns a pointer of DIR type.
-    DIR *dr = opendir(realpath);
-
-    if (dr == NULL)  // opendir returns NULL if couldn't open directory
-    {
-        printf("Could not open current directory" );
-        return 1;
-    }
-
-    // Refer http://pubs.opengroup.org/onlinepubs/7990989775/xsh/readdir.html
-    // for readdir()
-    while ((de = readdir(dr)) != NULL){
-    	if(esArchivo(de->d_name)==0){
-    		printf("%s\n", de->d_name);
-    	}else{
-    		printf(BOLDBLUE "%s" COLOR_RESET"\n", de->d_name);
-    	}
-
-    }
 
 
-    closedir(dr);
-    liberarSplit(split);
-    free(realpath);
-    return 0;
-}
+

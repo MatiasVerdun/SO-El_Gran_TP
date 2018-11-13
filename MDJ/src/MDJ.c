@@ -4,14 +4,10 @@
 #include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <commons/config.h>
-#include <commons/string.h>
 #include <commons/collections/list.h>
 #include <conexiones/mySockets.h>
-#include <console/myConsole.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <archivos/archivos.h>
 #include "filesystemFIFA.h"
 #include "interfaz.h"
 
@@ -295,6 +291,75 @@ void cat(char* linea){
 
 }
 
+void listar(char* linea){
+    struct dirent *de;  // Pointer for directory entry
+	char **split;
+	split=(char**)string_split(linea," ");
+	char* realpath;
+
+	if(split[1]){
+
+		if(existeArchivoFS(split[1])==0){
+			printf(BOLDCYAN "(%s):" COLOR_RESET "\n",split[1]);
+			realpath=string_from_format("%sArchivos/%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),split[1]);
+		}else{
+			printf("La ruta especificada es invalida\n");
+			return ;
+		}
+
+	}else{
+		printf(BOLDCYAN "(root):" COLOR_RESET "\n");
+		realpath= string_from_format("%sArchivos/",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	}
+
+    DIR *dr = opendir(realpath);
+    if (dr == NULL)
+        printf("Could not open current directory" );
+
+
+    while ((de = readdir(dr)) != NULL){
+    	if(esArchivo(de->d_name)==0)
+    		printf("%s\n", de->d_name);
+    	else
+    		printf(BOLDBLUE "%s" COLOR_RESET"\n", de->d_name);
+    }
+    closedir(dr);
+    liberarSplit(split);
+    free(realpath);;
+}
+
+void crearBitmap(char *bitarray,int size){
+	t_bitarray *bitmap;
+	bitmap = bitarray_create_with_mode(bitarray, 64, MSB_FIRST);
+	for(int i=0;i<(bitmap->size);i++){
+		printf("%d",bitarray_test_bit(bitmap,i));
+	}
+	printf("\n");
+	free(bitmap);
+}
+
+void leerArchivoBitmap(){
+	/*unsigned char key[8];
+	FILE *secretkey;
+	secretkey = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "r+b");
+	fread(key, 1, sizeof key, secretkey);
+	for(int j = 0; j < sizeof(key) ; j++) {
+	    printf("%02x ", key[j]);
+	}
+	printf("\n");*/
+
+	size_t sizeArchivo=tamArchivo("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin");
+
+	char bitmap[sizeArchivo];
+	FILE *secretkey;
+	secretkey = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "r+b");
+	fread(bitmap, 1, sizeArchivo, secretkey);
+	for(int j = 0; j < sizeArchivo ; j++) {
+	    printf("%02x ", bitmap[j]);
+	}
+	printf("\n");
+}
+
 void consola(){
 	char* linea;
 	tableDirectory t_directorios[100];
@@ -310,6 +375,8 @@ void consola(){
 		}
 		if(!strncmp(linea,"exit",4))
 		{
+			free(bitmap->bitarray);
+			free(bitmap);
 			free(linea);
 			break;
 		}
@@ -332,6 +399,21 @@ void consola(){
 		}
 		if(!strncmp(linea,"cat",2)){
 			cat(linea);
+		}
+		if(!strncmp(linea,"mkfile",6)){
+			crearArchivo("scripts/checkpoint.escriptorio",201);
+		}
+		if(!strncmp(linea,"bm",2)){
+			//leerArchivoBitmap();
+			mostrarBitmap();
+		}
+		if(!strncmp(linea,"pbm",3)){
+			char **split;
+			split=(char**)string_split(linea," ");
+			int tipo= atoi(split[1]);
+			pruebaBitmap(tipo);
+			liberarSplit(split);
+
 		}
 		free(linea);
 	}

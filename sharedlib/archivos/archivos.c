@@ -11,7 +11,7 @@ typedef struct paqueteDatos{
 	char nombre[255];
 }paqueteDatos;
 
-int verificarCarpeta(char* path){
+int existeCarpeta(char* path){ //Si NO existe devuelve 0
 	struct stat st = {0};
 	if (stat(path, &st) == -1)
 		return 0;
@@ -61,6 +61,54 @@ void leerArchivo(char* FILEPATH,char* buffer){
         exit(EXIT_FAILURE);
     }
 
+    close(fd);
+}
+
+char* getContenidoArchivo(char* FILEPATH){
+    //const char *filepath = "/tmp/mmapped.bin";
+    int i,j=0,fd;
+    struct stat fileInfo = {0};
+    char* data;
+    fd=open(FILEPATH, O_RDWR, (mode_t)0600);
+
+    if (fd == -1){
+        perror("Error opening file for writing");
+        exit(EXIT_FAILURE);
+    }
+
+    if (fstat(fd, &fileInfo) == -1){
+        perror("Error getting the file size");
+        exit(EXIT_FAILURE);
+    }
+
+    if (fileInfo.st_size == 0){
+        fprintf(stderr, "Error: File is empty, nothing to do\n");
+        exit(EXIT_FAILURE);
+    }
+
+    char *contenido= malloc(fileInfo.st_size+1);
+    memset(contenido,'\0',fileInfo.st_size+1);
+
+    data = mmap(0, fileInfo.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+    if (data == MAP_FAILED){
+        close(fd);
+        perror("Error mmapping the file");
+        exit(EXIT_FAILURE);
+    }
+    for (i = 0; i < fileInfo.st_size; i++){
+		if(data[i]){
+			//printf("%c",data[i]);
+			contenido[j]=data[i];
+			j++;
+		}
+    }
+    if (munmap(data, fileInfo.st_size) == -1){
+        close(fd);
+        perror("Error un-mmapping the file");
+        exit(EXIT_FAILURE);
+    }
+    return contenido;
     close(fd);
 }
 
@@ -381,12 +429,20 @@ char* obtenerNombreArchivo(char* pathArchivoLocal){
 	char **split;
 	char *nombreArchivo=string_new();
 	int i=0;
-	split = string_split(pathArchivoLocal,"/");
+	split = string_split((char*)pathArchivoLocal,"/");
 	while(NULL!=split[i]){ //Agarro el ultimo nombre de directorio
 		i++;
 	}
 	i--;
 	string_append(&nombreArchivo,split[i]);
-	free(split);
+	liberarSplit(split);
 	return nombreArchivo;
+}
+
+int esArchivo(char* nombre){
+	for(int i=0;i<strlen(nombre);i++){
+		if(nombre[i]=='.')
+			return 0;
+	}
+	return 1;
 }

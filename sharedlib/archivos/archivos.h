@@ -8,9 +8,10 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <math.h>
+#include <commons/string.h>
 #include "../conexiones/mySockets.h"
 
-int verificarCarpeta(char* path);
+int existeCarpeta(char* path);
 void escribir(char* FILEPATH,char* datos);
 void leerArchivo(char* FILEPATH,char* buffer);
 void escribirArchivo(char* FILEPATH,char* datos);
@@ -22,3 +23,5 @@ int tamArchivo(char* path);
 void limpiarArchivo(char* pathArchivo);
 char* obtenerNombreArchivo(char* pathArchivoLocal);
 void leerArchivoDesdeHasta(char* FILEPATH,char* bloque,int byteInicio,int byteFinal);
+int esArchivo(char* nombre);
+char* getContenidoArchivo(char* FILEPATH);
