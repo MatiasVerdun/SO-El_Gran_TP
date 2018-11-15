@@ -13,7 +13,7 @@ char* obtenerArchivo(char* pathFSArchivo);
 int validarArchivo(char* path);
 int crearArchivo(char* pathArchivoFS,u_int32_t size);
 int borrarArchivo(char* pathArchivoFS);
-int obtenerDatos(char* path,int offset,int size);
+char* obtenerDatos(char* path,int offset,int size);
 int guardarDatos(char* path,int offset,int size);
 #endif /* INTERFAZ_H_ */
 

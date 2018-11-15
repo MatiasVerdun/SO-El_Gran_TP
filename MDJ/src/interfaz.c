@@ -20,7 +20,7 @@ int crearArchivo(char* pathArchivoFS,u_int32_t filesize){
 	if(filesize%tamBloque!=0)
 		cantidadBloques++;
 	metadataArchivo=string_from_format("TAMANIO=%d\nBLOQUES=[",filesize);
-	if(validarPathArchivoFS(pathArchivoFS)==0){//TODO crear estructuras administrativas archivo
+	if(validarPathArchivoFS(pathArchivoFS)==0){
 		//printf("Cantidad de bloques necesarios %d\n",cantidadBloques);
 		if(getCantBloquesLibres()<cantidadBloques){
 			printf("Bloques insuficientes para guardar los datos solicitados\n");
@@ -83,7 +83,75 @@ int borrarArchivo(char* pathArchivoFS){
 	return 0;
 }
 
-char* obtenerArchivo(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo en el FileSystem Fifa, pathABSArchivo-> Path absoluto del archivo en filesystem Unix
+char* obtenerDatos(char* pathArchivoFS,int offset,int size){
+	if(validarPathArchivoFS(pathArchivoFS)==0){
+		char* datos;
+		char** bloquesArchivo=obtenerBloquesArchivoFS(pathArchivoFS);
+		int tamArchivo = obtenerTamArchivoFS(pathArchivoFS);
+		char* bloqueInicial=string_itoa(offset/tamBloque);
+		int i=0;
+		datos=string_new();
 
-	return obtenerArchivoFS(pathFSArchivo);
+		while(bloquesArchivo[i]!=NULL){ //Obtengo al indice del bloque inicial a leer dentro de mi array
+			if(strcmp(bloquesArchivo[i],bloqueInicial)==0)
+				break;
+			else
+				i++;
+		}
+		if(size>tamBloque){
+			if(size>(tamArchivo-offset)){
+				size=tamArchivo-offset;
+			}
+			char* datosAux = leerBloqueDesdeHasta(bloqueInicial,(offset%tamBloque),tamBloque);
+			string_append(&datos,datosAux);
+			free(datosAux);
+			size-=tamBloque-(offset%tamBloque);
+			i++;
+			while(size>0){
+				if(size>tamBloque){
+					char* datosAux = leerBloqueDesdeHasta(bloquesArchivo[i],0,tamBloque);
+					string_append(&datos,datosAux);
+					free(datosAux);
+					size-=50;
+					i++;
+				}else{
+					char* datosAux = leerBloqueDesdeHasta(bloquesArchivo[i],0,size);
+					string_append(&datos,datosAux);
+					size=0;
+					free(datosAux);
+				}
+			}
+		}else{
+			if(offset<tamBloque && (offset+size)>tamBloque){
+				char* datosAux = leerBloqueDesdeHasta(bloqueInicial,offset,tamBloque);
+				string_append(&datos,datosAux);
+				free(datosAux);
+				size-=tamBloque-offset;
+				char* datosSig = leerBloqueDesdeHasta(bloquesArchivo[i+1],0,size);
+				string_append(&datos,datosSig);
+				free(datosSig);
+			}else{
+				char* datosAux = leerBloqueDesdeHasta(bloqueInicial,(offset%tamBloque),size+(offset%tamBloque));
+				string_append(&datos,datosAux);
+				free(datosAux);
+			}
+
+		}
+
+
+		liberarSplit(bloquesArchivo);
+		free(bloqueInicial);
+		return datos;
+	}
+
+
+
+
+
+	return "-1";
+}
+
+char* obtenerArchivo(char* pathArchivoFS){ //pathFSArchivo-> Path del archivo en el FileSystem Fifa, pathABSArchivo-> Path absoluto del archivo en filesystem Unix
+
+	return obtenerArchivoFS(pathArchivoFS);
 }

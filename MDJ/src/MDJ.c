@@ -429,8 +429,15 @@ void consola(){
 			mostrarBitmap();
 		}
 		if(!strncmp(linea,"get",3)){
-			printf("Bloques libres: %d\n",(int)getNBloqueLibre());
+			//printf("Bloques libres: %d\n",(int)getNBloqueLibre());
+			char* datos;
+			char **split;
+			split=(char**)string_split(linea," ");
+			datos=obtenerDatos("/scripts/checkpoint.escriptorio",atoi(split[1]),atoi(split[2]));
+			printf("%s\n",datos);
 
+			liberarSplit(split);
+			free(datos);
 		}
 		if(!strncmp(linea,"pbm",3)){
 			char **split;

@@ -114,6 +114,17 @@ void cargarFS(){
 	config_destroy(configFS);
 }
 
+char* leerBloqueDesdeHasta(char* nroBloque,int offset,int size){
+	char* contenidoBloque=malloc(size+1);
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	memset(contenidoBloque,'\0',size+1);
+	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
+	leerArchivoDesdeHasta(pathBloque,contenidoBloque,offset,size);
+	//printf("Contenido bloque %s:\n%s\n",nroBloque,contenidoBloque);
+	free(puntoMontaje);
+	free(pathBloque);
+	return contenidoBloque;
+}
 
 char* leerBloque(char* nroBloque){
 	char* contenidoBloque=malloc(tamBloque+1);
@@ -137,6 +148,7 @@ void escribirBloque(char* nroBloque,char* datos){
 	free(pathBloque);
 }
 
+
 void limpiarBloque(char* nroBloque){
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
@@ -144,6 +156,20 @@ void limpiarBloque(char* nroBloque){
 	setBloqueLibre(atoi(nroBloque));
 	free(puntoMontaje);
 	free(pathBloque);
+}
+
+
+char** obtenerBloquesArchivoFS(char* pathArchivoFS){
+	t_config *configFS;
+	char** bloques;
+	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char *pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathArchivoFS);
+	configFS=config_create(pathABSarchivo);
+	bloques=config_get_array_value(configFS, "BLOQUES");
+	config_destroy(configFS);
+	free(puntoMontaje);
+	free(pathABSarchivo);
+	return bloques;
 }
 
 
@@ -258,25 +284,14 @@ int obtenerTamArchivoFS(char* pathFSArchivo){
 	u_int32_t tamArchivo;
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 
-	if (existeCarpeta(puntoMontaje)==0){
-		if(existeArchivoFS(pathFSArchivo)==0){
-			pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
-			configFS=config_create(pathABSarchivo);
-			tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
-		}else{
-			printf("El archivo especificado no existe\n");
-			exit(1);
-		}
+	pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
+	configFS=config_create(pathABSarchivo);
+	tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
 
-		free(puntoMontaje);
-		free(pathABSarchivo);
-		config_destroy(configFS);
-		return tamArchivo;
-	}else{
-		printf("El punto de montaje especificado no existe\n");
-		exit(1);
-	}
-
+	free(puntoMontaje);
+	free(pathABSarchivo);
+	config_destroy(configFS);
+	return tamArchivo;
 }
 
 
