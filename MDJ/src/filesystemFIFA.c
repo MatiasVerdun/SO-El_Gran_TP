@@ -6,11 +6,29 @@
  */
 #include "filesystemFIFA.h"
 
+
+void escribirMetadataArchivo(char* metadata,char* pathArchivoFS){
+	char* puntoMontaje = string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* pathABSarchivo = string_from_format("%sArchivos/%s", puntoMontaje,pathArchivoFS);
+	escribirArchivo(pathABSarchivo,metadata);
+	free(puntoMontaje);
+	free(pathABSarchivo);
+}
 void guardarBitmap(){
 	FILE *fBitmap;
 	fBitmap = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "wb");
 	fwrite(bitmap->bitarray,8,1,fBitmap);
 	fclose(fBitmap);
+}
+
+
+int getCantBloquesLibres(){
+	int cantidad=0;
+	for(int i=0;i<(bitmap->size);i++){
+		if(bitarray_test_bit(bitmap,i)==0)
+			cantidad++;
+	}
+	return cantidad;
 }
 
 
@@ -34,10 +52,12 @@ void setBloqueOcupado(int index){
 	guardarBitmap();
 }
 
+
 void setBloqueLibre(int index){
 	bitarray_clean_bit(bitmap,index);
 	guardarBitmap();
 }
+
 
 int getNBloqueLibre(){
 	for(int i=0;i<(bitmap->size);i++){
@@ -112,7 +132,16 @@ void escribirBloque(char* nroBloque,char* datos){
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
 	escribirArchivo(pathBloque,datos);
+	setBloqueOcupado(atoi(nroBloque));
+	free(puntoMontaje);
+	free(pathBloque);
+}
 
+void limpiarBloque(char* nroBloque){
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
+	limpiarArchivo(pathBloque);
+	setBloqueLibre(atoi(nroBloque));
 	free(puntoMontaje);
 	free(pathBloque);
 }

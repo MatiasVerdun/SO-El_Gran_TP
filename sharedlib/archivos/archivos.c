@@ -392,37 +392,9 @@ int tamArchivo(char* path){
 }
 
 void limpiarArchivo(char* pathArchivo){
-	   int fd;
-	   struct stat mystat;
-
-	   size_t FILESIZE;
-	   void *data;  /* mmapped array of chars */
-	   fd = open(pathArchivo, O_RDWR , S_IRWXU);
-	   if (fd == -1) {
-		   perror("Error opening file for writing");
-			exit(EXIT_FAILURE);
-	   }
-	   if(stat(pathArchivo,&mystat)<0){
-		   perror("fstat");
-		   close(fd);
-		   exit(1);
-	   }
-
-	   FILESIZE=mystat.st_size;
-
-	   data = mmap(0, FILESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd,0);
-
-	   if (data == MAP_FAILED) {
-		   close(fd);
-		   perror("Error mmapping the file");
-		   exit(EXIT_FAILURE);
-	   }
-	   memset(data,'\0',FILESIZE);
-	   if (munmap(data, FILESIZE) == -1) {
-		   perror("Error un-mmapping the file");
-		   close(fd);
-		   exit(1);
-	   }
+	   FILE* fd;
+	   fd = fopen((char*)pathArchivo,"w");
+	   fclose(fd);
 }
 
 char* obtenerNombreArchivo(char* pathArchivoLocal){

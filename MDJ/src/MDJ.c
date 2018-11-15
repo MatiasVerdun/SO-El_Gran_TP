@@ -64,6 +64,20 @@ void gestionArchivos(int socketDAM,int operacion){
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 			}
 			break;
+		case(6):
+			printf(BLUE "Borrando archivo '%s'" ,path);
+			loading(1);
+			if(borrarArchivo(path)==0){
+				myPuts(BOLDGREEN"Archivo borrardo" COLOR_RESET "\n");
+				respuesta=htonl(0);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+			}
+			else{
+				myPuts(RED "No se pudo borrar el archivo" COLOR_RESET "\n");
+				respuesta=htonl(1);
+				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+			}
+			break;
 	}
 
 }
@@ -145,6 +159,7 @@ void gestionDatos(int socketDAM, int operacion){
 
 }
 
+
 void gestionarConexionDAM(int sock)
 {
 	int socketDAM = *(int*)sock;
@@ -169,6 +184,9 @@ void gestionarConexionDAM(int sock)
 					break;
 				case(5): //Obtener archivo completo
 					gestionDatos(socketDAM,5);
+					break;
+				case(6):
+					gestionArchivos(socketDAM,6);
 					break;
 			}
 		}else{
@@ -360,6 +378,7 @@ void leerArchivoBitmap(){
 	printf("\n");
 }
 
+
 void consola(){
 	char* linea;
 	tableDirectory t_directorios[100];
@@ -388,7 +407,7 @@ void consola(){
 	 		/*cargarStructDirectorio(t_directorios);
 			listarDirectorios(t_directorios,0,0);*/
 	 	}
-	 	if(!strncmp(linea,"directorio",1)){
+	 	if(!strncmp(linea,"directorio",10)){
 			listarDirectorioIndice(linea,t_directorios);
 		}
 		if(!strncmp(linea,"rm",2)){
@@ -401,13 +420,17 @@ void consola(){
 			cat(linea);
 		}
 		if(!strncmp(linea,"mkfile",6)){
-			crearArchivo("scripts/checkpoint.escriptorio",201);
+			crearArchivo("scripts/creacion.escriptorio",201);
+		}
+		if(!strncmp(linea,"filerm",6)){
+			borrarArchivo("scripts/creacion.escriptorio");
 		}
 		if(!strncmp(linea,"bm",2)){
 			mostrarBitmap();
 		}
 		if(!strncmp(linea,"get",3)){
-			printf("Bloque libre: %d\n",(int)getNBloqueLibre()+1);
+			printf("Bloques libres: %d\n",(int)getNBloqueLibre());
+
 		}
 		if(!strncmp(linea,"pbm",3)){
 			char **split;

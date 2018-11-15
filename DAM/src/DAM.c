@@ -47,6 +47,25 @@ void validarArchivo(char* path){
 
 }
 
+void borrarArchivo(char* path){
+
+	u_int32_t respuesta=0;
+	u_int32_t operacion = htonl(6);
+
+	myPuts(BLUE "Borrando '%s' ",path);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,50);
+	loading(1);
+	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+
+	if(ntohl(respuesta)==0){
+		myPuts(BOLDGREEN"El archivo fue creado correctamente" COLOR_RESET "\n");
+	}else{
+		myPuts(RED "El archivo no pudo ser creado" COLOR_RESET "\n");
+	}
+
+}
+
 void crearArchivo(char* path,u_int32_t size){
 
 	u_int32_t respuesta=0;
@@ -209,10 +228,11 @@ void gestionarConexionFM9(){
 void gestionarConexionMDJ(){
 
 	//validarArchivo("../root/bou.txt");
-	//crearArchivo("../root/bou.txt",256);
-	char *archivo=obtenerDatos("scripts/checkpoint.escriptorio",0,0);
-	enviarDatosFM9(archivo,strlen(archivo));
-	free(archivo);
+	//crearArchivo("scripts/prueba.archivo",256);
+	//borrarArchivo("scripts/prueba.archivo");
+	//char *archivo=obtenerDatos("scripts/checkpoint.escriptorio",0,0);
+	//enviarDatosFM9(archivo,strlen(archivo));
+	//free(archivo);
 	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
 	//obtenerScript("scripts/checkpoint.escriptorio");
 }
@@ -313,7 +333,7 @@ int main() {
 
     //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
 	pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
