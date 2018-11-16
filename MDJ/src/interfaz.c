@@ -91,7 +91,12 @@ char* obtenerDatos(char* pathArchivoFS,int offset,int size){
 		char* bloqueInicial=string_itoa(offset/tamBloque);
 		int i=0;
 		datos=string_new();
-
+		if(offset>tamArchivo){
+			printf("Offset mayor al tamaño del archivo \n");
+			liberarSplit(bloquesArchivo);
+			free(bloqueInicial);
+			return datos;
+		}
 		while(bloquesArchivo[i]!=NULL){ //Obtengo al indice del bloque inicial a leer dentro de mi array
 			if(strcmp(bloquesArchivo[i],bloqueInicial)==0)
 				break;
@@ -143,10 +148,6 @@ char* obtenerDatos(char* pathArchivoFS,int offset,int size){
 		free(bloqueInicial);
 		return datos;
 	}
-
-
-
-
 
 	return "-1";
 }
