@@ -25,9 +25,8 @@ int remanente;
 int retardoPlanificacion;
 char tipoPlanificacion[5];
 int  estoyEjecutando = 0 ; // 0 no 1 si
-int instruccionesEjecutadas;
-int abortarEjecucionModoDIABLOskereee = 0;
-int motivoLiberacionCPU = -1; // 0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error , 4-> Abortar
+int instruccionesEjecutadas = 0;
+int motivoLiberacionCPU;
 
 	///FUNCIONES DE CONFIG///
 
@@ -46,6 +45,7 @@ void mostrarConfig(){
 	displayBoxClose(50);
     free(myText);
 }
+//
 
 void recibirQyPlanificacion(){
 
@@ -64,15 +64,11 @@ void recibirQyPlanificacion(){
 		printf("Error al recibir el Quantum");
 	}
 
-	resultRecv = myRecibirDatosFijos(socketSAFA,&retardoPlanificacion,sizeof(int));
-	if(resultRecv !=0){
-		printf("Error al recibir el retardo de la planificacion");
-	}
 
 	if(strcmp(tipoPlanificacion,"FIFO")==0){
-			printf("Recibi que la planificacion es FIFO \n ");
+		printf("Recibi que la planificacion es FIFO \n ");
 	}else{
-			printf("Recibi que la planificacion es %s y el Quantum es %d \n",tipoPlanificacion,quantum);
+		printf("Recibi que la planificacion es %s y el Quantum es %d \n",tipoPlanificacion,quantum);
 	}
 }
 
@@ -87,6 +83,20 @@ void recibirRemanente(){
 
 }
 
+void enviarDTByMotivo(DTB* miDTB, int motivo, int instrucciones){
+	char* strDTB;
+
+	strDTB = DTBStruct2String (miDTB);
+
+	myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
+
+	myEnviarDatosFijos(socketSAFA,&motivo,sizeof(int));
+
+	myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
+
+}
+
+//
 void operacionDummy(DTB *miDTB){
 	int largoRuta;
 	char *strLenRuta;
@@ -97,11 +107,11 @@ void operacionDummy(DTB *miDTB){
 
 	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
 
-	int estado = 2;
+	int motivo = MOT_BLOQUEO;
 
 	int inst = 0;
 
-	enviarDTByMotivo(miDTB,estado,inst); // Avisar a S-AFA del block y sin instrucciones ejecutadas
+	enviarDTByMotivo(miDTB,motivo,inst); // Avisar a S-AFA del block y sin instrucciones ejecutadas
 
 	myEnviarDatosFijos(socketGDAM,strLenRuta,3);
 
@@ -135,8 +145,35 @@ bool validarArchivoEnLaLista(t_list *listaArchivos,char* nombreArchivo){
 	return false;
 }
 
+void enviarAccionWaitSignal(char *recurso, int accion){
+	myEnviarDatosFijos(socketSAFA,&accion,sizeof(int));
+
+	if(accion != ACC_NADA){
+		int tamanio = strlen(recurso);
+		myEnviarDatosFijos(socketSAFA,&tamanio,sizeof(int));
+
+		myEnviarDatosFijos(socketSAFA,recurso,tamanio);
+	}
+
+}
+
+void recibirRespuestaWaitSignal(){
+	int resultRecv;
+	int resultado;
+
+	resultRecv = myRecibirDatosFijos(socketSAFA,&resultado,sizeof(int));
+	if(resultRecv !=0){
+			printf("Error al recibir el Remanente");
+	}
+
+	if(resultado == 0){
+		motivoLiberacionCPU = MOT_BLOQUEO;
+	}
+}
+
 void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 	bool existeArchivoAbierto;
+	int accion = ACC_NADA;
 
 	switch(miSentencia->operacion){
 
@@ -144,18 +181,24 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 			existeArchivoAbierto = validarArchivoEnLaLista(miDTB->tablaArchivosAbiertos,miSentencia->param1);
 			if(!existeArchivoAbierto){
 				operacionDummy(miDTB);
-			}else{
-				//SiguienteSentencia
 			}
 		break;
+
 		case OPERACION_CONCENTRAR:
+			usleep((int)getConfigR("RETARDO",1,configCPU));
 		break;
+
 		case OPERACION_ASIGNAR:
 		break;
+
 		case OPERACION_WAIT:
+			accion = ACC_WAIT;
 		break;
+
 		case OPERACION_SIGNAL:
+			accion = ACC_SIGNAL;
 		break;
+
 		case OPERACION_FLUSH:
 		break;
 		case OPERACION_CLOSE:
@@ -165,12 +208,18 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 		case OPERACION_BORRAR:
 		break;
 	}
+
+	enviarAccionWaitSignal(miSentencia->param1,accion);
+	if(accion != ACC_NADA){
+		recibirRespuestaWaitSignal();
+	}
+
+	//myEnviarDatosFijos(socketSAFA,&accion,sizeof(int)); //TODO REVISAR!
 }
 
 void ejecutarInstruccion(DTB* miDTB){
-	int instruccionesEjecutadas = 0;
 
-	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() && (abortarEjecucionModoDIABLOskereee == 0)){
+	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado()){
 
 		estoyEjecutando = 1;
 
@@ -179,89 +228,47 @@ void ejecutarInstruccion(DTB* miDTB){
 		gestionDeSentencia(miDTB,dudoso);
 
 		miDTB->PC++;
+
 		instruccionesEjecutadas++;
 
 	}
-	if(abortarEjecucionModoDIABLOskereee == 1){
+	 if(terminoElDTB()){
 
-		abortarEjecucionModoDIABLOskereee = 0;
-		motivoLiberacionCPU = 4;
-
-	} else if(terminoElDTB()){
-
-		motivoLiberacionCPU = 1;
+		motivoLiberacionCPU = MOT_FINALIZO;
 	} else if(DTBBloqueado()){
 
-		motivoLiberacionCPU = 2;
+		motivoLiberacionCPU = MOT_BLOQUEO;
 	} else if(instruccionesEjecutadas == quantum){
 
-		motivoLiberacionCPU =  0;
+		motivoLiberacionCPU =  MOT_QUANTUM;
 	}
+
+	enviarDTByMotivo(miDTB,motivoLiberacionCPU,instruccionesEjecutadas);
 
 	estoyEjecutando = 0;
 	instruccionesEjecutadas = 0;
 }
 
-void enviarDTByMotivo(DTB* miDTB, int motivo, int instrucciones){
-	char* strDTB;
-
-	strDTB = DTBStruct2String (miDTB);
-
-	myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
-
-	myEnviarDatosFijos(socketSAFA,&motivo,sizeof(int));
-
-	myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
-
-}
-
 ///GESTION DE CONEXIONES///
 
-int recibirModoDeEjecucion(){
-	int resultRecv;
-	int modo;
 
-	resultRecv = myRecibirDatosFijos(socketSAFA,&modo,sizeof(int));
-	if(resultRecv !=0){
-		printf("Error al recibir el Modo de Ejecucion");
-	}
-	return modo;
-}
 
 void gestionarConexionSAFA(){
-
 	while(1){
-		int miModo = recibirModoDeEjecucion();
+		recibirQyPlanificacion();
+
 		DTB *miDTB;
+		miDTB = recibirDTB(socketSAFA);
 
-		switch(miModo){
-			case MODO_DTB:
+		myPuts("El DTB que se recibio es:\n");
+		imprimirDTB(miDTB);
 
-				if(strcmp(tipoPlanificacion,"VRR")==0){
-					recibirRemanente();
-				}
-
-				miDTB = recibirDTB(socketSAFA);
-
-				myPuts("El DTB que se recibio es:\n");
-				imprimirDTB(miDTB);
-
-				if(miDTB->Flag_GDTInicializado == 0){
-					operacionDummy(miDTB);
-				}else{
-					ejecutarInstruccion(miDTB);
-					enviarDTByMotivo(miDTB,motivoLiberacionCPU,instruccionesEjecutadas);
-				}
-			break;
-
-			case MODO_QyP:
-				recibirQyPlanificacion();
-			break;
-
-			case MODO_FINALIZAR:
-				abortarEjecucionModoDIABLOskereee = 1;
-			break;
+		if(miDTB->Flag_GDTInicializado == 0){
+				operacionDummy(miDTB);
+		}else{
+				ejecutarInstruccion(miDTB);
 		}
+
 	}
 }
 

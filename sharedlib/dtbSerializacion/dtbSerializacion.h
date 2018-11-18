@@ -12,7 +12,9 @@ typedef struct DT_Block {
 
 enum { lenMaxNombre = 128 };
 
-enum { MODO_DTB,MODO_QyP,MODO_FINALIZAR};
+enum { ACC_WAIT, ACC_SIGNAL, ACC_NADA};
+
+enum { MOT_QUANTUM, MOT_BLOQUEO, MOT_FINALIZO, MOT_ERROR};
 
 typedef struct datosArchivo {
 	char nombreArchivo[lenMaxNombre];
