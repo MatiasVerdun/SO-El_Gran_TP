@@ -12,12 +12,17 @@
 #include <conexiones/mySockets.h>
 #include <dtbSerializacion/dtbSerializacion.h>
 #include <sentencias/sentencias.h>
+#include <parser/parser.h>
 
 #define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt"
 t_config *configCPU;
 
 u_int32_t socketGDAM;
 u_int32_t socketSAFA;
+
+int	nroSentenciaActual;
+
+t_list *listaSentencias;
 
 //Configuracion de Planificacion
 int quantum;
@@ -246,6 +251,99 @@ void ejecutarInstruccion(DTB* miDTB){
 
 	estoyEjecutando = 0;
 	instruccionesEjecutadas = 0;
+}
+
+///PARSEAR SCRIPTS///
+
+void parsear(char * linea){
+	sentencia *laSentencia;
+
+
+	listaSentencias = list_create();
+	nroSentenciaActual = -1;
+
+	t_parser_operacion parsed = parse(linea);
+
+	laSentencia = malloc(sizeof(sentencia));
+	laSentencia->operacion = 0;
+	laSentencia->param1 = NULL;
+	laSentencia->param2 = -1;
+	laSentencia->param3 = NULL;
+
+	if(parsed.valido){
+		switch(parsed.keyword){
+			case ABRIR:
+				laSentencia->operacion = OPERACION_ABRIR;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.ABRIR.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.ABRIR.param1);
+				laSentencia->param1[strlen(parsed.argumentos.ABRIR.param1)] = '\0';
+				break;
+			case CONCENTRAR:
+				laSentencia->operacion = OPERACION_CONCENTRAR;
+				break;
+			case ASIGNAR:
+				laSentencia->operacion = OPERACION_ASIGNAR;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.ASIGNAR.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.ASIGNAR.param1);
+				laSentencia->param1[strlen(parsed.argumentos.ASIGNAR.param1)] = '\0';
+				laSentencia->param2 = parsed.argumentos.ASIGNAR.param2;
+				laSentencia->param3 = malloc(strlen(parsed.argumentos.ASIGNAR.param3)+1);
+				strcpy(laSentencia->param3,parsed.argumentos.ASIGNAR.param3);
+				laSentencia->param3[strlen(parsed.argumentos.ASIGNAR.param3)] = '\0';
+				break;
+			case WAIT:
+				laSentencia->operacion = OPERACION_WAIT;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.WAIT.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.WAIT.param1);
+				laSentencia->param1[strlen(parsed.argumentos.WAIT.param1)] = '\0';
+				break;
+			case SIGNAL:
+				laSentencia->operacion = OPERACION_SIGNAL;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.SIGNAL.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.SIGNAL.param1);
+				laSentencia->param1[strlen(parsed.argumentos.SIGNAL.param1)] = '\0';
+				break;
+			case FLUSH:
+				laSentencia->operacion = OPERACION_FLUSH;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.FLUSH.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.FLUSH.param1);
+				laSentencia->param1[strlen(parsed.argumentos.FLUSH.param1)] = '\0';
+				break;
+			case CLOSE:
+				laSentencia->operacion = OPERACION_CLOSE;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.CLOSE.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.CLOSE.param1);
+				laSentencia->param1[strlen(parsed.argumentos.CLOSE.param1)] = '\0';
+				break;
+			case CREAR:
+				laSentencia->operacion = OPERACION_CREAR;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.CREAR.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.CREAR.param1);
+				laSentencia->param1[strlen(parsed.argumentos.CREAR.param1)] = '\0';
+				laSentencia->param2 = parsed.argumentos.CREAR.param2;
+				break;
+			case BORRAR:
+				laSentencia->operacion = OPERACION_BORRAR;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.BORRAR.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.BORRAR.param1);
+				laSentencia->param1[strlen(parsed.argumentos.BORRAR.param1)] = '\0';
+				break;
+			default:
+				printf("No pude interpretar <%s>\n", linea);
+				exit(EXIT_FAILURE);
+		}
+		} else {
+			fprintf(stderr, "La linea <%s> no es valida\n", linea);
+			exit(EXIT_FAILURE);
+		}
+
+		list_add(listaSentencias,laSentencia);
+
+	if (linea)
+		free(linea);
+
+	myPuts("El archivo parseado es el siguiente: \n");
+	list_iterate(listaSentencias,(void*)imprimirSentencia);
 }
 
 ///GESTION DE CONEXIONES///
