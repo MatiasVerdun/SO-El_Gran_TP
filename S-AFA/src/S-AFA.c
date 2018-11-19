@@ -199,7 +199,6 @@ recurso* crearRecurso(char* strRecurso){
 	return miRecurso;
 }
 
-
 bool hayCPUDisponible(){
 	bool estaLibre(clienteCPU *unaCPU) {
 		return unaCPU->libre == 1;
@@ -207,7 +206,6 @@ bool hayCPUDisponible(){
 	return list_any_satisfy(listaCPU, (void*) estaLibre);
 
 }
-
 
 clienteCPU* buscarCPUporSock(int sockCPU){
 	for(int i = 0 ; i < list_size(listaCPU); i++){
@@ -223,7 +221,6 @@ clienteCPU* buscarCPUporSock(int sockCPU){
 	return NULL;
 }
 
-
 clienteCPU* buscarCPUporIdDTB(int miID){
 	for(int i = 0 ; i < list_size(listaCPU); i++){
 
@@ -237,7 +234,6 @@ clienteCPU* buscarCPUporIdDTB(int miID){
 
 	return NULL;
 }
-
 
 clienteCPU* buscarCPUDisponible(){
 
@@ -255,7 +251,6 @@ clienteCPU* buscarCPUDisponible(){
 
 }
 
-
 DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
 	for (int indice = 0;indice < list_size(miCola->elements);indice++){
 			DTB *miDTB= list_get(miCola->elements,indice);
@@ -265,7 +260,6 @@ DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
 	}
 	return NULL;
 }
-
 
 int buscarIndicePorIdGDT(t_list *miLista,int idGDT){
 	for (int indice = 0;indice < list_size(miLista);indice++){
@@ -277,7 +271,6 @@ int buscarIndicePorIdGDT(t_list *miLista,int idGDT){
 	return -1;
 }
 
-
 bool debeFinalizarse(int idDTB){
 	bool esElDTB(int unID) {
 		return unID == idDTB;
@@ -285,7 +278,6 @@ bool debeFinalizarse(int idDTB){
 
 	return list_any_satisfy(listaProcesosAFinalizar, (void*) esElDTB);
 }
-
 
 int buscarRecurso(char* recursoABuscar){
 	for (int indice = 0;indice < list_size(listaRecursos);indice++){
@@ -296,7 +288,6 @@ int buscarRecurso(char* recursoABuscar){
 	}
 	return -1;
 }
-
 
 void enviarQyPlanificacionACPU(int CPU){
 	char planificacion[5];
@@ -328,7 +319,6 @@ void actualizarMetricaEXIT(int idDTB){
 	laMetrica->sentenciasEjecutadasHastaEXIT = cantHistoricaDeSentencias - laMetrica->sentenciasEjecutadasHastaEXIT;
 }
 
-
 void actualizarMetricaNEW(int idDTB){
 
 	bool esMetricaDelDTB(metrica *metricaAux){
@@ -341,18 +331,13 @@ void actualizarMetricaNEW(int idDTB){
 	laMetrica->sentenciasEjecutadasEnNEW = cantHistoricaDeSentencias - 	laMetrica->sentenciasEjecutadasEnNEW;
 }
 
-
 void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instruccionesRealizadas){
-	//0-> Quantum , 1->Finalizo , 2-> Bloqueo , 3-> Error
-	//TODO Supongo que siempre esta en la colaEXEC
-
 	int indice;
 
 	switch(motivoLiberacionCPU){
 	case MOT_QUANTUM:
 		indice=buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
 		list_remove(colaEXEC->elements, indice);
-		PCP(NULL,0);
 		queue_push(colaREADY,miDTB);
 	break;
 
@@ -372,7 +357,6 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 			queue_push(colaVRR,miDTBVRR);
 		}
 
-		PCP(NULL,0);
 	break;
 
 	case MOT_FINALIZO:
@@ -393,33 +377,6 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 
 }
 
-
-void recibirDesbloqueoDAM(DTB *miDTB) {
-	int aperturaEscriptorio; // 1 abierto 0 error de apertura
-
-	myRecibirDatosFijos(GsocketDAM,&aperturaEscriptorio,sizeof(int));
-
-	if (aperturaEscriptorio == 1){
-		int indice = buscarIndicePorIdGDT(colaBLOCK->elements,miDTB->ID_GDT);
-		list_remove(colaBLOCK->elements, indice);
-
-		miDTB->Flag_GDTInicializado = 1;
-		DTBenPCP++;
-
-		queue_push(colaREADY,miDTB);
-
-		PCP(NULL,0);
-		actualizarMetricaNEW(miDTB->ID_GDT);
-	} else if (aperturaEscriptorio == 0){
-		int indice=buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
-		list_remove(colaEXEC->elements, indice);
-
-		actualizarMetricaEXIT(miDTB->ID_GDT);
-		PLP();
-	}
-}
-
-
 DTB *recibirDTByMotivo(int socketCPU){
 	DTB *miDTB;
 	clienteCPU *miCPU;
@@ -437,19 +394,19 @@ DTB *recibirDTByMotivo(int socketCPU){
 	miCPU->libre = 1;
 
 	if(!list_is_empty(listaProcesosAFinalizar)){
-			if(debeFinalizarse(miDTB->ID_GDT)){
-				int indice;
-				indice= buscarIndicePorIdGDT(listaProcesosAFinalizar,miDTB->ID_GDT);
-				list_remove(colaBLOCK->elements, indice);
+		if(debeFinalizarse(miDTB->ID_GDT)){
+			int indice;
+			indice= buscarIndicePorIdGDT(listaProcesosAFinalizar,miDTB->ID_GDT);
+			list_remove(colaBLOCK->elements, indice);
 
-				indice=buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
-				list_remove(colaEXEC->elements, indice);
+			indice=buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
+			list_remove(colaEXEC->elements, indice);
 
-				printf("Se mando el DTB con ID %d a la cola de EXIT por el comando finalizar \n",finalizarPorConsola);
+			printf("Se mando el DTB con ID %d a la cola de EXIT por el comando finalizar \n",finalizarPorConsola);
 
-				finalizarDTB(miDTB);
-				finalizarPorConsola=-1;
-			}
+			finalizarDTB(miDTB);
+			finalizarPorConsola=-1;
+		}
 	}else{
 		accionSegunPlanificacion(miDTB,motivoLiberacionCPU,instruccionesRealizadas);
 	}
@@ -457,16 +414,18 @@ DTB *recibirDTByMotivo(int socketCPU){
 	return miDTB;
 }
 
-void liberarRecurso(recurso *miRecurso){
+void verificarSiSePuedeLiberarUnRecurso(recurso *miRecurso){
 	if(miRecurso->semaforo >= 0){
 		if(!list_is_empty(miRecurso->DTBBloqueados)){
 			DTB * DTBaDesbloquear = list_get(miRecurso->DTBBloqueados,0); //Lo saca de la cola de Bloqueados y lo pone en la de Wait/Asignado
 			list_add(miRecurso->DTBWait, DTBaDesbloquear);
+			miRecurso->semaforo -= 1;
 
 			int indiceEXEC = buscarIndicePorIdGDT(colaBLOCK->elements,DTBaDesbloquear->ID_GDT);
 			list_remove(colaBLOCK->elements,indiceEXEC);
 
 			queue_push(colaREADY,DTBaDesbloquear);
+
 		}
 	}
 }
@@ -486,6 +445,7 @@ void recibirAccionWaitSignal(int socketCPU,DTB *miDTB){
 	recurso *miRecurso;
 	int accion;
 	int tamanio;
+	int indiceRecurso;
 	char * recurso;
 
 	myRecibirDatosFijos(socketCPU,&accion,sizeof(int));
@@ -495,7 +455,7 @@ void recibirAccionWaitSignal(int socketCPU,DTB *miDTB){
 		myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int));
 		myRecibirDatosFijos(socketCPU,recurso,tamanio);
 
-		int indiceRecurso = buscarRecurso(recurso);
+		indiceRecurso = buscarRecurso(recurso);
 		if(indiceRecurso == -1){
 			miRecurso = crearRecurso(recurso);
 			list_add(miRecurso->DTBWait,miDTB);
@@ -514,13 +474,13 @@ void recibirAccionWaitSignal(int socketCPU,DTB *miDTB){
 
 		myEnviarDatosFijos(socketCPU,1,sizeof(int)); // OK
 
-		int indiceRecurso = buscarRecurso(recurso);
+		indiceRecurso = buscarRecurso(recurso);
 		if(indiceRecurso == -1){
 			miRecurso = crearRecurso(recurso);
 		}else{
 			miRecurso = list_get(listaRecursos,indiceRecurso);
 			miRecurso->semaforo += 1;
-			liberarRecurso(miRecurso);
+			verificarSiSePuedeLiberarUnRecurso(miRecurso);
 		}
 
 	break;
@@ -556,60 +516,90 @@ DTB * elegirProximoAEjecutarSegunPlanificacion(int socketCPU){
 	return miDTB;
 }
 
-void PCP(DTB *miDTB, int esDummy){
+void recibirDesbloqueoDAM(DTB *miDTB) {
+	int aperturaEscriptorio; // 1 abierto 0 error de apertura
+
+	myRecibirDatosFijos(GsocketDAM,&aperturaEscriptorio,sizeof(int));
+
+	if (aperturaEscriptorio == 1){
+		int indice = buscarIndicePorIdGDT(colaBLOCK->elements,miDTB->ID_GDT);
+		list_remove(colaBLOCK->elements, indice);
+
+		miDTB->Flag_GDTInicializado = 1;
+		DTBenPCP++;
+
+		queue_push(colaREADY,miDTB);
+
+		actualizarMetricaNEW(miDTB->ID_GDT);
+	} else if (aperturaEscriptorio == 0){
+		int indice=buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
+		list_remove(colaEXEC->elements, indice);
+
+		actualizarMetricaEXIT(miDTB->ID_GDT);
+		PLP();
+	}
+}
+
+void PCP(){
 	/*Este desbloqueo se efectuará indicando al DTB_Dummy en su contenido un flag de inicialización en
 		0, el ID del DTB a “pasar” a “READY” y el path del script Escriptorio a cargar a memoria.*/
-	if(hayCPUDisponible()) {
-		if(esDummy == 1){
-			char* strDTB;
+	while(hayCPUDisponible() && !queue_is_empty(colaREADY) &&! queue_is_empty(colaVRR)  ) {
+		char* strDTB;
 
-			clienteCPU*CPULibre;
+		clienteCPU*CPULibre;
 
-			miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
+		CPULibre = buscarCPUDisponible();
+		int socketCPU = CPULibre->socketCPU;
+		CPULibre->libre = 0;                // Cpu ocupada
 
-			CPULibre = buscarCPUDisponible();
+		actualizarConfig();
+		enviarQyPlanificacionACPU(socketCPU);
 
-			CPULibre->libre = 0; // Cpu ocupada
-			CPULibre->idDTB = miDTB->ID_GDT;
+		DTB * miDTB;
+		miDTB = elegirProximoAEjecutarSegunPlanificacion(socketCPU);
 
-			strDTB = DTBStruct2String (miDTB);
-			myEnviarDatosFijos(CPULibre->socketCPU, strDTB, strlen(strDTB));
+		CPULibre->idDTB = miDTB->ID_GDT;
 
-			DTB *auxDTB;
-			auxDTB = recibirDTByMotivo(CPULibre->socketCPU);
+		queue_push(colaEXEC, miDTB);
 
-			recibirDesbloqueoDAM(auxDTB);
+		strDTB = DTBStruct2String (miDTB);
+		myEnviarDatosFijos(socketCPU, strDTB, strlen(strDTB));
 
-		}else{
-			char* strDTB;
-
-			clienteCPU*CPULibre;
-
-			CPULibre = buscarCPUDisponible();
-			int socketCPU = CPULibre->socketCPU;
-			CPULibre->libre = 0;                // Cpu ocupada
-			CPULibre->idDTB = miDTB->ID_GDT;
-
-			actualizarConfig();
-			enviarQyPlanificacionACPU(socketCPU);
-
-			DTB * miDTB;
-
-			miDTB = elegirProximoAEjecutarSegunPlanificacion(socketCPU);
-
-			queue_push(colaEXEC, miDTB);
-
-			strDTB = DTBStruct2String (miDTB);
-			myEnviarDatosFijos(socketCPU, strDTB, strlen(strDTB));
-
-			recibirAccionWaitSignal(socketCPU,miDTB);
-			recibirDTByMotivo(socketCPU);
-		}
-
+		recibirAccionWaitSignal(socketCPU,miDTB);
+		recibirDTByMotivo(socketCPU);
 	}
 }
 
 ///PLANIFICACION A LARGO PLAZO///
+
+void operacionDummy(DTB *miDTB){
+	if(hayCPUDisponible() ) {
+		char* strDTB;
+		clienteCPU*CPULibre;
+
+		miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
+
+		CPULibre = buscarCPUDisponible();
+		int socketCPU = CPULibre->socketCPU;
+		CPULibre->libre = 0; // Cpu ocupada
+		CPULibre->idDTB = miDTB->ID_GDT;
+
+		actualizarConfig();
+		enviarQyPlanificacionACPU(socketCPU);
+
+		queue_push(colaEXEC,miDTB);
+
+		strDTB = DTBStruct2String (miDTB);
+		myEnviarDatosFijos(CPULibre->socketCPU, strDTB, strlen(strDTB));
+
+		DTB *auxDTB;
+		auxDTB = recibirDTByMotivo(CPULibre->socketCPU);
+
+		recibirDesbloqueoDAM(auxDTB);
+
+		PCP();
+	}
+}
 
 void PLP(){
 	actualizarConfig();
@@ -619,7 +609,7 @@ void PLP(){
 
 		auxDTB = queue_pop(colaNEW);
 
-		PCP(auxDTB,1); //ES DUMMY
+		operacionDummy(auxDTB);
 
 	}
 }
@@ -637,9 +627,29 @@ void NuevoDTByPlanificacion(char *rutaScript){
 	PLP();
 }
 
+void liberarRecursosAsignados(DTB *miDTB){
+	if(!list_is_empty(listaRecursos)){
+
+		for(int i; i < list_size(listaRecursos); i++){
+			recurso * miRecurso = list_get(listaRecursos,i);
+
+			int indice = buscarIndicePorIdGDT(miRecurso->DTBWait, miDTB->ID_GDT);
+			if(indice != -1){
+				miRecurso->semaforo += 1;
+				list_remove(miRecurso->DTBWait,indice);
+			}
+
+			verificarSiSePuedeLiberarUnRecurso(miRecurso);
+		}
+
+	}
+}
+
 void finalizarDTB(DTB* miDTB){
 	queue_push(colaEXIT,miDTB);
 	actualizarMetricaEXIT(miDTB->ID_GDT);
+
+	liberarRecursosAsignados(miDTB);
 
 	DTBenPCP--;
 
@@ -861,7 +871,7 @@ void gestionarConexionCPU(int* sock){
 
 	if(conectionDAM==true && !(list_is_empty(listaCPU))){
 		estadoSistema = 0;
-		myPuts("El proceso S-AFA esta en un estado OPERATIVO\n");
+		myPuts("El proceso S-AFA esta en un estado OPERATIVO \n");
 
 	//enviarQyPlanificacionACPU(socketCPU);
 	}

@@ -66,9 +66,9 @@ void recibirQyPlanificacion(){
 
 
 	if(strcmp(tipoPlanificacion,"FIFO")==0){
-		printf("Recibi que la planificacion es FIFO \n ");
+		printf("-------- Ejecutando segun planificacion FIFO --------\n ");
 	}else{
-		printf("Recibi que la planificacion es %s y el Quantum es %d \n",tipoPlanificacion,quantum);
+		printf("-------- Ejecutando segun planificacion  %s con Quantum %d -------- \n",tipoPlanificacion,quantum);
 	}
 }
 
@@ -214,7 +214,6 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 		recibirRespuestaWaitSignal();
 	}
 
-	//myEnviarDatosFijos(socketSAFA,&accion,sizeof(int)); //TODO REVISAR!
 }
 
 void ejecutarInstruccion(DTB* miDTB){
@@ -250,8 +249,6 @@ void ejecutarInstruccion(DTB* miDTB){
 }
 
 ///GESTION DE CONEXIONES///
-
-
 
 void gestionarConexionSAFA(){
 	while(1){
