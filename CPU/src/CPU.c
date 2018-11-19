@@ -134,11 +134,11 @@ bool DTBBloqueado(){
 	return motivoLiberacionCPU != 2;
 }
 
-bool validarArchivoEnLaLista(t_list *listaArchivos,char* nombreArchivo){
+bool validarArchivoEnLaLista(t_list *listaArchivos,char* pathArchivo){
 	for (int indice = 0;indice < list_size(listaArchivos);indice++){
 		datosArchivo *miArchivo;
 		miArchivo = list_get(listaArchivos,indice);
-		if(strcmp(miArchivo->nombreArchivo,nombreArchivo) == 0){
+		if(strcmp(miArchivo->pathArchivo,pathArchivo) == 0){
 				return true;
 		}
 	}

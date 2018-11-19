@@ -30,7 +30,7 @@ DTB* recibirDTB(int socket){
 	strLenLista[3] = '\0';
 	lenLista = atoi(strLenLista);
 	if (lenLista != 0){
-		resultRecv = myRecibirDatosFijos(socket,buffer + 264,lenLista * (128 + 10));
+		resultRecv = myRecibirDatosFijos(socket,buffer + 264,lenLista * (256 + 4 ));
 		if (resultRecv!=0)
 		{
 			myPuts("Se deconecto el S-AFA!!!\n");
@@ -58,7 +58,7 @@ void imprimirDTB(DTB *miDTB){
 
     		misDatos = list_get(miDTB->tablaArchivosAbiertos,indice);
 
-        	myPuts("Elem%d Nombre_Archivo: %s Direccion_Memoria: %l \n",indice,misDatos->nombreArchivo,misDatos->dirMemoria);
+        	myPuts("Elem%d Path_Archivo: %s Direccion_Memoria: %d \n",indice,misDatos->pathArchivo,misDatos->fileID);
         }
     }
 }
@@ -68,7 +68,7 @@ char* DTBStruct2String(DTB *miDTB){
 
 	int lenLista= list_size(miDTB->tablaArchivosAbiertos);
 
-	miStringDTB = malloc(264 + (lenLista * (128 + 10)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3)
+	miStringDTB = malloc(264 + (lenLista * (256 + 4)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3)
 
 	sprintf(miStringDTB,"%02d%-256s%2d%1d%03d",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_GDTInicializado,lenLista);
 	//El %03 me dice que puede llegar a tener 999 archivos abiertos
@@ -78,10 +78,10 @@ char* DTBStruct2String(DTB *miDTB){
 
 		misDatos = list_get(miDTB->tablaArchivosAbiertos,indice);
 
-		strcat(miStringDTB,string_from_format("%128s",misDatos->nombreArchivo));
-		strcat(miStringDTB,string_from_format("%10l",misDatos->dirMemoria));
+		strcat(miStringDTB,string_from_format("%256s",misDatos->pathArchivo));
+		strcat(miStringDTB,string_from_format("%4d",misDatos->fileID));
 	}
-	miStringDTB[264 + (lenLista * (128 + 10))]='\0';
+	miStringDTB[264 + (lenLista * (256 + 4))]='\0';
 
 	return miStringDTB;
 }
@@ -148,18 +148,18 @@ DTB* DTBString2Struct (char *miStringDTB){
 
 		for(int indice = 0;indice < lenLista;indice++){
 			datosArchivo *misDatos;
-			char nombre[128];
-			char strMem[10];
-			long mem;
+			char path[256];
+			char fileID[10];
+			int id;
 
 			misDatos = malloc(sizeof(datosArchivo));
 
-			strncpy(nombre,nInicioLista + ((128 + 10) * indice),128);
-			strncpy(strMem,nInicioLista + ((128 + 10) * indice) + 128, 10);
-			mem = atol(strMem);
+			strncpy(path,nInicioLista + ((256 + 4) * indice),256);
+			strncpy(fileID,nInicioLista + ((256 + 4) * indice) + 256, 4);
+			id = atoi(fileID);
 
-			myTrim(&(misDatos->nombreArchivo),&nombre);
-			misDatos->dirMemoria = mem;
+			myTrim(&(misDatos->pathArchivo),&path);
+			misDatos->fileID = id;
 
 			list_add(miDTB->tablaArchivosAbiertos,misDatos);
 		}

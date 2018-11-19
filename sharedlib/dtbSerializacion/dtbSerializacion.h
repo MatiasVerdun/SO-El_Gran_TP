@@ -10,15 +10,15 @@ typedef struct DT_Block {
 	t_list *tablaArchivosAbiertos;
 } DTB;
 
-enum { lenMaxNombre = 128 };
+enum { lenMaxNombre = 256 };
 
 enum { ACC_WAIT, ACC_SIGNAL, ACC_NADA};
 
 enum { MOT_QUANTUM, MOT_BLOQUEO, MOT_FINALIZO, MOT_ERROR};
 
 typedef struct datosArchivo {
-	char nombreArchivo[lenMaxNombre];
-	long dirMemoria;
+	char pathArchivo[lenMaxNombre];
+	int fileID;
 } datosArchivo;
 
 void myTrim(char *aDonde,char *contenidoACortar);
