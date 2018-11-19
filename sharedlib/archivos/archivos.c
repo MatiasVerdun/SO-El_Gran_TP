@@ -204,6 +204,57 @@ void escribirArchivo(char* FILEPATH,char* datos){
    close(fd);
 }
 
+void escribirArchivoDesde(char* FILEPATH,char*datos,int byteInicio){
+	int fd;
+	struct stat mystat;
+	size_t textSize;
+	char *data;  /* mmapped array of chars */
+
+	fd = open(FILEPATH, O_RDWR | O_CREAT, S_IRWXU);
+	if (fd == -1) {
+	   perror("Error opening file for writing");
+		exit(EXIT_FAILURE);
+	}
+	if(stat(FILEPATH,&mystat)<0){
+	   perror("fstat");
+	   close(fd);
+	   exit(1);
+	}
+	textSize=strlen(datos);
+	if ((lseek(fd, textSize-1, SEEK_SET))== -1) {
+	   close(fd);
+	   perror("Error calling lseek() to 'stretch' the file");
+	   exit(EXIT_FAILURE);
+	}
+
+	if ((write(fd,"", 1)) != 1) {
+	   close(fd);
+	   perror("Error writing last byte of the file");
+	   exit(EXIT_FAILURE);
+	}
+	data = mmap(0, textSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, SEEK_SET);
+
+	if (data == MAP_FAILED) {
+	   close(fd);
+	   perror("Error mmapping the file");
+	   exit(EXIT_FAILURE);
+	}
+	memcpy(data+byteInicio,datos,textSize);
+
+	if (munmap(data, textSize) == -1) {
+	   perror("Error un-mmapping the file");
+	   close(fd);
+	   exit(1);
+	}
+	close(fd);
+}
+
+char* leerDatosDesde(char* datos,int desde, int hasta){
+	char* datosAux= string_new();
+
+	return datosAux;
+}
+
 void appendArchivo(char* FILEPATH,char* datos){
 	FILE* archivo = fopen(FILEPATH, "a");
 	fwrite(datos, strlen(datos), 1, archivo);

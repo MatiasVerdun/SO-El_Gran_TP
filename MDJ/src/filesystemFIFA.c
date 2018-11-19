@@ -14,6 +14,8 @@ void escribirMetadataArchivo(char* metadata,char* pathArchivoFS){
 	free(puntoMontaje);
 	free(pathABSarchivo);
 }
+
+
 void guardarBitmap(){
 	FILE *fBitmap;
 	fBitmap = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "wb");
@@ -114,6 +116,7 @@ void cargarFS(){
 	config_destroy(configFS);
 }
 
+
 char* leerBloqueDesdeHasta(char* nroBloque,int offset,int size){
 	char* contenidoBloque=malloc(size+1);
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
@@ -125,6 +128,7 @@ char* leerBloqueDesdeHasta(char* nroBloque,int offset,int size){
 	free(pathBloque);
 	return contenidoBloque;
 }
+
 
 char* leerBloque(char* nroBloque){
 	char* contenidoBloque=malloc(tamBloque+1);
@@ -148,6 +152,14 @@ void escribirBloque(char* nroBloque,char* datos){
 	free(pathBloque);
 }
 
+void escribirBloqueDesde(char* nroBloque,int inicio,char* datos){
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
+	//printf("%s\n",datos);
+	escribirArchivoDesde(pathBloque,datos,inicio);
+	free(puntoMontaje);
+	free(pathBloque);
+}
 
 void limpiarBloque(char* nroBloque){
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));

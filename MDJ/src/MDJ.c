@@ -433,10 +433,17 @@ void consola(){
 			char* datos;
 			char **split;
 			split=(char**)string_split(linea," ");
-			datos=obtenerDatos("/scripts/checkpoint.escriptorio",atoi(split[1]),atoi(split[2]));
+			datos=obtenerDatos("/scripts/creacion.escriptorio",atoi(split[1]),atoi(split[2]));
 			printf("%s\n",datos);
 
 			liberarSplit(split);
+			free(datos);
+		}
+		if(!strncmp(linea,"save",4)){
+			//printf("Bloques libres: %d\n",(int)getNBloqueLibre());
+			char* datos=obtenerArchivoFS("/scripts/checkpoint.escriptorio");
+			int tamDatos=obtenerTamArchivoFS("/scripts/checkpoint.escriptorio");
+			guardarDatos("/scripts/creacion.escriptorio",0,tamDatos,datos);
 			free(datos);
 		}
 		if(!strncmp(linea,"pbm",3)){
@@ -472,7 +479,7 @@ int main(void) {
 	system("clear");
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
 	configMDJ=config_create(PATHCONFIGMDJ);
-	pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+	//pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
 	crearMetadata();
 	cargarFS();
 	consola();

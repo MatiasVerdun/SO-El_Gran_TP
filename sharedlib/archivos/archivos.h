@@ -15,6 +15,7 @@ int existeCarpeta(char* path);
 void escribir(char* FILEPATH,char* datos);
 void leerArchivo(char* FILEPATH,char* buffer);
 void escribirArchivo(char* FILEPATH,char* datos);
+void escribirArchivoDesde(char* FILEPATH,char*datos,int byteInicio);
 void appendArchivo(char* FILEPATH,char* datos);
 int existeArchivo(char* FILEPATH);
 void recibirArchivoM(int *sock,struct sockaddr_in *miDireccion,char* nombreServidor);

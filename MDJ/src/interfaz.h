@@ -14,6 +14,6 @@ int validarArchivo(char* path);
 int crearArchivo(char* pathArchivoFS,u_int32_t size);
 int borrarArchivo(char* pathArchivoFS);
 char* obtenerDatos(char* path,int offset,int size);
-int guardarDatos(char* path,int offset,int size);
+int guardarDatos(char* pathArchivoFS,int offset, int size,char* buffer);
 #endif /* INTERFAZ_H_ */
 

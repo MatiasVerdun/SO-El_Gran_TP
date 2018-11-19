@@ -46,6 +46,7 @@ void cargarFS();
 int existeCarpetaFS(char* pathCarpetaFS);
 int existeArchivoFS(char* pathArchivoFS);
 void escribirBloque(char* nroBloque,char* datos);
+void escribirBloqueDesde(char* nroBloque,int inicio,char* datos);
 void limpiarBloque(char* nroBloque);
 void leerArchivoMDJ(char* pathFSArchivo);
 char* leerBloqueDesdeHasta(char* nroBloque,int offset,int size);
