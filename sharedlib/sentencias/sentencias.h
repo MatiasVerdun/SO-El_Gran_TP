@@ -18,3 +18,20 @@ typedef struct sentencia {
 	int param2;
 	char *param3;
 } sentencia;
+
+
+void imprimirSentencia(sentencia *miEntrada)
+{
+    if (miEntrada->operacion == OPERACION_ASIGNAR){
+    	myPuts("Operacion: %d Param1: %s Param2: %d Param3: %s\n",miEntrada->operacion,miEntrada->param1, miEntrada->param2, miEntrada->param3);
+    }
+    else if (miEntrada->operacion == OPERACION_CREAR){
+        	myPuts("Operacion: %d Param1: %s Param2: %d\n",miEntrada->operacion, miEntrada->param1, miEntrada->param2);
+    }
+    else if (miEntrada->operacion == OPERACION_CONCENTRAR){
+        	myPuts("Operacion: %d\n",miEntrada->operacion);
+    }
+    else {
+    	myPuts("Operacion: %d Param1: %s\n",miEntrada->operacion, miEntrada->param1);
+    }
+}

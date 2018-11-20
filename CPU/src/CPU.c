@@ -19,6 +19,7 @@ t_config *configCPU;
 
 u_int32_t socketGDAM;
 u_int32_t socketSAFA;
+u_int32_t socketGFM9;
 
 int	nroSentenciaActual;
 
@@ -29,11 +30,15 @@ int quantum;
 int remanente;
 int retardoPlanificacion;
 char tipoPlanificacion[5];
-int  estoyEjecutando = 0 ; // 0 no 1 si
-int instruccionesEjecutadas = 0;
+bool estoyEjecutando = false;
+bool terminoInstrucciones = false;
+bool estaBloqueado = false;
+int instruccionesEjecutadas = 0; //TODO Capaz que no hace falta que sea global
 int motivoLiberacionCPU;
+int codigoError = 0;
 
-	///FUNCIONES DE CONFIG///
+
+///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
 
@@ -50,6 +55,7 @@ void mostrarConfig(){
 	displayBoxClose(50);
     free(myText);
 }
+
 //
 
 void recibirQyPlanificacion(){
@@ -61,6 +67,7 @@ void recibirQyPlanificacion(){
 	if(resultRecv !=0){
 		printf("Error al recibir el tipo de planificacion");
 	}
+
 	strcpy(tipoPlanificacion,bufferPlanificacion);
 
 
@@ -88,78 +95,25 @@ void recibirRemanente(){
 
 }
 
-void enviarDTByMotivo(DTB* miDTB, int motivo, int instrucciones){
-	char* strDTB;
-
-	strDTB = DTBStruct2String (miDTB);
-
-	myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
-
+void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso){
 	myEnviarDatosFijos(socketSAFA,&motivo,sizeof(int));
 
-	myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
-
-}
-
-//
-void operacionDummy(DTB *miDTB){
-	int largoRuta;
-	char *strLenRuta;
-
-	largoRuta = strlen(miDTB->Escriptorio);
-
-	strLenRuta = string_from_format("%03d",largoRuta);
-
-	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
-
-	int motivo = MOT_BLOQUEO;
-
-	int inst = 0;
-
-	enviarDTByMotivo(miDTB,motivo,inst); // Avisar a S-AFA del block y sin instrucciones ejecutadas
-
-	myEnviarDatosFijos(socketGDAM,strLenRuta,3);
-
-	myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
-}
-
-bool hayQuantum(int inst){
-	if(strcmp(tipoPlanificacion,"VRR")==0 && remanente > 0){
-		return inst < remanente;
-	}
-
-	return inst < quantum || quantum < 0;
-}
-
-bool terminoElDTB(){
-	return motivoLiberacionCPU != 1;
-}
-
-bool DTBBloqueado(){
-	return motivoLiberacionCPU != 2;
-}
-
-bool validarArchivoEnLaLista(t_list *listaArchivos,char* pathArchivo){
-	for (int indice = 0;indice < list_size(listaArchivos);indice++){
-		datosArchivo *miArchivo;
-		miArchivo = list_get(listaArchivos,indice);
-		if(strcmp(miArchivo->pathArchivo,pathArchivo) == 0){
-				return true;
-		}
-	}
-	return false;
-}
-
-void enviarAccionWaitSignal(char *recurso, int accion){
-	myEnviarDatosFijos(socketSAFA,&accion,sizeof(int));
-
-	if(accion != ACC_NADA){
+	if(motivo == ACC_SIGNAL || motivo == ACC_WAIT){
 		int tamanio = strlen(recurso);
+
 		myEnviarDatosFijos(socketSAFA,&tamanio,sizeof(int));
 
 		myEnviarDatosFijos(socketSAFA,recurso,tamanio);
-	}
 
+	}else{
+		char* strDTB;
+
+		strDTB = DTBStruct2String (miDTB);
+
+		myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
+
+		myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
+	}
 }
 
 void recibirRespuestaWaitSignal(){
@@ -176,56 +130,206 @@ void recibirRespuestaWaitSignal(){
 	}
 }
 
+//
+
+void operacionDummy(DTB *miDTB){
+	int largoRuta;
+	char *strLenRuta;
+
+	largoRuta = strlen(miDTB->Escriptorio);
+
+	strLenRuta = string_from_format("%03d",largoRuta);
+
+	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
+
+	int motivo = MOT_BLOQUEO;
+
+	int inst = 0;
+
+	enviarMotivoyDatos(miDTB,motivo,inst,NULL); // Avisar a S-AFA del block y sin instrucciones ejecutadas
+
+	myEnviarDatosFijos(socketGDAM,strLenRuta,3);
+
+	myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
+}
+
+bool hayQuantum(int inst){
+	if(strcmp(tipoPlanificacion,"VRR")==0 && remanente > 0){
+		return inst < remanente;
+	}
+
+	return inst < quantum || quantum < 0;
+}
+
+bool terminoElDTB(){
+	return terminoInstrucciones;
+}
+
+bool DTBBloqueado(){
+	return estaBloqueado;
+}
+
+bool hayError(){
+	return codigoError != 0;
+}
+
+int buscarFileID(t_list *listaArchivos,char* pathArchivo){
+	for (int indice = 0;indice < list_size(listaArchivos);indice++){
+		datosArchivo *miArchivo;
+		miArchivo = list_get(listaArchivos,indice);
+		if(strcmp(miArchivo->pathArchivo,pathArchivo) == 0){
+				return miArchivo->fileID;
+		}
+	}
+	return -1;
+}
+
+
 void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
-	bool existeArchivoAbierto;
-	int accion = ACC_NADA;
+	int fileID;
+	int parametro2;
+	int operacion = miSentencia->operacion;
+	int tamanio;
 
-	switch(miSentencia->operacion){
+	usleep((int)getConfigR("RETARDO",1,configCPU)); //CONCENTRAR
 
-		case OPERACION_ABRIR:
-			existeArchivoAbierto = validarArchivoEnLaLista(miDTB->tablaArchivosAbiertos,miSentencia->param1);
-			if(!existeArchivoAbierto){
-				operacionDummy(miDTB);
+	switch(operacion){
+
+		case OPERACION_ABRIR: //AL DIEGO OP PATH
+			fileID = buscarFileID(miDTB->tablaArchivosAbiertos,miSentencia->param1);
+
+			if(fileID == -1){
+				estaBloqueado = true; //DESALOJO DTB
+
+				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+
+				tamanio = strlen(miSentencia->param1);
+				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
+
+				myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
 			}
+
 		break;
 
 		case OPERACION_CONCENTRAR:
-			usleep((int)getConfigR("RETARDO",1,configCPU));
 		break;
 
-		case OPERACION_ASIGNAR:
+		case OPERACION_ASIGNAR: // AL FM9 OP ID PARAMETROS
+			fileID = buscarFileID(miDTB->tablaArchivosAbiertos,miSentencia->param1);
+
+			if(fileID != -1){
+
+				myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int)); 		//ENVIO OPERACION
+
+				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));			//ENVIO ID
+
+				//PARAMETROS
+
+				tamanio = strlen(miSentencia->param1);
+				myEnviarDatosFijos(socketGFM9,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
+				myEnviarDatosFijos(socketGFM9,miSentencia->param1,tamanio); //ENVIO EL PATH
+
+				parametro2= miSentencia->param2;
+				myEnviarDatosFijos(socketGFM9,&parametro2,sizeof(int)); //ENVIO LA LINEA
+
+				tamanio = strlen(miSentencia->param3);
+				myEnviarDatosFijos(socketGFM9,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO DE LOS DATOS
+				myEnviarDatosFijos(socketGFM9,miSentencia->param3,tamanio); //ENVIO DATOS
+
+			}else{
+				codigoError = 20001;										//ERROR: El archivo no se encuentra abierto
+			}
+
 		break;
 
 		case OPERACION_WAIT:
-			accion = ACC_WAIT;
+			enviarMotivoyDatos(NULL,ACC_WAIT,-1,miSentencia->param1);
+
+			recibirRespuestaWaitSignal();
 		break;
 
 		case OPERACION_SIGNAL:
-			accion = ACC_SIGNAL;
+			enviarMotivoyDatos(NULL,ACC_SIGNAL,-1,miSentencia->param1);
+
+			recibirRespuestaWaitSignal();
 		break;
 
-		case OPERACION_FLUSH:
-		break;
-		case OPERACION_CLOSE:
-		break;
-		case OPERACION_CREAR:
-		break;
-		case OPERACION_BORRAR:
-		break;
-	}
+		case OPERACION_FLUSH: // AL DIEGO PARA FM9 OP ID PATH
+			fileID = buscarFileID(miDTB->tablaArchivosAbiertos,miSentencia->param1);
 
-	enviarAccionWaitSignal(miSentencia->param1,accion);
-	if(accion != ACC_NADA){
-		recibirRespuestaWaitSignal();
+			if(fileID != -1){
+				estaBloqueado = true; //DESALOJO DTB
+
+				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+
+				myEnviarDatosFijos(socketGDAM,&fileID,sizeof(int));			//ENVIO ID
+
+				tamanio = strlen(miSentencia->param1);
+				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
+				myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
+
+			}else{
+				codigoError = 30001;										//ERROR: El archivo no se encuentra abierto
+			}
+
+		break;
+
+		case OPERACION_CLOSE: // AL FM9 OP ID
+			fileID = buscarFileID(miDTB->tablaArchivosAbiertos,miSentencia->param1);
+
+			if(fileID != -1){
+
+				myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int)); 		//ENVIO OPERACION
+
+				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));			//ENVIO ID
+
+			}else{
+				codigoError = 40001;										//ERROR: El archivo no se encuentra abierto
+			}
+
+		break;
+
+		case OPERACION_CREAR:// AL DIEGO PARA MDJ PATH
+			if(fileID == -1){
+				estaBloqueado = true; //DESALOJO DTB
+
+				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+
+				tamanio = strlen(miSentencia->param1);
+				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
+				myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
+
+				parametro2= miSentencia->param2;
+				myEnviarDatosFijos(socketGDAM,&parametro2,sizeof(int)); 	//ENVIO LA CANT DE LINEAS
+
+			}else{
+				codigoError = 50001;										//ERROR: El archivo ya existe
+			}
+		break;
+
+		case OPERACION_BORRAR:// AL DIEGO PARA MDJ PATH
+			if(fileID != -1){
+				estaBloqueado= true; //DESALOJO DTB
+
+				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+
+				tamanio = strlen(miSentencia->param1);
+				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
+				myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
+
+			}else{
+				codigoError = 60001;										//ERROR: El archivo no existe
+			}
+		break;
 	}
 
 }
 
 void ejecutarInstruccion(DTB* miDTB){
 
-	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado()){
+	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() && !hayError()){
 
-		estoyEjecutando = 1;
+		estoyEjecutando = true;
 
 		sentencia *dudoso; //TODO
 
@@ -239,25 +343,31 @@ void ejecutarInstruccion(DTB* miDTB){
 	 if(terminoElDTB()){
 
 		motivoLiberacionCPU = MOT_FINALIZO;
-	} else if(DTBBloqueado()){
+
+	}  else if(DTBBloqueado()){
 
 		motivoLiberacionCPU = MOT_BLOQUEO;
+
 	} else if(instruccionesEjecutadas == quantum){
 
 		motivoLiberacionCPU =  MOT_QUANTUM;
+
+	}else if (hayError()){
+		motivoLiberacionCPU =  MOT_ERROR;
+
 	}
 
-	enviarDTByMotivo(miDTB,motivoLiberacionCPU,instruccionesEjecutadas);
+	enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
-	estoyEjecutando = 0;
+	estoyEjecutando = false;
 	instruccionesEjecutadas = 0;
 }
 
 ///PARSEAR SCRIPTS///
 
+
 void parsear(char * linea){
 	sentencia *laSentencia;
-
 
 	listaSentencias = list_create();
 	nroSentenciaActual = -1;
@@ -278,9 +388,11 @@ void parsear(char * linea){
 				strcpy(laSentencia->param1,parsed.argumentos.ABRIR.param1);
 				laSentencia->param1[strlen(parsed.argumentos.ABRIR.param1)] = '\0';
 				break;
+
 			case CONCENTRAR:
 				laSentencia->operacion = OPERACION_CONCENTRAR;
 				break;
+
 			case ASIGNAR:
 				laSentencia->operacion = OPERACION_ASIGNAR;
 				laSentencia->param1 = malloc(strlen(parsed.argumentos.ASIGNAR.param1)+1);
@@ -291,30 +403,35 @@ void parsear(char * linea){
 				strcpy(laSentencia->param3,parsed.argumentos.ASIGNAR.param3);
 				laSentencia->param3[strlen(parsed.argumentos.ASIGNAR.param3)] = '\0';
 				break;
+
 			case WAIT:
 				laSentencia->operacion = OPERACION_WAIT;
 				laSentencia->param1 = malloc(strlen(parsed.argumentos.WAIT.param1)+1);
 				strcpy(laSentencia->param1,parsed.argumentos.WAIT.param1);
 				laSentencia->param1[strlen(parsed.argumentos.WAIT.param1)] = '\0';
 				break;
+
 			case SIGNAL:
 				laSentencia->operacion = OPERACION_SIGNAL;
 				laSentencia->param1 = malloc(strlen(parsed.argumentos.SIGNAL.param1)+1);
 				strcpy(laSentencia->param1,parsed.argumentos.SIGNAL.param1);
 				laSentencia->param1[strlen(parsed.argumentos.SIGNAL.param1)] = '\0';
 				break;
+
 			case FLUSH:
 				laSentencia->operacion = OPERACION_FLUSH;
 				laSentencia->param1 = malloc(strlen(parsed.argumentos.FLUSH.param1)+1);
 				strcpy(laSentencia->param1,parsed.argumentos.FLUSH.param1);
 				laSentencia->param1[strlen(parsed.argumentos.FLUSH.param1)] = '\0';
 				break;
+
 			case CLOSE:
 				laSentencia->operacion = OPERACION_CLOSE;
 				laSentencia->param1 = malloc(strlen(parsed.argumentos.CLOSE.param1)+1);
 				strcpy(laSentencia->param1,parsed.argumentos.CLOSE.param1);
 				laSentencia->param1[strlen(parsed.argumentos.CLOSE.param1)] = '\0';
 				break;
+
 			case CREAR:
 				laSentencia->operacion = OPERACION_CREAR;
 				laSentencia->param1 = malloc(strlen(parsed.argumentos.CREAR.param1)+1);
@@ -322,12 +439,14 @@ void parsear(char * linea){
 				laSentencia->param1[strlen(parsed.argumentos.CREAR.param1)] = '\0';
 				laSentencia->param2 = parsed.argumentos.CREAR.param2;
 				break;
+
 			case BORRAR:
 				laSentencia->operacion = OPERACION_BORRAR;
 				laSentencia->param1 = malloc(strlen(parsed.argumentos.BORRAR.param1)+1);
 				strcpy(laSentencia->param1,parsed.argumentos.BORRAR.param1);
 				laSentencia->param1[strlen(parsed.argumentos.BORRAR.param1)] = '\0';
 				break;
+
 			default:
 				printf("No pude interpretar <%s>\n", linea);
 				exit(EXIT_FAILURE);
@@ -348,6 +467,7 @@ void parsear(char * linea){
 
 ///GESTION DE CONEXIONES///
 
+
 void gestionarConexionSAFA(){
 	while(1){
 		recibirQyPlanificacion();
@@ -367,12 +487,14 @@ void gestionarConexionSAFA(){
 	}
 }
 
+
 void gestionarConexionDAM(int socketDAM){
 	/*while(1){
 		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
 			break;
 	}*/
 }
+
 
 void gestionarConexionFM9(int socketFM9){
 	while(1){
@@ -382,6 +504,7 @@ void gestionarConexionFM9(int socketFM9){
 }
 
 ///FUNCIONES DE CONEXION///
+
 
 void* connectionFM9(){
 	u_int32_t result,socketFM9;
@@ -397,9 +520,11 @@ void* connectionFM9(){
 		exit(1);
 	}
 
+	socketGFM9 = socketFM9;
 	gestionarConexionFM9(socketFM9);
 	return 0;
 }
+
 
 void* connectionDAM(){
 	u_int32_t result,socketDAM;
@@ -419,6 +544,7 @@ void* connectionDAM(){
 	gestionarConexionDAM(socketDAM);
 	return 0;
 }
+
 
 void* connectionSAFA(){
 	u_int32_t result;

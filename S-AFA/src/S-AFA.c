@@ -24,13 +24,13 @@
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 //t_config *configSAFA;
 
-int	nroSentenciaActual;
+
 int IDGlobal = 0;
 int DTBenPCP = 0;
 int estadoSistema = -1; // 0 = Estado Operativo
-int cantHistoricaDeSentencias;
+int cantHistoricaDeSentencias = 0;
+int cantDeSentenciasQueUsaronADiego = 0;
 int GsocketDAM;
-
 int finalizarPorConsola = -1;
 
 typedef struct ModiConfig {
@@ -333,8 +333,10 @@ void actualizarMetricaNEW(int idDTB){
 
 void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instruccionesRealizadas){
 	int indice;
+	int sobra;
 
 	switch(motivoLiberacionCPU){
+
 	case MOT_QUANTUM:
 		indice=buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
 		list_remove(colaEXEC->elements, indice);
@@ -342,6 +344,8 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 	break;
 
 	case MOT_BLOQUEO:
+		cantDeSentenciasQueUsaronADiego += 1; // Todas las sentencias que se bloquearon usaron al DAM
+
 		indice=buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
 		list_remove(colaEXEC->elements, indice);
 
@@ -349,7 +353,7 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 			queue_push(colaBLOCK,miDTB);
 		}
 
-		int sobra = configModificable.quantum - instruccionesRealizadas;
+		sobra = configModificable.quantum - instruccionesRealizadas;
 
 		if(strcmp(configModificable.algoPlani,"VRR") == 0 && sobra > 0){
 			DTBPrioridadVRR * miDTBVRR;
@@ -377,14 +381,11 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 
 }
 
-DTB *recibirDTByMotivo(int socketCPU){
+DTB *recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 	DTB *miDTB;
 	clienteCPU *miCPU;
 
 	miDTB = recibirDTB(socketCPU);
-
-	int motivoLiberacionCPU;
-	myRecibirDatosFijos(socketCPU,&motivoLiberacionCPU,sizeof(int));
 
 	int instruccionesRealizadas;
 	myRecibirDatosFijos(socketCPU,&instruccionesRealizadas,sizeof(int));
@@ -412,6 +413,7 @@ DTB *recibirDTByMotivo(int socketCPU){
 	}
 
 	return miDTB;
+
 }
 
 void verificarSiSePuedeLiberarUnRecurso(recurso *miRecurso){
@@ -441,14 +443,11 @@ void asignarRecurso(int socketCPU, recurso *miRecurso, DTB *miDTB){
 	}
 }
 
-void recibirAccionWaitSignal(int socketCPU,DTB *miDTB){
+void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 	recurso *miRecurso;
-	int accion;
 	int tamanio;
 	int indiceRecurso;
 	char * recurso;
-
-	myRecibirDatosFijos(socketCPU,&accion,sizeof(int));
 
 	switch(accion){
 	case ACC_WAIT:
@@ -485,8 +484,6 @@ void recibirAccionWaitSignal(int socketCPU,DTB *miDTB){
 
 	break;
 
-	case ACC_NADA:
-	break;
 	}
 
 }
@@ -565,8 +562,16 @@ void PCP(){
 		strDTB = DTBStruct2String (miDTB);
 		myEnviarDatosFijos(socketCPU, strDTB, strlen(strDTB));
 
-		recibirAccionWaitSignal(socketCPU,miDTB);
-		recibirDTByMotivo(socketCPU);
+		int motivo;
+		myRecibirDatosFijos(socketCPU,&motivo,sizeof(int));
+
+		while(motivo == ACC_SIGNAL || motivo == ACC_WAIT){
+			ejecutarAccionWaitSignal(motivo,socketCPU,miDTB);
+
+			myRecibirDatosFijos(socketCPU,&motivo,sizeof(int));
+		}
+
+		recibirDTBeInstrucciones(socketCPU,motivo);
 	}
 }
 
@@ -592,8 +597,11 @@ void operacionDummy(DTB *miDTB){
 		strDTB = DTBStruct2String (miDTB);
 		myEnviarDatosFijos(CPULibre->socketCPU, strDTB, strlen(strDTB));
 
+		int motivo;
+		myRecibirDatosFijos(socketCPU,&motivo,sizeof(int));
+
 		DTB *auxDTB;
-		auxDTB = recibirDTByMotivo(CPULibre->socketCPU);
+		auxDTB = recibirDTBeInstrucciones(CPULibre->socketCPU,motivo);
 
 		recibirDesbloqueoDAM(auxDTB);
 
@@ -714,127 +722,6 @@ void finalizarDTB(DTB* miDTB){
 		inotify_rm_watch(file_descriptor, watch_descriptor);
 		close(file_descriptor);
 }*/
-
-     ///PARSEAR SCRIPTS///
-
-void imprimirSentencia(sentencia *miEntrada)
-{
-    if (miEntrada->operacion == OPERACION_ASIGNAR){
-    	myPuts("Operacion: %d Param1: %s Param2: %d Param3: %s\n",miEntrada->operacion,miEntrada->param1, miEntrada->param2, miEntrada->param3);
-    }
-    else if (miEntrada->operacion == OPERACION_CREAR){
-        	myPuts("Operacion: %d Param1: %s Param2: %d\n",miEntrada->operacion, miEntrada->param1, miEntrada->param2);
-    }
-    else if (miEntrada->operacion == OPERACION_CONCENTRAR){
-        	myPuts("Operacion: %d\n",miEntrada->operacion);
-    }
-    else {
-    	myPuts("Operacion: %d Param1: %s\n",miEntrada->operacion, miEntrada->param1);
-    }
-}
-
-void parsear(char *nombreArchivo){
-	FILE * fdScript;
-	char * line = NULL;
-	size_t len = 0;
-	size_t read;
-	sentencia *laSentencia;
-
-	fdScript = fopen((char*)nombreArchivo, "r");
-	if (fdScript == NULL){
-		perror("Error al abrir el archivo: ");
-		exit(EXIT_FAILURE);
-	}
-
-	listaSentencias = list_create();
-	nroSentenciaActual = -1;
-
-	while ((read = getline(&line, &len, fdScript)) != -1) {
-		t_parser_operacion parsed = parse(line);
-
-		laSentencia = malloc(sizeof(sentencia));
-		laSentencia->operacion = 0;
-		laSentencia->param1 = NULL;
-		laSentencia->param2 = -1;
-		laSentencia->param3 = NULL;
-
-		if(parsed.valido){
-			switch(parsed.keyword){
-				case ABRIR:
-					laSentencia->operacion = OPERACION_ABRIR;
-					laSentencia->param1 = malloc(strlen(parsed.argumentos.ABRIR.param1)+1);
-					strcpy(laSentencia->param1,parsed.argumentos.ABRIR.param1);
-					laSentencia->param1[strlen(parsed.argumentos.ABRIR.param1)] = '\0';
-					break;
-				case CONCENTRAR:
-					laSentencia->operacion = OPERACION_CONCENTRAR;
-					break;
-				case ASIGNAR:
-					laSentencia->operacion = OPERACION_ASIGNAR;
-					laSentencia->param1 = malloc(strlen(parsed.argumentos.ASIGNAR.param1)+1);
-					strcpy(laSentencia->param1,parsed.argumentos.ASIGNAR.param1);
-					laSentencia->param1[strlen(parsed.argumentos.ASIGNAR.param1)] = '\0';
-					laSentencia->param2 = parsed.argumentos.ASIGNAR.param2;
-					laSentencia->param3 = malloc(strlen(parsed.argumentos.ASIGNAR.param3)+1);
-					strcpy(laSentencia->param3,parsed.argumentos.ASIGNAR.param3);
-					laSentencia->param3[strlen(parsed.argumentos.ASIGNAR.param3)] = '\0';
-					break;
-				case WAIT:
-					laSentencia->operacion = OPERACION_WAIT;
-					laSentencia->param1 = malloc(strlen(parsed.argumentos.WAIT.param1)+1);
-					strcpy(laSentencia->param1,parsed.argumentos.WAIT.param1);
-					laSentencia->param1[strlen(parsed.argumentos.WAIT.param1)] = '\0';
-					break;
-				case SIGNAL:
-					laSentencia->operacion = OPERACION_SIGNAL;
-					laSentencia->param1 = malloc(strlen(parsed.argumentos.SIGNAL.param1)+1);
-					strcpy(laSentencia->param1,parsed.argumentos.SIGNAL.param1);
-					laSentencia->param1[strlen(parsed.argumentos.SIGNAL.param1)] = '\0';
-					break;
-				case FLUSH:
-					laSentencia->operacion = OPERACION_FLUSH;
-					laSentencia->param1 = malloc(strlen(parsed.argumentos.FLUSH.param1)+1);
-					strcpy(laSentencia->param1,parsed.argumentos.FLUSH.param1);
-					laSentencia->param1[strlen(parsed.argumentos.FLUSH.param1)] = '\0';
-					break;
-				case CLOSE:
-					laSentencia->operacion = OPERACION_CLOSE;
-					laSentencia->param1 = malloc(strlen(parsed.argumentos.CLOSE.param1)+1);
-					strcpy(laSentencia->param1,parsed.argumentos.CLOSE.param1);
-					laSentencia->param1[strlen(parsed.argumentos.CLOSE.param1)] = '\0';
-					break;
-				case CREAR:
-					laSentencia->operacion = OPERACION_CREAR;
-					laSentencia->param1 = malloc(strlen(parsed.argumentos.CREAR.param1)+1);
-					strcpy(laSentencia->param1,parsed.argumentos.CREAR.param1);
-					laSentencia->param1[strlen(parsed.argumentos.CREAR.param1)] = '\0';
-					laSentencia->param2 = parsed.argumentos.CREAR.param2;
-					break;
-				case BORRAR:
-					laSentencia->operacion = OPERACION_BORRAR;
-					laSentencia->param1 = malloc(strlen(parsed.argumentos.BORRAR.param1)+1);
-					strcpy(laSentencia->param1,parsed.argumentos.BORRAR.param1);
-					laSentencia->param1[strlen(parsed.argumentos.BORRAR.param1)] = '\0';
-					break;
-				default:
-					fprintf(stderr, "No pude interpretar <%s>\n", line);
-					exit(EXIT_FAILURE);
-			}
-		} else {
-			fprintf(stderr, "La linea <%s> no es valida\n", line);
-			exit(EXIT_FAILURE);
-		}
-
-		list_add(listaSentencias,laSentencia);
-	}
-
-	//fclose(fdScript);
-	if (line)
-		free(line);
-
-	myPuts("El archivo parseado es el siguiente: \n");
-	list_iterate(listaSentencias,(void*)imprimirSentencia);
-}
 
 	///FUNCIONES DE INICIALIZACION///
 
@@ -1215,11 +1102,7 @@ int main(void)
 				myPuts("El proceso S-AFA esta en un estado CORRUPTO\n");
 			}
 		}
-		if(!strncmp(linea,"pruebaParser",12))
-		{
-			char *miPath = "/home/utnso/tp-2018-2c-smlc/S-AFA/Debug/miScript.txt";
-			parsear((char *)miPath);
-		}
+
 		if(!strncmp(linea,"exit",4))
 		{
 			exit(1);
