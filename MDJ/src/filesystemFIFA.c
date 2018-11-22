@@ -9,7 +9,7 @@
 
 void escribirMetadataArchivo(char* metadata,char* pathArchivoFS){
 	char* puntoMontaje = string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-	char* pathABSarchivo = string_from_format("%sArchivos/%s", puntoMontaje,pathArchivoFS);
+	char* pathABSarchivo = string_from_format("%s/%s", puntoMontaje,pathArchivoFS);
 	escribirArchivo(pathABSarchivo,metadata);
 	free(puntoMontaje);
 	free(pathABSarchivo);
@@ -99,9 +99,9 @@ void cargarFS(){
 	char *metadata ;
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	if (stat(puntoMontaje, &st) == -1) {//TODO Crear nuevo punto de montaje
-	    //mkdir("/some/directory", 0700);
 		printf("La carpeta %s no existe\n",puntoMontaje);
 	}else{
+		dirActual=string_from_format("%s",puntoMontaje);
 		metadata=string_from_format("%sMetadata/Metadata.bin", puntoMontaje);
 		configFS=config_create(metadata);
 		tamBloque=(int)getConfigR("TAMANIO_BLOQUES",1,configFS);
@@ -152,6 +152,7 @@ void escribirBloque(char* nroBloque,char* datos){
 	free(pathBloque);
 }
 
+
 void escribirBloqueDesde(char* nroBloque,int inicio,char* datos){
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
@@ -160,6 +161,7 @@ void escribirBloqueDesde(char* nroBloque,int inicio,char* datos){
 	free(puntoMontaje);
 	free(pathBloque);
 }
+
 
 void limpiarBloque(char* nroBloque){
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
@@ -175,7 +177,7 @@ char** obtenerBloquesArchivoFS(char* pathArchivoFS){
 	t_config *configFS;
 	char** bloques;
 	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-	char *pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathArchivoFS);
+	char *pathABSarchivo=string_from_format("%s/%s", puntoMontaje,pathArchivoFS);
 	configFS=config_create(pathABSarchivo);
 	bloques=config_get_array_value(configFS, "BLOQUES");
 	config_destroy(configFS);
@@ -200,7 +202,7 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 		return "ERROR";
 	}else{
 		if(existeArchivoFS(pathFSArchivo)==0){
-			char *pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
+			char *pathABSarchivo=string_from_format("%s/%s", puntoMontaje,pathFSArchivo);
 			configFS=config_create(pathABSarchivo);
 			//tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
 			bloques=config_get_array_value(configFS, "BLOQUES");
@@ -246,6 +248,32 @@ char* obtenerPathCarpetaArchivoFS(char* pathArchivoFS){
 }
 
 
+char* obtenerDirAnterior(char* path){
+	char **splitPath=string_split(path,"/");
+	char *dirAnterior=string_new();
+	int i=0;
+	while(splitPath[i+1]!=NULL){
+		string_append(&dirAnterior,"/");
+		string_append(&dirAnterior,splitPath[i]);
+		i++;
+	}
+	string_append(&dirAnterior,"/");
+	liberarSplit(splitPath);
+	return dirAnterior;
+}
+
+
+int esRutaFS(char* posibleRuta){
+	int i=0;
+	while(posibleRuta[i]!=NULL){
+		i++;
+		if(posibleRuta[i]=='/')
+			return 0;
+	}
+	return 1;
+}
+
+
 int validarPathArchivoFS(char* pathArchivoFS){
 	char* carpetaArchivoFS = obtenerPathCarpetaArchivoFS(pathArchivoFS);
 	int respuesta=0;
@@ -258,7 +286,7 @@ int validarPathArchivoFS(char* pathArchivoFS){
 
 int existeCarpetaFS(char* pathCarpetaFS){
 	char* puntoMontaje = string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-	char* pathABSCarpeta = string_from_format("%sArchivos/%s", puntoMontaje,pathCarpetaFS);;
+	char* pathABSCarpeta = string_from_format("%s/%s", puntoMontaje,pathCarpetaFS);;
 	struct stat st = {0};
 	if (stat(pathABSCarpeta, &st) == -1){ //Si existe devuelve 0
 		free(puntoMontaje);
@@ -274,7 +302,7 @@ int existeCarpetaFS(char* pathCarpetaFS){
 
 int existeArchivoFS(char* pathArchivoFS){
 	char* puntoMontaje = string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-	char* pathABSarchivo = string_from_format("%sArchivos/%s", puntoMontaje,pathArchivoFS);;
+	char* pathABSarchivo = string_from_format("%s/%s", puntoMontaje,pathArchivoFS);;
 	FILE *f=fopen(pathABSarchivo,"r");
 	if(f==NULL){
 		free(puntoMontaje);
@@ -290,13 +318,20 @@ int existeArchivoFS(char* pathArchivoFS){
 }
 
 
+int esArchivoFS(char* pathArchivoFS){
+	if(strncmp(pathArchivoFS,"Archivos",strlen("Archivos"))==0)
+		return 0;
+	else
+		return 1;
+}
+
 int obtenerTamArchivoFS(char* pathFSArchivo){
 	t_config *configFS;
 	char *pathABSarchivo ;
 	u_int32_t tamArchivo;
 	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 
-	pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathFSArchivo);
+	pathABSarchivo=string_from_format("%s/%s", puntoMontaje,pathFSArchivo);
 	configFS=config_create(pathABSarchivo);
 	tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
 

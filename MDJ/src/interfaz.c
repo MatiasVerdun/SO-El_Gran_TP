@@ -62,7 +62,7 @@ int borrarArchivo(char* pathArchivoFS){
 		int i=0;
 		char** bloques;
 		char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-		char* pathABSarchivo=string_from_format("%sArchivos/%s", puntoMontaje,pathArchivoFS);
+		char* pathABSarchivo=string_from_format("%s/%s", puntoMontaje,pathArchivoFS);
 
 		metadataArchivo=config_create(pathABSarchivo);
 		bloques=config_get_array_value(metadataArchivo, "BLOQUES");
@@ -187,11 +187,6 @@ int guardarDatos(char* pathArchivoFS,int offset, int size,char* buffer){
 			i++;
 			while(size>0){
 				if(size>tamBloque){
-					/*char* datosAux = leerBloqueDesdeHasta(bloquesArchivo[i],0,tamBloque);
-					string_append(&datos,datosAux);
-					free(datosAux);
-					size-=50;
-					i++;*/
 					memset(datosAux,'\0',tamBloque+1);
 					memcpy(datosAux,buffer+desplazamiento,tamBloque);
 					escribirBloqueDesde(bloquesArchivo[i],0,datosAux);
@@ -200,10 +195,6 @@ int guardarDatos(char* pathArchivoFS,int offset, int size,char* buffer){
 					i++;
 
 				}else{
-					/*char* datosAux = leerBloqueDesdeHasta(bloquesArchivo[i],0,size);
-					string_append(&datos,datosAux);
-					size=0;
-					free(datosAux);*/
 					memset(datosAux,'\0',tamBloque+1);
 					memcpy(datosAux,buffer+desplazamiento,size);
 					escribirBloqueDesde(bloquesArchivo[i],0,datosAux);
@@ -214,7 +205,6 @@ int guardarDatos(char* pathArchivoFS,int offset, int size,char* buffer){
 			}
 		}else{
 			if(((offset%tamBloque)+size)>tamBloque){
-
 				memset(datosAux,'\0',tamBloque+1);
 				memcpy(datosAux,buffer,(tamBloque-(offset%tamBloque)));
 				escribirBloqueDesde(bloquesArchivo[i],(offset%tamBloque),datosAux);

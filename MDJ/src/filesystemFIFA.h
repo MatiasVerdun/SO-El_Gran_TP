@@ -31,7 +31,10 @@ t_bitarray *bitmap;
 t_config *configMDJ;
 size_t tamBloque;
 size_t cantBloques;
+char* dirActual;
 
+int esArchivoFS(char* pathArchivo);
+char* obtenerDirAnterior(char* path);
 void escribirMetadataArchivo(char* metadata,char* pathArchivoFS);
 void setBloqueLibre(int index);
 void setBloqueOcupado(int index);
@@ -43,6 +46,7 @@ void cargarBitmap();
 void mostrarBitmap();
 int validarPathArchivoFS(char* pathArchivoFS);
 void cargarFS();
+int esRutaFS(char* posibleRuta);
 int existeCarpetaFS(char* pathCarpetaFS);
 int existeArchivoFS(char* pathArchivoFS);
 void escribirBloque(char* nroBloque,char* datos);

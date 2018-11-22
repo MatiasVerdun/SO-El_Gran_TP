@@ -291,17 +291,60 @@ void listarDirectorioIndice(char* linea,struct tablaDirectory *t_directorios){
 	liberarSplit(split);
 }
 
+void cd(char* linea){
+	char **split;
+	split=(char**)string_split(linea," ");
+	char* pathPedido;
+	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	if(strcmp(split[1],".")==0){
+		printf(BOLDCYAN "fifafs:~mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
+	}else{
+		if(strcmp(split[1],"..")==0){
+			if(strcmp(dirActual,puntoMontaje)!=0){
+				pathPedido=obtenerDirAnterior(dirActual);
+			}else{
+				printf(BOLDCYAN "fifafs:~mnt/" COLOR_RESET "\n");
+				liberarSplit(split);
+				return;
+			}
+		}else
+			pathPedido=string_from_format("%s%s/",dirActual,split[1]);
+
+		//printf("%s\n",aux);
+		if(existeCarpeta(pathPedido)==1){
+			free(dirActual);
+			dirActual=pathPedido;
+			printf(BOLDCYAN "fifafs:~mnt/%s" COLOR_RESET "\n",pathPedido+strlen(puntoMontaje));
+		}else{
+			free(pathPedido);
+			printf("El directorio especificado no existe\n");
+		}
+	}
+	liberarSplit(split);
+	//free(aux);
+}
+
 void cat(char* linea){
 	char *pathArchivoFIFAFS,*archivo;
 	char **split;
 	split=(char**)string_split(linea," ");
-	pathArchivoFIFAFS=malloc(strlen(split[1])+1);
-	strcpy(pathArchivoFIFAFS,split[1]);
+	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	if(esRutaFS(split[1])==0){
+		pathArchivoFIFAFS=string_from_format("%s",split[1]);
+	}else{
+		pathArchivoFIFAFS=string_from_format("%s%s",dirActual+strlen(puntoMontaje),split[1]);
+	}
+	if(esArchivoFS(pathArchivoFIFAFS)==1){
+		free(pathArchivoFIFAFS);
+		liberarSplit(split);
+		printf("El archivo a leer no es un archivo del FIFAFS\n");
+		return;
+	}
 	archivo=obtenerArchivoFS(pathArchivoFIFAFS);
 	if(strcmp(archivo,"ERROR")==0){
 		printf("El archivo especificado no existe\n");
 	}else{
-		printf("Contenido del archivo:\n%s\n",archivo);
+		printf("%s\n",archivo);
 		free(archivo);
 	}
 	free(pathArchivoFIFAFS);
@@ -314,36 +357,35 @@ void listar(char* linea){
 	char **split;
 	split=(char**)string_split(linea," ");
 	char* realpath;
-
+	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
 	if(split[1]){
-
-		if(existeArchivoFS(split[1])==0){
-			printf(BOLDCYAN "(%s):" COLOR_RESET "\n",split[1]);
-			realpath=string_from_format("%sArchivos/%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),split[1]);
-		}else{
-			printf("La ruta especificada es invalida\n");
-			return ;
-		}
-
+		printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",split[1]);
+		realpath=string_from_format("%s/%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),split[1]);
 	}else{
-		printf(BOLDCYAN "(root):" COLOR_RESET "\n");
-		realpath= string_from_format("%sArchivos/",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+		printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
+		realpath=string_from_format("%s",dirActual);
 	}
+	if(!existeCarpeta(realpath)){
+		printf("La ruta especificada es invalida\n");
+		return;
+	}
+	DIR *dr = opendir(realpath);
+	if (dr == NULL)
+		printf("La ruta especificada es invalida\n");
 
-    DIR *dr = opendir(realpath);
-    if (dr == NULL)
-        printf("Could not open current directory" );
 
-
-    while ((de = readdir(dr)) != NULL){
-    	if(esArchivo(de->d_name)==0)
-    		printf("%s\n", de->d_name);
-    	else
-    		printf(BOLDBLUE "%s" COLOR_RESET"\n", de->d_name);
-    }
-    closedir(dr);
+	while ((de = readdir(dr)) != NULL){
+		if(esArchivo(de->d_name)==0){
+			if(strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0)
+				printf("%s ", de->d_name);
+		}
+		else
+			printf(BOLDBLUE "%s " COLOR_RESET, de->d_name);
+	}
+	printf("\n");
+	closedir(dr);
     liberarSplit(split);
-    free(realpath);;
+    free(realpath);
 }
 
 void crearBitmap(char *bitarray,int size){
@@ -378,7 +420,6 @@ void leerArchivoBitmap(){
 	printf("\n");
 }
 
-
 void consola(){
 	char* linea;
 	tableDirectory t_directorios[100];
@@ -397,6 +438,7 @@ void consola(){
 			free(bitmap->bitarray);
 			free(bitmap);
 			free(linea);
+			free(dirActual);
 			break;
 		}
 	 	if(!strncmp(linea,"mkdir",5)){
@@ -419,8 +461,11 @@ void consola(){
 		if(!strncmp(linea,"cat",2)){
 			cat(linea);
 		}
+		if(!strncmp(linea,"cd",2)){
+			cd(linea);
+		}
 		if(!strncmp(linea,"mkfile",6)){
-			crearArchivo("scripts/creacion.escriptorio",201);
+			crearArchivo("Archivos/scripts/creacion.escriptorio",201);
 		}
 		if(!strncmp(linea,"filerm",6)){
 			borrarArchivo("scripts/creacion.escriptorio");
@@ -441,9 +486,9 @@ void consola(){
 		}
 		if(!strncmp(linea,"save",4)){
 			//printf("Bloques libres: %d\n",(int)getNBloqueLibre());
-			char* datos=obtenerArchivoFS("/scripts/checkpoint.escriptorio");
-			int tamDatos=obtenerTamArchivoFS("/scripts/checkpoint.escriptorio");
-			guardarDatos("/scripts/creacion.escriptorio",0,tamDatos,datos);
+			char* datos=obtenerArchivoFS("Archivos/scripts/checkpoint.escriptorio");
+			int tamDatos=obtenerTamArchivoFS("Archivos/scripts/checkpoint.escriptorio");
+			guardarDatos("Archivos/scripts/creacion.escriptorio",0,tamDatos,datos);
 			free(datos);
 		}
 		if(!strncmp(linea,"pbm",3)){
@@ -479,7 +524,7 @@ int main(void) {
 	system("clear");
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
 	configMDJ=config_create(PATHCONFIGMDJ);
-	//pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+	pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
 	crearMetadata();
 	cargarFS();
 	consola();
