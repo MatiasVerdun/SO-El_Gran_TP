@@ -10,6 +10,7 @@
 #include <commons/collections/list.h>
 #include <console/myConsole.h>
 #include <conexiones/mySockets.h>
+#include <sentencias/sentencias.h>
 
 u_int32_t socketGFM9;
 u_int32_t socketGMDJ;
@@ -47,7 +48,7 @@ void validarArchivo(char* path){
 
 }
 
-void borrarArchivo(char* path){
+int  borrarArchivo(char* path){
 
 	u_int32_t respuesta=0;
 	u_int32_t operacion = htonl(6);
@@ -64,9 +65,10 @@ void borrarArchivo(char* path){
 		myPuts(RED "El archivo no pudo ser creado" COLOR_RESET "\n");
 	}
 
+	return respuesta;
 }
 
-void crearArchivo(char* path,u_int32_t size){
+int crearArchivo(char* path,u_int32_t size){
 
 	u_int32_t respuesta=0;
 	u_int32_t operacion = htonl(2);
@@ -81,10 +83,12 @@ void crearArchivo(char* path,u_int32_t size){
 
 	if(ntohl(respuesta)==0){
 		myPuts(BOLDGREEN"El archivo fue creado correctamente" COLOR_RESET "\n");
+
 	}else{
 		myPuts(RED "El archivo no pudo ser creado" COLOR_RESET "\n");
 	}
 
+	return respuesta;
 }
 
 char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
@@ -188,37 +192,140 @@ void mostrarConfig(){
     free(myText);
 }
 
+void operacionDummy(int socketCPU){
+	char * escriptorio;
+	int largoRuta;
+
+	myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int));
+
+	escriptorio = malloc(largoRuta);
+
+	myRecibirDatosFijos(socketCPU,escriptorio,largoRuta);
+
+	myPuts("La ruta del Escriptorio que se recibio es: %s\n",escriptorio);
+
+	char * script = obtenerDatos(escriptorio,0,0);
+
+	printf("script %s \n", script);
+
+	//myEnviarDatosFijos(GsockSAFA,&apertura,sizeof(int)); //Enviando apertura de script a SAFA
+}
+
+void operacionAlMDJ(int operacion, int socketCPU){
+	char * pathArchivo = NULL;
+	int tamanio;
+	int parametro2;
+	int respuesta;
+
+	myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int));
+
+	myRecibirDatosFijos(socketCPU,pathArchivo,tamanio);
+
+	myPuts("El path que se recibio es: %s\n",pathArchivo);
+
+	myPuts("Enviando solicitud de archivo al MDJ \n");
+
+	switch(operacion){
+
+	case OPERACION_ABRIR:
+		//RECIBIR EL ARCHIVO Y MANDARLO AL FM9
+	break;
+
+	case OPERACION_CREAR:
+
+		respuesta = crearArchivo(pathArchivo,tamanio);
+
+	break;
+
+	case OPERACION_BORRAR:
+
+		respuesta = borrarArchivo(pathArchivo);
+
+	break;
+
+	}
+}
+
+void operacionAlFM9(int operacion, int socketCPU){
+	int tamanio;
+	int fileID;
+	char * pathArchivo = NULL;
+
+	myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
+
+	myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int));
+
+	myRecibirDatosFijos(socketCPU,pathArchivo,tamanio);
+}
+
 	///GESTION DE CONEXIONES///
+
+void avisarDesconexionCPU(int socketCPU){
+	int accion;
+
+	accion = DESCONEXION_CPU;
+	myEnviarDatosFijos(GsockSAFA,&accion,sizeof(int)); 	  //Le aviso que se desconecto una CPU
+
+}
+
 
 void gestionarConexionCPU(int *sock_cliente){
 	int socketCPU = *(int*)sock_cliente;
+	int operacion;
+	int result;
 
 	while(1){
-		char buffer[256];
-		char strLenRuta[4];
-		int largoRuta;
+		result = myRecibirDatosFijos(socketCPU,&operacion,sizeof(int));
 
-		myRecibirDatosFijos(socketCPU,buffer,3);
+		if(result != 1 ){
+			switch(operacion){
 
-		strncpy(strLenRuta,buffer,3);
-		strLenRuta[4] = '\0';
-		largoRuta = atoi(strLenRuta);
+			case OPERACION_DUMMY:
 
-		myRecibirDatosFijos(socketCPU,buffer,largoRuta);
+				operacionDummy(socketCPU);
 
-		myPuts("La ruta del Escriptorio que se recibio es: %s\n",buffer);
+			break;
 
-		int apertura = 1;
+			case OPERACION_ABRIR:
 
-		myEnviarDatosFijos(GsockSAFA,&apertura,sizeof(int)); //Enviando apertura de script a SAFA
+				operacionAlMDJ(operacion,socketCPU);
+
+				break;
+
+			case OPERACION_FLUSH: //AL FM9
+
+				operacionAlFM9(operacion, socketCPU);
+
+			break;
+
+			case OPERACION_CREAR:
+
+				operacionAlMDJ(operacion,socketCPU);
+
+			break;
+
+			case OPERACION_BORRAR:
+
+				operacionAlMDJ(operacion,socketCPU);
+
+				break;
+
+			}
+		}else{
+
+			avisarDesconexionCPU(socketCPU);
+
+			myPuts("Se desconecto la CPU NRO: %d \n ", socketCPU);
+
+			break;
+		}
 	}
 }
 
 void gestionarConexionSAFA(int socketSAFA){
-	while (1){
-		GsockSAFA = socketSAFA;
-		//Avisar a Safa que se abrio el archivo para que lo pase a ready
-	}
+
+	GsockSAFA = socketSAFA;
+
 }
 
 void gestionarConexionFM9(){
@@ -332,7 +439,7 @@ int main() {
 
 
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
-	//pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+	pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
     //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 

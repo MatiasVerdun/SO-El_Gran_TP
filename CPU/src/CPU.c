@@ -134,13 +134,7 @@ void recibirRespuestaWaitSignal(){
 
 void operacionDummy(DTB *miDTB){
 	int largoRuta;
-	char *strLenRuta;
-
-	largoRuta = strlen(miDTB->Escriptorio);
-
-	strLenRuta = string_from_format("%03d",largoRuta);
-
-	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
+	int operacion;
 
 	int motivo = MOT_BLOQUEO;
 
@@ -148,7 +142,15 @@ void operacionDummy(DTB *miDTB){
 
 	enviarMotivoyDatos(miDTB,motivo,inst,NULL); // Avisar a S-AFA del block y sin instrucciones ejecutadas
 
-	myEnviarDatosFijos(socketGDAM,strLenRuta,3);
+	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
+
+	largoRuta = strlen(miDTB->Escriptorio);
+
+	operacion = OPERACION_DUMMY;
+
+	myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int));
+
+	myEnviarDatosFijos(socketGDAM,&largoRuta,sizeof(int));
 
 	myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
 }
@@ -290,7 +292,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 		break;
 
 		case OPERACION_CREAR:// AL DIEGO PARA MDJ PATH
-			if(fileID == -1){
+
 				estaBloqueado = true; //DESALOJO DTB
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
@@ -302,13 +304,10 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 				parametro2= miSentencia->param2;
 				myEnviarDatosFijos(socketGDAM,&parametro2,sizeof(int)); 	//ENVIO LA CANT DE LINEAS
 
-			}else{
-				codigoError = 50001;										//ERROR: El archivo ya existe
-			}
 		break;
 
 		case OPERACION_BORRAR:// AL DIEGO PARA MDJ PATH
-			if(fileID != -1){
+
 				estaBloqueado= true; //DESALOJO DTB
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
@@ -317,9 +316,6 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
 				myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
 
-			}else{
-				codigoError = 60001;										//ERROR: El archivo no existe
-			}
 		break;
 	}
 

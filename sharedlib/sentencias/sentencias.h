@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-enum {	OPERACION_CERO,
+enum { OPERACION_DUMMY,
 	OPERACION_ABRIR,
 	OPERACION_CONCENTRAR,
 	OPERACION_ASIGNAR,
@@ -11,6 +11,11 @@ enum {	OPERACION_CERO,
 	OPERACION_CLOSE,
 	OPERACION_CREAR,
 	OPERACION_BORRAR};
+
+enum{ DESCONEXION_CPU,   //Acciones que le manda DAM  a CPU
+	ACC_DESBLOQUEAR,
+	ACC_BLOQUEAR,
+};
 
 typedef struct sentencia {
 	int operacion;
