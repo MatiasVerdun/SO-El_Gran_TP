@@ -291,19 +291,70 @@ void listarDirectorioIndice(char* linea,struct tablaDirectory *t_directorios){
 	liberarSplit(split);
 }
 
+void listar(char* linea){
+    struct dirent *de;  // Pointer for directory entry
+	char* realpath;
+	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	if(strcmp(linea,"")==0){
+		printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
+		realpath=string_from_format("%s",dirActual);
+	}else{
+		char** split=string_split(linea," ");
+		if(split[1]!=NULL){
+			printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",split[1]);
+			realpath=string_from_format("%s/%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),split[1]);
+		}else{
+			printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
+			realpath=string_from_format("%s",dirActual);
+		}
+	    liberarSplit(split);
+	}
+	if(!existeCarpeta(realpath)){
+		printf("La ruta especificada es invalida\n");
+		return;
+	}
+	DIR *dr = opendir(realpath);
+	if (dr == NULL)
+		printf("La ruta especificada es invalida\n");
+
+
+	while ((de = readdir(dr)) != NULL){
+		if(esArchivo(de->d_name)==0){
+			if(strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0)
+				printf("%s ", de->d_name);
+		}
+		else
+			printf(BOLDBLUE "%s " COLOR_RESET, de->d_name);
+	}
+	printf("\n");
+	closedir(dr);
+    free(realpath);
+}
+
+void crearBitmap(char *bitarray,int size){
+	t_bitarray *bitmap;
+	bitmap = bitarray_create_with_mode(bitarray, 64, MSB_FIRST);
+	for(int i=0;i<(bitmap->size);i++){
+		printf("%d",bitarray_test_bit(bitmap,i));
+	}
+	printf("\n");
+	free(bitmap);
+}
+
 void cd(char* linea){
 	char **split;
 	split=(char**)string_split(linea," ");
 	char* pathPedido;
 	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
 	if(strcmp(split[1],".")==0){
-		printf(BOLDCYAN "fifafs:~mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
+		listar("/");
+		//printf(BOLDCYAN "fifafs:~mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
 	}else{
 		if(strcmp(split[1],"..")==0){
 			if(strcmp(dirActual,puntoMontaje)!=0){
 				pathPedido=obtenerDirAnterior(dirActual);
 			}else{
-				printf(BOLDCYAN "fifafs:~mnt/" COLOR_RESET "\n");
+				listar("/");
 				liberarSplit(split);
 				return;
 			}
@@ -314,14 +365,13 @@ void cd(char* linea){
 		if(existeCarpeta(pathPedido)==1){
 			free(dirActual);
 			dirActual=pathPedido;
-			printf(BOLDCYAN "fifafs:~mnt/%s" COLOR_RESET "\n",pathPedido+strlen(puntoMontaje));
+			listar(dirActual+strlen(puntoMontaje));
 		}else{
 			free(pathPedido);
 			printf("El directorio especificado no existe\n");
 		}
 	}
 	liberarSplit(split);
-	//free(aux);
 }
 
 void cat(char* linea){
@@ -352,51 +402,6 @@ void cat(char* linea){
 
 }
 
-void listar(char* linea){
-    struct dirent *de;  // Pointer for directory entry
-	char **split;
-	split=(char**)string_split(linea," ");
-	char* realpath;
-	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
-	if(split[1]){
-		printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",split[1]);
-		realpath=string_from_format("%s/%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ),split[1]);
-	}else{
-		printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
-		realpath=string_from_format("%s",dirActual);
-	}
-	if(!existeCarpeta(realpath)){
-		printf("La ruta especificada es invalida\n");
-		return;
-	}
-	DIR *dr = opendir(realpath);
-	if (dr == NULL)
-		printf("La ruta especificada es invalida\n");
-
-
-	while ((de = readdir(dr)) != NULL){
-		if(esArchivo(de->d_name)==0){
-			if(strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0)
-				printf("%s ", de->d_name);
-		}
-		else
-			printf(BOLDBLUE "%s " COLOR_RESET, de->d_name);
-	}
-	printf("\n");
-	closedir(dr);
-    liberarSplit(split);
-    free(realpath);
-}
-
-void crearBitmap(char *bitarray,int size){
-	t_bitarray *bitmap;
-	bitmap = bitarray_create_with_mode(bitarray, 64, MSB_FIRST);
-	for(int i=0;i<(bitmap->size);i++){
-		printf("%d",bitarray_test_bit(bitmap,i));
-	}
-	printf("\n");
-	free(bitmap);
-}
 
 void leerArchivoBitmap(){
 	/*unsigned char key[8];
