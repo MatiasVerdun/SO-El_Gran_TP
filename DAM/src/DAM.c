@@ -14,11 +14,12 @@
 
 u_int32_t socketGFM9;
 u_int32_t socketGMDJ;
+u_int32_t socketGSAFA;
 
 #define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAM.txt"
 t_config *configDAM;
 
-int GsockSAFA;
+
 
 
 /*typedef struct datosProceso {
@@ -200,6 +201,9 @@ void mostrarConfig(){
 void operacionDummy(int socketCPU){
 	char * escriptorio;
 	int largoRuta;
+	int idDTB;
+
+	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
 
 	myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int));
 
@@ -219,11 +223,27 @@ void operacionDummy(int socketCPU){
 	//myEnviarDatosFijos(GsockSAFA,&apertura,sizeof(int)); //Enviando apertura de script a SAFA
 }
 
+void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo){
+
+	myEnviarDatosFijos(socketGSAFA,&accion,sizeof(int));
+	myEnviarDatosFijos(socketGSAFA,&idDTB,sizeof(int));
+
+	if(accion == ACC_CREAR_OK || accion == ACC_BORRAR_OK){
+		myEnviarDatosFijos(socketGSAFA,&tamanio,sizeof(int));
+		myEnviarDatosFijos(socketGSAFA,pathArchivo,tamanio);
+	}
+
+}
+
 void operacionAlMDJ(int operacion, int socketCPU){
 	char * pathArchivo = NULL;
 	int tamanio;
 	int parametro2;
 	int respuesta;
+	int accion;
+	int idDTB;
+
+	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
 
 	myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int));
 
@@ -240,14 +260,24 @@ void operacionAlMDJ(int operacion, int socketCPU){
 	break;
 
 	case OPERACION_CREAR:
-
 		respuesta = crearArchivo(pathArchivo,tamanio);
+
+		if(respuesta == 0){
+			enviarAccionASAFA(ACC_CREAR_OK, idDTB, tamanio, pathArchivo);
+		}else{
+			enviarAccionASAFA(ACC_CREAR_ERROR, idDTB, tamanio, pathArchivo);
+		}
 
 	break;
 
 	case OPERACION_BORRAR:
-
 		respuesta = borrarArchivo(pathArchivo);
+
+		if(respuesta == 0){
+			enviarAccionASAFA(ACC_BORRAR_OK, idDTB, tamanio, pathArchivo);
+		}else{
+			enviarAccionASAFA(ACC_BORRAR_ERROR, idDTB, tamanio, pathArchivo);
+		}
 
 	break;
 
@@ -272,7 +302,7 @@ void avisarDesconexionCPU(int socketCPU){
 	int accion;
 
 	accion = DESCONEXION_CPU;
-	myEnviarDatosFijos(GsockSAFA,&accion,sizeof(int)); 	  //Le aviso que se desconecto una CPU
+	myEnviarDatosFijos(socketGSAFA,&accion,sizeof(int)); 	  //Le aviso que se desconecto una CPU
 
 }
 
@@ -323,7 +353,7 @@ void gestionarConexionCPU(int *sock_cliente){
 
 			avisarDesconexionCPU(socketCPU);
 
-			myPuts("Se desconecto la CPU NRO: %d \n ", socketCPU);
+			myPuts(RED "Se desconecto la CPU NRO: %d"COLOR_RESET"\n ", socketCPU);
 
 			break;
 		}
@@ -332,7 +362,7 @@ void gestionarConexionCPU(int *sock_cliente){
 
 void gestionarConexionSAFA(int socketSAFA){
 
-	GsockSAFA = socketSAFA;
+	socketGSAFA = socketSAFA;
 
 }
 

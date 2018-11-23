@@ -227,6 +227,20 @@ clienteCPU* buscarCPUporSock(int sockCPU){
 	return NULL;
 }
 
+int  buscarIndicePorSockCPU(int sockCPU){
+	for(int i = 0 ; i < list_size(listaCPU); i++){
+
+		clienteCPU * elemento;
+
+		elemento = list_get(listaCPU,i);
+
+		if(elemento->socketCPU == sockCPU)
+			return i;
+	}
+
+	return -1;
+}
+
 clienteCPU* buscarCPUporIdDTB(int miID){
 	for(int i = 0 ; i < list_size(listaCPU); i++){
 
@@ -255,6 +269,22 @@ clienteCPU* buscarCPUDisponible(){
 
 	return NULL;
 
+}
+
+int buscarCPUDesconectada(){
+	int chequear = PREGUNTAR_DESCONEXION_CPU;
+
+	for(int i = 0; i < list_size(listaCPU); i++){
+		clienteCPU * cpu = list_get(listaCPU,i);
+
+		myEnviarDatosFijos(cpu->socketCPU,&chequear,sizeof(int));
+
+		if(myRecibirDatosFijos(cpu->socketCPU,&chequear,sizeof(int))==1){
+			return cpu->socketCPU;
+		}
+	}
+
+	return -1;
 }
 
 DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
@@ -785,17 +815,22 @@ void desconectarCPU(int socketCPU){
 	int indice;
 	clienteCPU * clienteCPU;
 
-	indice = buscarCPUporSock(socketCPU);
+	indice = buscarIndicePorSockCPU(socketCPU);
 	clienteCPU = list_remove(listaCPU,indice);
 
 	if(clienteCPU->libre == 0){
 		int idDTB = clienteCPU->idDTB;
 
-		printf("Se finalizo el DTB %d porque no se termino de forma correcta la ejecucion ", idDTB);
+		myPuts(RED "Se finalizo el DTB %d porque no se termino de forma correcta la ejecucion" COLOR_RESET "\n", idDTB);
 
 		DTB* miDTB = buscarDTBPorID(colaEXEC->elements,idDTB);
 
 		finalizarDTB(miDTB);
+	}
+
+	if(list_is_empty(listaCPU)){
+		myPuts(RED "No hay CPU's disponibles" COLOR_RESET "\n");
+		exit(1);
 	}
 
 	free(clienteCPU);
@@ -804,20 +839,22 @@ void desconectarCPU(int socketCPU){
 void gestionarConexionCPU(int* sock){
 	int socketCPU = *(int*)sock;
 
-	clienteCPU *nuevoClienteCPU;
-
-	nuevoClienteCPU =crearClienteCPU(socketCPU);
-
-	list_add(listaCPU,nuevoClienteCPU);
-
-	if(conectionDAM==true && !(list_is_empty(listaCPU))){
+	if(conectionDAM){
 		estadoSistema = 0;
+
+		clienteCPU *nuevoClienteCPU;
+
+		nuevoClienteCPU =crearClienteCPU(socketCPU);
+
+		list_add(listaCPU,nuevoClienteCPU);
 
 		if(list_size(listaCPU) == 1){
 
-			myPuts("El proceso S-AFA esta en un estado OPERATIVO \n");
+			myPuts(GREEN"El proceso S-AFA esta en un estado OPERATIVO" COLOR_RESET "\n");
 		}
 
+	}else{
+			myPuts(RED "Se desconecto el CPU NRO %d" COLOR_RESET "\n", socketCPU);
 	}
 
 	/*//A modo de prueba solo para probar el envio de mensajes entre procesos, no tiene ninguna utilidad
@@ -842,9 +879,8 @@ void gestionarConexionDAM(int *sock_cliente){
 	buffer[4]='\0';
 	myEnviarDatosFijos(socketDAM,buffer,5);*/
 
-	int result;
-	int accion;
-	int socketCPUDesconectada;
+	int result, accion,socketCPUDesconectada, idDTB,tamanio;
+	char* pathArchivo;
 
 	while(1){
 
@@ -853,11 +889,34 @@ void gestionarConexionDAM(int *sock_cliente){
 		if(result != 1){
 			switch(accion){
 				case DESCONEXION_CPU:
-					myRecibirDatosFijos(GsocketDAM,&socketCPUDesconectada,sizeof(int));
 
-					printf("Se desconecto la CPU NRO %d \n", socketCPUDesconectada);
+					socketCPUDesconectada = buscarCPUDesconectada();
+
+					myPuts(RED "Se desconecto la CPU NRO %d" COLOR_RESET "\n", socketCPUDesconectada);
 
 					desconectarCPU(socketCPUDesconectada);
+
+				break;
+
+				case ACC_CREAR_OK:
+					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+					myRecibirDatosFijos(GsocketDAM,&tamanio,sizeof(int));
+					myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio);
+				break;
+
+				case ACC_CREAR_ERROR:
+					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+
+				break;
+
+				case ACC_BORRAR_OK:
+					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+					myRecibirDatosFijos(GsocketDAM,&tamanio,sizeof(int));
+					myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio);
+				break;
+
+				case ACC_BORRAR_ERROR:
+					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
 				break;
 
@@ -865,7 +924,7 @@ void gestionarConexionDAM(int *sock_cliente){
 		}else{
 			conectionDAM = false;
 
-			printf("Se desconecto el DAM, No estoy en estado operativo, Chau!!\n");
+			myPuts(RED "Se desconecto el proceso DAM" COLOR_RESET "\n");
 
 			exit(1);
 		}

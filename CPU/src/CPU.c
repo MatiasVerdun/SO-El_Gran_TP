@@ -144,6 +144,8 @@ void operacionDummy(DTB *miDTB){
 
 	int inst = 0;
 
+	int IDDTB = miDTB->ID_GDT;
+
 	enviarMotivoyDatos(miDTB,motivo,inst,NULL); // Avisar a S-AFA del block y sin instrucciones ejecutadas
 
 	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
@@ -153,6 +155,8 @@ void operacionDummy(DTB *miDTB){
 	operacion = OPERACION_DUMMY;
 
 	myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int));
+
+	myEnviarDatosFijos(socketGDAM,&IDDTB,sizeof(int));
 
 	myEnviarDatosFijos(socketGDAM,&largoRuta,sizeof(int));
 
@@ -190,12 +194,12 @@ int buscarFileID(t_list *listaArchivos,char* pathArchivo){
 	return -1;
 }
 
-
 void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 	int fileID;
 	int parametro2;
 	int operacion = miSentencia->operacion;
 	int tamanio;
+	int idDTB = miDTB->ID_GDT;
 
 	usleep((int)getConfigR("RETARDO",1,configCPU)); //CONCENTRAR
 
@@ -208,6 +212,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 				estaBloqueado = true; //DESALOJO DTB
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
 
 				tamanio = strlen(miSentencia->param1);
 				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
@@ -267,6 +272,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 				estaBloqueado = true; //DESALOJO DTB
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
 
 				myEnviarDatosFijos(socketGDAM,&fileID,sizeof(int));			//ENVIO ID
 
@@ -286,6 +292,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 			if(fileID != -1){
 
 				myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int)); 		//ENVIO OPERACION
+				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
 
 				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));			//ENVIO ID
 
@@ -300,6 +307,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 				estaBloqueado = true; //DESALOJO DTB
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
 
 				tamanio = strlen(miSentencia->param1);
 				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
@@ -315,6 +323,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 				estaBloqueado= true; //DESALOJO DTB
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
 
 				tamanio = strlen(miSentencia->param1);
 				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
@@ -469,21 +478,34 @@ void parsear(char * linea){
 
 
 void gestionarConexionSAFA(){
+	int ejecucion;
 	while(1){
-		recibirQyPlanificacion();
+		if(myRecibirDatosFijos(socketSAFA,&ejecucion,sizeof(int))!=1){
+			if(ejecucion == EJECUCION_NORMAL){
+				recibirQyPlanificacion();
 
-		DTB *miDTB;
-		miDTB = recibirDTB(socketSAFA);
+				DTB *miDTB;
+				miDTB = recibirDTB(socketSAFA);
 
-		myPuts("El DTB que se recibio es:\n");
-		imprimirDTB(miDTB);
+				myPuts("El DTB que se recibio es:\n");
+				imprimirDTB(miDTB);
 
-		if(miDTB->Flag_GDTInicializado == 0){
-				operacionDummy(miDTB);
+				if(miDTB->Flag_GDTInicializado == 0){
+					operacionDummy(miDTB);
+				}else{
+					ejecutarInstruccion(miDTB);
+				}
+			}
+
+			if(ejecucion == PREGUNTAR_DESCONEXION_CPU){
+				ejecucion = 4; 								//No me interesa el valor que le mando
+				myEnviarDatosFijos(socketSAFA,&ejecucion,sizeof(int));
+			}
+
 		}else{
-				ejecutarInstruccion(miDTB);
+			myPuts(RED "Se desconecto el proceso S-AFA" COLOR_RESET "\n");
+			exit(1);
 		}
-
 	}
 }
 
@@ -516,7 +538,7 @@ void* connectionFM9(){
 
 	result=myEnlazarCliente((int*)&socketFM9,IP_ESCUCHA,PUERTO_ESCUCHA);
 	if(result==1){
-		myPuts("No se encuentra disponible el DAM para conectarse.\n");
+		myPuts(RED "No se encuentra disponible el DAM para conectarse" COLOR_RESET "\n");
 		exit(1);
 	}
 

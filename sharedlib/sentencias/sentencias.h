@@ -13,8 +13,10 @@ enum { OPERACION_DUMMY,
 	OPERACION_BORRAR};
 
 enum{ DESCONEXION_CPU,   //Acciones que le manda DAM  a CPU
-	ACC_DESBLOQUEAR,
-	ACC_BLOQUEAR,
+	ACC_CREAR_OK,
+	ACC_CREAR_ERROR,
+	ACC_BORRAR_OK,
+	ACC_BORRAR_ERROR,
 };
 
 typedef struct sentencia {

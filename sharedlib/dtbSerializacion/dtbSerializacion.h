@@ -14,6 +14,8 @@ enum { lenMaxNombre = 256 };
 
 enum { MOT_QUANTUM, MOT_BLOQUEO, MOT_FINALIZO, MOT_ERROR, ACC_WAIT, ACC_SIGNAL};
 
+enum {DESCONEXION_SAFA,PREGUNTAR_DESCONEXION_CPU,EJECUCION_NORMAL};
+
 typedef struct datosArchivo {
 	char pathArchivo[lenMaxNombre];
 	int fileID;
