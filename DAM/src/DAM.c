@@ -98,7 +98,7 @@ char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 	u_int32_t operacion;
 	u_int32_t tempOffset = htonl(offset);
 	u_int32_t tempSize = htonl(size);
-
+	u_int32_t pathSize=htonl(strlen(path));
 	if(size==0)
 		operacion=htonl(5);
 	else
@@ -106,7 +106,8 @@ char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 
 	myPuts(BLUE "Obteniendo datos '%s' ",path);
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
-	myEnviarDatosFijos(socketGMDJ,path,50);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&pathSize,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,ntohl(pathSize)+1);
 	loading(1);
 	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 
@@ -114,7 +115,7 @@ char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 		if(size==0){
 			myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&tamDatos,sizeof(u_int32_t));
 			char* buffer= malloc(ntohl(tamDatos)+1);
-			myRecibirDatosFijos(socketGMDJ,(char*)buffer,ntohl(tamDatos));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
+			myRecibirDatosFijos(socketGMDJ,(char*)buffer,ntohl(tamDatos));
 			memset(buffer+ntohl(tamDatos),'\0',1);
 
 			return buffer;
@@ -177,15 +178,19 @@ void mostrarConfig(){
 	displayBoxTitle(50,"CONFIGURACION");
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("S-AFA -> IP: %s - Puerto: %s \0", getConfigR("S-AFA_IP",0,configDAM), getConfigR("S-AFA_PUERTO",0,configDAM) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("FM9   -> IP: %s - Puerto: %s \0", getConfigR("FM9_IP",0,configDAM), getConfigR("FM9_PUERTO",0,configDAM) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("MDJ   -> IP: %s - Puerto: %s \0", getConfigR("MDJ_IP",0,configDAM), getConfigR("MDJ_PUERTO",0,configDAM) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("Transfer size: %s\0" COLOR_RESET , getConfigR("TSIZE",0,configDAM) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
@@ -198,7 +203,8 @@ void operacionDummy(int socketCPU){
 
 	myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int));
 
-	escriptorio = malloc(largoRuta);
+	escriptorio = malloc(largoRuta+1);
+	memset(escriptorio,'\0',largoRuta+1);
 
 	myRecibirDatosFijos(socketCPU,escriptorio,largoRuta);
 
@@ -208,6 +214,8 @@ void operacionDummy(int socketCPU){
 
 	printf("script %s \n", script);
 
+	free(script);
+	free(escriptorio);
 	//myEnviarDatosFijos(GsockSAFA,&apertura,sizeof(int)); //Enviando apertura de script a SAFA
 }
 

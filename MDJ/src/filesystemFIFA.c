@@ -325,6 +325,7 @@ int esArchivoFS(char* pathArchivoFS){
 		return 1;
 }
 
+
 int obtenerTamArchivoFS(char* pathFSArchivo){
 	t_config *configFS;
 	char *pathABSarchivo ;

@@ -138,6 +138,12 @@ void cargarConfig(){
 
 
 //FUNCIONES PARA LA LISTAS/COLAS
+static void dtb_destroy(DTB* self){
+	printf("Me libere\n");
+	list_destroy(self->tablaArchivosAbiertos);
+	free(self);
+}
+
 DTB* crearDTB(char *rutaMiScript){
 	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
 	miDTB = malloc(sizeof(DTB));
@@ -430,7 +436,7 @@ void operacionDummy(DTB *miDTB){
 		myRecibirDatosFijos(socketCPU,&motivo,sizeof(int));
 
 		recibirDTBeInstrucciones(CPULibre->socketCPU,motivo);
-
+		free(strDTB);
 		PCP();
 	}
 }
@@ -936,6 +942,8 @@ int main(void)
 		if (linea)
 			add_history(linea);
 
+		add_history("ejecutar Archivos/scripts/checkpoint.escriptorio");
+
 		if(!strncmp(linea,"config",6))
 		{
 			mostrarConfig();
@@ -1188,6 +1196,13 @@ int main(void)
 
 		if(!strncmp(linea,"exit",4))
 		{
+			/*t_queue *colaNEW;
+			t_queue *colaREADY;
+			t_queue *colaEXEC;
+			t_queue *colaBLOCK;
+			t_queue *colaEXIT;
+			t_queue *colaVRR;*/
+			queue_clean_and_destroy_elements(colaNEW, (void*)dtb_destroy);
 			exit(1);
 		}
 

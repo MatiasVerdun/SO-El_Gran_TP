@@ -47,9 +47,11 @@ void mostrarConfig(){
 	displayBoxTitle(50,"CONFIGURACION");
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("S-AFA -> IP: %s - Puerto: %s\0", (char*)getConfigR("S-AFA_IP",0,configCPU), (char*)getConfigR("S-AFA_PUERTO",0,configCPU) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("Retardo: %s\0" , (char*)getConfigR("RETARDO",0,configCPU) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
@@ -113,6 +115,8 @@ void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso
 		myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
 
 		myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
+
+		free(strDTB);
 	}
 }
 

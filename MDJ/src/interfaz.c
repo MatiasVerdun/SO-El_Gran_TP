@@ -17,6 +17,10 @@ int crearArchivo(char* pathArchivoFS,u_int32_t filesize){
 	int offsetUltimoBloque=0;
 	char *metadataArchivo;
 	cantidadBloques=filesize/tamBloque;
+	if(existeArchivoFS(pathArchivoFS)==0){
+		printf("Ya existe un archivo con el mismo nombre en la carpeta especificada\n");
+		return -1;
+	}
 	if(filesize%tamBloque!=0)
 		cantidadBloques++;
 	metadataArchivo=string_from_format("TAMANIO=%d\nBLOQUES=[",filesize);

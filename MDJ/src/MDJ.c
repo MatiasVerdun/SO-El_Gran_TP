@@ -35,7 +35,7 @@ void gestionArchivos(int socketDAM,int operacion){
 	myRecibirDatosFijos(socketDAM,(char*)path,50);
 
 	switch(operacion){
-		case(1):
+		case(1)://Validar existencia de archivo
 			printf(BLUE "Validando si existe el archivo '%s'" ,path);
 			loading(1);
 			if(validarArchivo(path)==0){
@@ -49,7 +49,7 @@ void gestionArchivos(int socketDAM,int operacion){
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 			}
 			break;
-		case(2):
+		case(2)://Crear archivo
 			myRecibirDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t));
 			printf(BLUE "Creando archivo '%s'" ,path);
 			loading(1);
@@ -64,7 +64,7 @@ void gestionArchivos(int socketDAM,int operacion){
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 			}
 			break;
-		case(6):
+		case(6)://Borrar archivo
 			printf(BLUE "Borrando archivo '%s'" ,path);
 			loading(1);
 			if(borrarArchivo(path)==0){
@@ -85,10 +85,12 @@ void gestionArchivos(int socketDAM,int operacion){
 void gestionDatos(int socketDAM, int operacion){
 	char path[50];
 	char datosDummy[30];
-	u_int32_t offset,size,respuesta;
+	u_int32_t offset,size,respuesta,pathSize;
 	offset=size=respuesta=0;
 
-	myRecibirDatosFijos(socketDAM,(char*)path,50);
+	myRecibirDatosFijos(socketDAM,(u_int32_t*)&pathSize,sizeof(u_int32_t));
+	printf("%d\n",ntohl(pathSize));
+	myRecibirDatosFijos(socketDAM,(char*)path,ntohl(pathSize)+1);
 
 	switch(operacion){
 		case(3):
@@ -158,7 +160,6 @@ void gestionDatos(int socketDAM, int operacion){
 	}
 
 }
-
 
 void gestionarConexionDAM(int sock)
 {
@@ -321,7 +322,7 @@ void listar(char* linea){
 	while ((de = readdir(dr)) != NULL){
 		if(esArchivo(de->d_name)==0){
 			if(strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0)
-				printf("%s ", de->d_name);
+				printf(BOLDMAGENTA "%s " COLOR_RESET, de->d_name);
 		}
 		else
 			printf(BOLDBLUE "%s " COLOR_RESET, de->d_name);
@@ -402,7 +403,6 @@ void cat(char* linea){
 
 }
 
-
 void leerArchivoBitmap(){
 	/*unsigned char key[8];
 	FILE *secretkey;
@@ -430,7 +430,7 @@ void consola(){
 	tableDirectory t_directorios[100];
 	while(1){
 		linea = readline(">");
-		add_history("cat scripts/checkpoint.escriptorio");
+		add_history("cat Archivos/scripts/checkpoint.escriptorio");
 		if (linea)
 			add_history(linea);
 
@@ -438,28 +438,9 @@ void consola(){
 		{
 			mostrarConfig();
 		}
-		if(!strncmp(linea,"exit",4))
-		{
-			free(bitmap->bitarray);
-			free(bitmap);
-			free(linea);
-			free(dirActual);
-			break;
-		}
-	 	if(!strncmp(linea,"mkdir",5)){
-	 		mkdirr(linea,t_directorios);
-	 	}
 	 	if(!strncmp(linea,"ls",2)){
 	 		listar(linea);
-	 		/*cargarStructDirectorio(t_directorios);
-			listarDirectorios(t_directorios,0,0);*/
 	 	}
-	 	if(!strncmp(linea,"directorio",10)){
-			listarDirectorioIndice(linea,t_directorios);
-		}
-		if(!strncmp(linea,"rm",2)){
-			rm(linea,t_directorios);
-		}
 		if(!strncmp(linea,"fs",2)){
 			cargarFS();
 		}
@@ -470,39 +451,34 @@ void consola(){
 			cd(linea);
 		}
 		if(!strncmp(linea,"mkfile",6)){
-			crearArchivo("Archivos/scripts/creacion.escriptorio",201);
+			char** split=string_split(linea," ");
+			crearArchivo(split[1],atoi(split[2]));
+			liberarSplit(split);
 		}
-		if(!strncmp(linea,"filerm",6)){
-			borrarArchivo("scripts/creacion.escriptorio");
+		if(!strncmp(linea,"rmfile",6)){
+			char** split=string_split(linea," ");
+			borrarArchivo(split[1]);
+			liberarSplit(split);
 		}
 		if(!strncmp(linea,"bm",2)){
 			mostrarBitmap();
 		}
-		if(!strncmp(linea,"get",3)){
-			//printf("Bloques libres: %d\n",(int)getNBloqueLibre());
+		if(!strncmp(linea,"getData",7)){
 			char* datos;
 			char **split;
 			split=(char**)string_split(linea," ");
-			datos=obtenerDatos("/scripts/creacion.escriptorio",atoi(split[1]),atoi(split[2]));
+			datos=obtenerDatos(split[1],atoi(split[2]),atoi(split[3]));
 			printf("%s\n",datos);
-
 			liberarSplit(split);
 			free(datos);
 		}
 		if(!strncmp(linea,"save",4)){
-			//printf("Bloques libres: %d\n",(int)getNBloqueLibre());
+			char** split=string_split(linea," ");
 			char* datos=obtenerArchivoFS("Archivos/scripts/checkpoint.escriptorio");
 			int tamDatos=obtenerTamArchivoFS("Archivos/scripts/checkpoint.escriptorio");
-			guardarDatos("Archivos/scripts/creacion.escriptorio",0,tamDatos,datos);
-			free(datos);
-		}
-		if(!strncmp(linea,"pbm",3)){
-			char **split;
-			split=(char**)string_split(linea," ");
-			int tipo= atoi(split[1]);
-			pruebaBitmap(tipo);
+			guardarDatos(split[1],0,tamDatos,datos);
 			liberarSplit(split);
-
+			free(datos);
 		}
 		if(!strncmp(linea,"set",3)){
 			char **split;
@@ -518,7 +494,13 @@ void consola(){
 			int indice= atoi(split[1]);
 			setBloqueLibre(indice);
 			liberarSplit(split);
-
+		}
+		if(!strncmp(linea,"exit",4)){
+			free(bitmap->bitarray);
+			free(bitmap);
+			free(linea);
+			free(dirActual);
+			break;
 		}
 		free(linea);
 	}
