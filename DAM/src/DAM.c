@@ -19,9 +19,6 @@ u_int32_t socketGSAFA;
 #define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAM.txt"
 t_config *configDAM;
 
-
-
-
 /*typedef struct datosProceso {
 	char nombreServidor[50];
 	char nombreCliente[50];
@@ -283,6 +280,8 @@ void operacionDummy(int socketCPU){
 	char * escriptorio;
 	int largoRuta;
 	int idDTB;
+	int operacion;
+	int tamScript;
 
 	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
 
@@ -299,7 +298,16 @@ void operacionDummy(int socketCPU){
 
 	printf("script %s \n", script);
 
-	enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio); //Enviar al FM9 y dependiendo la respuesta enviar al S-AFA
+	operacion = OPERACION_DUMMY;
+
+	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+
+	/*tamScript = strlen(script);
+
+	myEnviarDatosFijos(socketGFM9,&tamScript,sizeof(int));*/
+	//TODO ver si se envia todo el script o si hay que dividirlo en lineas
+
+	enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio);
 
 	free(script);
 	free(escriptorio);

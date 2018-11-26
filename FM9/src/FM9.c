@@ -15,7 +15,11 @@
 
 #define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9.txt"
 
-char modoEjecucion[4];
+enum{ SEG,
+	  TPI,
+	  SPA};
+
+int modoEjecucion;
 t_config *configFM9;
 void* memoriaFM9;
 typedef struct SegmentoDeTabla {
@@ -104,13 +108,13 @@ void abrirArchivoSPA(){
 
 void abrirArchivo(){
 	switch(modoEjecucion){
-	case "SEG":
+	case SEG:
 		abrirArchivoSEG();
 		break;
-	case "TPI":
+	case TPI:
 		abrirArchivoTPI();
 		break;
-	case "SPA":
+	case SPA:
 		abrirArchivoSPA();
 		break;
 	}
@@ -133,13 +137,13 @@ void asignarLineaSPA(){
 
 void asignarLinea(){
 	switch(modoEjecucion){
-	case "SEG":
+	case SEG:
 		asignarLineaSEG();
 		break;
-	case "TPI":
+	case TPI:
 		asignarLineaTPI();
 		break;
-	case "SPA":
+	case SPA:
 		asignarLineaSPA();
 		break;
 	}
@@ -161,13 +165,13 @@ void flushSPA(){
 
 void flush(){
 	switch(modoEjecucion){
-	case "SEG":
+	case SEG:
 		flushSEG();
 		break;
-	case "TPI":
+	case TPI:
 		flushTPI();
 		break;
-	case "SPA":
+	case SPA:
 		flushSPA();
 		break;
 	}
@@ -189,13 +193,13 @@ void cerrarArchivoSPA(){
 
 void cerrarArchivo(){
 	switch(modoEjecucion){
-	case "SEG":
+	case SEG:
 		cerrarArchivoSEG();
 		break;
-	case "TPI":
+	case TPI:
 		cerrarArchivoTPI();
 		break;
-	case "SPA":
+	case SPA:
 		cerrarArchivoSPA();
 		break;
 	}
@@ -221,8 +225,20 @@ void leerDatos(int size,int base){
 	///FUNCIONES DE CONFIG///
 
 void setModoEjecucion(){
-	modoEjecucion = (char *) getConfig("MODO_EJ","FM9.txt",1);
-	modoEjecucion[3] = '\0';
+	char *miModoEjecucion;
+
+	miModoEjecucion = (char *) getConfig("MODO_EJ","FM9.txt",1);
+
+	if(strcmp(miModoEjecucion, "SEG")==0)
+	{
+		modoEjecucion = SEG;
+	} else if(strcmp(miModoEjecucion, "TPI")==0)
+	{
+		modoEjecucion = TPI;
+	} else if(strcmp(miModoEjecucion, "SPA")==0)
+	{
+		modoEjecucion = SPA;
+	}
 }
 
 int inicializarLineasOcupadas(){
@@ -311,20 +327,20 @@ void gestionarConexionDAM(int *sock){
 			operacion=ntohl(buffer);
 
 			switch(operacion){
-				case(1):
+				case(OPERACION_DUMMY):
 					recibirScript(socketDAM);
 					break;
-				/*case OPERACION_ABRIR:
+				/*case (OPERACION_ABRIR):
 					//  TODO rcv tamaño en lineas, chequear si hay espacio comparando el tamaño contra espacioMaximoLibre()
 					// responder por si o por no
 					// Si hay espacio, rcv datos, llamar a abrirArchivo(), break
-				case OPERACION_ASIGNAR:
+				case (OPERACION_ASIGNAR):
 					//TODO idealmente se recibe la linea y posicion en la linea en la cual tengo que asignar
 					//(no se si DAM sabe tanto) llamar a AsignarLinea(), break
-				case OPERACION_FLUSH:
+				case (OPERACION_FLUSH):
 					//TODO se recibe la primera linea del archivo a flushear (y no se si el tamaño), flush()
 					//hago un super send del archivo en cuestion, break
-				case OPERACION_CLOSE:
+				case (OPERACION_CLOSE):
 					//TODO se recibe el archivo a cerrar (y no se si el tamaño), cerrarArchivo(), break
 				*/
 
@@ -447,8 +463,7 @@ int main() {
 	configFM9=config_create(PATHCONFIGFM9);
 
 	mostrarConfig();
-
-	//setModoEjecucion();
+	setModoEjecucion();
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
