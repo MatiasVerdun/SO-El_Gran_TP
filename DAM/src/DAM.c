@@ -61,9 +61,9 @@ int  borrarArchivo(char* path){
 	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 
 	if(ntohl(respuesta)==0){
-		myPuts(BOLDGREEN"El archivo fue creado correctamente" COLOR_RESET "\n");
+		myPuts(BOLDGREEN"El archivo fue borrado correctamente" COLOR_RESET "\n");
 	}else{
-		myPuts(RED "El archivo no pudo ser creado" COLOR_RESET "\n");
+		myPuts(RED "El archivo no pudo ser borrado" COLOR_RESET "\n");
 	}
 
 	return respuesta;
@@ -198,37 +198,12 @@ void mostrarConfig(){
     free(myText);
 }
 
-void operacionDummy(int socketCPU){
-	char * escriptorio;
-	int largoRuta;
-	int idDTB;
-
-	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
-
-	myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int));
-
-	escriptorio = malloc(largoRuta+1);
-	memset(escriptorio,'\0',largoRuta+1);
-
-	myRecibirDatosFijos(socketCPU,escriptorio,largoRuta);
-
-	myPuts("La ruta del Escriptorio que se recibio es: %s\n",escriptorio);
-
-	char * script = obtenerDatos(escriptorio,0,0);
-
-	printf("script %s \n", script);
-
-	free(script);
-	free(escriptorio);
-	//myEnviarDatosFijos(GsockSAFA,&apertura,sizeof(int)); //Enviando apertura de script a SAFA
-}
-
 void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo){
 
 	myEnviarDatosFijos(socketGSAFA,&accion,sizeof(int));
 	myEnviarDatosFijos(socketGSAFA,&idDTB,sizeof(int));
 
-	if(accion == ACC_CREAR_OK || accion == ACC_BORRAR_OK){
+	if(accion == ACC_CREAR_OK || accion == ACC_BORRAR_OK || accion == ACC_DUMMY_OK){
 		myEnviarDatosFijos(socketGSAFA,&tamanio,sizeof(int));
 		myEnviarDatosFijos(socketGSAFA,pathArchivo,tamanio);
 	}
@@ -238,16 +213,19 @@ void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo){
 void operacionAlMDJ(int operacion, int socketCPU){
 	char * pathArchivo = NULL;
 	int tamanio;
-	int parametro2;
 	int respuesta;
-	int accion;
 	int idDTB;
 
 	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
 
-	myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int));
+	if(myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int))==1)
+		myPuts(RED"Error al recibir el tamaño del path"COLOR_RESET"\n");
 
-	myRecibirDatosFijos(socketCPU,pathArchivo,tamanio);
+	pathArchivo = malloc(tamanio+1);
+	memset(pathArchivo,'\0',tamanio+1);
+
+	if(myRecibirDatosFijos(socketCPU,pathArchivo,tamanio)==1)
+		myPuts(RED"Error al recibir el path del Archivo"COLOR_RESET"\n");
 
 	myPuts("El path que se recibio es: %s\n",pathArchivo);
 
@@ -291,9 +269,41 @@ void operacionAlFM9(int operacion, int socketCPU){
 
 	myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
 
-	myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int));
+	if(myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int))==1)
+		myPuts(RED"Error al recibir el tamaño del path"COLOR_RESET"\n");
 
-	myRecibirDatosFijos(socketCPU,pathArchivo,tamanio);
+	pathArchivo = malloc(tamanio+1);
+	memset(pathArchivo,'\0',tamanio+1);
+
+	if(myRecibirDatosFijos(socketCPU,pathArchivo,tamanio)==1)
+		myPuts(RED"Error al recibir el recurso"COLOR_RESET"\n");
+}
+
+void operacionDummy(int socketCPU){
+	char * escriptorio;
+	int largoRuta;
+	int idDTB;
+
+	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
+
+	myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int));
+
+	escriptorio = malloc(largoRuta+1);
+	memset(escriptorio,'\0',largoRuta+1);
+
+	myRecibirDatosFijos(socketCPU,escriptorio,largoRuta);
+
+	myPuts("La ruta del Escriptorio que se recibio es: %s\n",escriptorio);
+
+	char * script = obtenerDatos(escriptorio,0,0);
+
+	printf("script %s \n", script);
+
+	enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio);
+
+	free(script);
+	free(escriptorio);
+
 }
 
 	///GESTION DE CONEXIONES///
@@ -328,7 +338,7 @@ void gestionarConexionCPU(int *sock_cliente){
 
 				operacionAlMDJ(operacion,socketCPU);
 
-				break;
+			break;
 
 			case OPERACION_FLUSH: //AL FM9
 
@@ -347,6 +357,13 @@ void gestionarConexionCPU(int *sock_cliente){
 				operacionAlMDJ(operacion,socketCPU);
 
 				break;
+
+			case SE_DESCONECTO_SAFA:
+
+				myPuts(RED "Se desconecto SAFA "COLOR_RESET"\n ");
+
+				exit(1);
+			break;
 
 			}
 		}else{

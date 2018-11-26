@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/time.h>
 #include <semaphore.h>
 #include <commons/log.h>
 #include <commons/config.h>
@@ -30,13 +31,14 @@ int quantum;
 int remanente;
 int retardoPlanificacion;
 char tipoPlanificacion[5];
-bool estoyEjecutando = false;
 bool terminoInstrucciones = false;
 bool estaBloqueado = false;
 int instruccionesEjecutadas = 0; //TODO Capaz que no hace falta que sea global
 int motivoLiberacionCPU;
 int codigoError = 0;
 
+int tiempoI;
+int tiempoF;
 
 ///FUNCIONES DE CONFIG///
 
@@ -72,6 +74,12 @@ void recibirQyPlanificacion(){
 
 	strcpy(tipoPlanificacion,bufferPlanificacion);
 
+	if(strcmp(tipoPlanificacion,"VRR")==0){
+		resultRecv = myRecibirDatosFijos(socketSAFA,&remanente,sizeof(int));
+		if(resultRecv !=0){
+				printf("Error al recibir el remanente");
+		}
+	}
 
 	resultRecv = myRecibirDatosFijos(socketSAFA,&quantum,sizeof(int));
 	if(resultRecv !=0){
@@ -107,7 +115,11 @@ void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso
 
 		myEnviarDatosFijos(socketSAFA,recurso,tamanio);
 
+
 	}else{
+		tiempoF = time(NULL);
+		int tiempo = tiempoF-tiempoI; //TODO
+
 		char* strDTB;
 
 		strDTB = DTBStruct2String (miDTB);
@@ -115,6 +127,8 @@ void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso
 		myEnviarDatosFijos(socketSAFA,strDTB,strlen(strDTB));
 
 		myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
+
+		myEnviarDatosFijos(socketSAFA,&tiempo,sizeof(int));
 
 		free(strDTB);
 	}
@@ -125,8 +139,8 @@ void recibirRespuestaWaitSignal(){
 	int resultado;
 
 	resultRecv = myRecibirDatosFijos(socketSAFA,&resultado,sizeof(int));
-	if(resultRecv !=0){
-			printf("Error al recibir el Remanente");
+	if(resultRecv ==1){
+			myPuts(RED"Error al recibir la respuesta de WAIT/SIGNAL"COLOR_RESET"\n");
 	}
 
 	if(resultado == 0){
@@ -148,7 +162,7 @@ void operacionDummy(DTB *miDTB){
 
 	enviarMotivoyDatos(miDTB,motivo,inst,NULL); // Avisar a S-AFA del block y sin instrucciones ejecutadas
 
-	myPuts("Enviando al Diego la ruta del Escriptorio.\n");
+	myPuts("Enviando al Diego la ruta del Escriptorio \n");
 
 	largoRuta = strlen(miDTB->Escriptorio);
 
@@ -171,8 +185,8 @@ bool hayQuantum(int inst){
 	return inst < quantum || quantum < 0;
 }
 
-bool terminoElDTB(){
-	return terminoInstrucciones;
+bool terminoElDTB(DTB *miDTB){
+	return miDTB->PC >= list_size(listaSentencias);
 }
 
 bool DTBBloqueado(){
@@ -254,6 +268,8 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 		break;
 
 		case OPERACION_WAIT:
+			printf("OPERACION WAIT");
+
 			enviarMotivoyDatos(NULL,ACC_WAIT,-1,miSentencia->param1);
 
 			recibirRespuestaWaitSignal();
@@ -334,22 +350,39 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 
 }
 
+void hardcodearSentencia(){
+	//ESTO LO HARIA EL PARSER
+	sentencia *laSentencia;
+
+	laSentencia = malloc(sizeof(sentencia));
+	laSentencia->operacion = OPERACION_BORRAR;
+	laSentencia->param1 = malloc(strlen("HOLA")+1);;
+	laSentencia->param2 = -1;
+	laSentencia->param3 = NULL;
+
+	strcpy(laSentencia->param1,"HOLA");
+	listaSentencias = list_create();
+	list_add(listaSentencias,laSentencia);
+
+}
+
 void ejecutarInstruccion(DTB* miDTB){
+	sentencia *miSentencia;
 
-	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB() && !DTBBloqueado() && !hayError()){
+	hardcodearSentencia();
 
-		estoyEjecutando = true;
+	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB(miDTB) && !DTBBloqueado() && !hayError()){
 
-		sentencia *dudoso; //TODO
+		miSentencia = list_get(listaSentencias,miDTB->PC);
 
-		gestionDeSentencia(miDTB,dudoso);
+		gestionDeSentencia(miDTB,miSentencia);
 
-		miDTB->PC++;
+		miDTB->PC ++;
 
 		instruccionesEjecutadas++;
 
 	}
-	 if(terminoElDTB()){
+	 if(terminoElDTB(miDTB)){
 
 		motivoLiberacionCPU = MOT_FINALIZO;
 
@@ -368,12 +401,10 @@ void ejecutarInstruccion(DTB* miDTB){
 
 	enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
-	estoyEjecutando = false;
 	instruccionesEjecutadas = 0;
 }
 
 ///PARSEAR SCRIPTS///
-
 
 void parsear(char * linea){
 	sentencia *laSentencia;
@@ -482,6 +513,7 @@ void gestionarConexionSAFA(){
 	while(1){
 		if(myRecibirDatosFijos(socketSAFA,&ejecucion,sizeof(int))!=1){
 			if(ejecucion == EJECUCION_NORMAL){
+
 				recibirQyPlanificacion();
 
 				DTB *miDTB;
@@ -504,6 +536,8 @@ void gestionarConexionSAFA(){
 
 		}else{
 			myPuts(RED "Se desconecto el proceso S-AFA" COLOR_RESET "\n");
+			int desconexion = SE_DESCONECTO_SAFA;
+			myEnviarDatosFijos(socketGDAM,&desconexion,sizeof(int));
 			exit(1);
 		}
 	}
@@ -592,6 +626,8 @@ void* connectionSAFA(){
 	///MAIN///
 
 int main() {
+	tiempoI = time(NULL);
+
 	system("clear");
 	pthread_t hiloConnectionDAM;
 	pthread_t hiloConnectionSAFA;

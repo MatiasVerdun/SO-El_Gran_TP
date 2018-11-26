@@ -21,6 +21,7 @@ typedef struct datosArchivo {
 	int fileID;
 } datosArchivo;
 
+
 void myTrim(char *aDonde,char *contenidoACortar);
 
 
