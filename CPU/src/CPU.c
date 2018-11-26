@@ -558,6 +558,8 @@ void gestionarConexionSAFA(){
 				}else{
 					ejecutarInstruccion(miDTB);
 				}
+				list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos, (void*)free);
+				free(miDTB);
 			}
 
 			if(ejecucion == PREGUNTAR_DESCONEXION_CPU){
@@ -572,6 +574,7 @@ void gestionarConexionSAFA(){
 			exit(1);
 		}
 	}
+
 }
 
 

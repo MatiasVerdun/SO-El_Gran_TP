@@ -395,7 +395,7 @@ void cat(char* linea){
 	if(strcmp(archivo,"ERROR")==0){
 		printf("El archivo especificado no existe\n");
 	}else{
-		printf("%s\n",archivo);
+		printf("%s",archivo);
 		free(archivo);
 	}
 	free(pathArchivoFIFAFS);

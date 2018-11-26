@@ -77,9 +77,15 @@ char* DTBStruct2String(DTB *miDTB){
 		datosArchivo *misDatos;
 
 		misDatos = list_get(miDTB->tablaArchivosAbiertos,indice);
+		char* pathArchivo=string_from_format("%256s",misDatos->pathArchivo);
+		char* fileID=string_from_format("%4d",misDatos->fileID);
 
-		strcat(miStringDTB,string_from_format("%256s",misDatos->pathArchivo));
-		strcat(miStringDTB,string_from_format("%4d",misDatos->fileID));
+		strcat(miStringDTB,pathArchivo);
+		strcat(miStringDTB,fileID);
+
+		free(pathArchivo);
+		free(fileID);
+
 	}
 	miStringDTB[265 + (lenLista * (256 + 4))]='\0';
 

@@ -737,7 +737,7 @@ void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 	break;
 
 	}
-
+	free(recurso);
 }
 
 DTB * elegirProximoAEjecutarSegunPlanificacion(int socketCPU, int remanente){
@@ -810,7 +810,11 @@ void PCP(){
 			}
 		}
 
-		recibirDTBeInstrucciones(socketCPU,motivo);
+		free(strDTB);
+		DTB *DTBrecibido=recibirDTBeInstrucciones(socketCPU,motivo);
+
+		list_destroy_and_destroy_elements(DTBrecibido->tablaArchivosAbiertos, (void*)free);
+		free(DTBrecibido);
 	}
 }
 
