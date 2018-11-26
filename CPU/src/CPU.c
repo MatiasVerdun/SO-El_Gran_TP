@@ -31,7 +31,6 @@ int quantum;
 int remanente;
 int retardoPlanificacion;
 char tipoPlanificacion[5];
-bool terminoInstrucciones = false;
 bool estaBloqueado = false;
 int instruccionesEjecutadas = 0; //TODO Capaz que no hace falta que sea global
 int motivoLiberacionCPU;
@@ -40,7 +39,9 @@ int codigoError = 0;
 int tiempoI;
 int tiempoF;
 
-///FUNCIONES DE CONFIG///
+static sem_t semDAM;
+
+	///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
 
@@ -60,7 +61,28 @@ void mostrarConfig(){
     free(myText);
 }
 
-//
+	/// VALIDACIONES PLANIFICACION///
+bool hayQuantum(int inst){
+	if(strcmp(tipoPlanificacion,"VRR")==0 && remanente > 0){
+		return inst < remanente;
+	}
+
+	return inst < quantum || quantum < 0;
+}
+
+bool terminoElDTB(DTB *miDTB){
+	return miDTB->PC >= list_size(listaSentencias);
+}
+
+bool hayError(){
+	return codigoError != 0;
+}
+
+bool DTBBloqueado() {
+	return estaBloqueado;
+}
+
+	/// RECIBIR Y ENVIAR ///
 
 void recibirQyPlanificacion(){
 
@@ -117,10 +139,11 @@ void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso
 
 
 	}else{
-		tiempoF = time(NULL);
-		int tiempo = tiempoF-tiempoI; //TODO
-
 		char* strDTB;
+
+		if((miDTB->Flag_GDTInicializado == 1) && (motivo == MOT_BLOQUEO) && terminoElDTB(miDTB)){
+			miDTB->ejecutoSuUltimaSentencia = 1;
+		}
 
 		strDTB = DTBStruct2String (miDTB);
 
@@ -128,10 +151,15 @@ void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso
 
 		myEnviarDatosFijos(socketSAFA,&instrucciones,sizeof(int));
 
-		myEnviarDatosFijos(socketSAFA,&tiempo,sizeof(int));
+		if(miDTB->Flag_GDTInicializado == 1){
+			tiempoF = time(NULL);
+			int tiempo = tiempoF-tiempoI;
+			myEnviarDatosFijos(socketSAFA,&tiempo,sizeof(int));
+		}
 
 		free(strDTB);
 	}
+
 }
 
 void recibirRespuestaWaitSignal(){
@@ -177,26 +205,6 @@ void operacionDummy(DTB *miDTB){
 	myEnviarDatosFijos(socketGDAM,miDTB->Escriptorio,largoRuta);
 }
 
-bool hayQuantum(int inst){
-	if(strcmp(tipoPlanificacion,"VRR")==0 && remanente > 0){
-		return inst < remanente;
-	}
-
-	return inst < quantum || quantum < 0;
-}
-
-bool terminoElDTB(DTB *miDTB){
-	return miDTB->PC >= list_size(listaSentencias);
-}
-
-bool DTBBloqueado(){
-	return estaBloqueado;
-}
-
-bool hayError(){
-	return codigoError != 0;
-}
-
 int buscarFileID(t_list *listaArchivos,char* pathArchivo){
 	for (int indice = 0;indice < list_size(listaArchivos);indice++){
 		datosArchivo *miArchivo;
@@ -208,7 +216,7 @@ int buscarFileID(t_list *listaArchivos,char* pathArchivo){
 	return -1;
 }
 
-void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
+void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjecutadas){
 	int fileID;
 	int parametro2;
 	int operacion = miSentencia->operacion;
@@ -223,7 +231,9 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 			fileID = buscarFileID(miDTB->tablaArchivosAbiertos,miSentencia->param1);
 
 			if(fileID == -1){
-				estaBloqueado = true; //DESALOJO DTB
+				estaBloqueado = true;
+				motivoLiberacionCPU = MOT_BLOQUEO;
+				enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
 				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
@@ -268,8 +278,6 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 		break;
 
 		case OPERACION_WAIT:
-			printf("OPERACION WAIT");
-
 			enviarMotivoyDatos(NULL,ACC_WAIT,-1,miSentencia->param1);
 
 			recibirRespuestaWaitSignal();
@@ -285,7 +293,9 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 			fileID = buscarFileID(miDTB->tablaArchivosAbiertos,miSentencia->param1);
 
 			if(fileID != -1){
-				estaBloqueado = true; //DESALOJO DTB
+				estaBloqueado = true;
+				motivoLiberacionCPU = MOT_BLOQUEO;
+				enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
 				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
@@ -295,6 +305,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 				tamanio = strlen(miSentencia->param1);
 				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
 				myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
+
 
 			}else{
 				codigoError = 30001;										//ERROR: El archivo no se encuentra abierto
@@ -319,8 +330,9 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 		break;
 
 		case OPERACION_CREAR:// AL DIEGO PARA MDJ PATH
-
-				estaBloqueado = true; //DESALOJO DTB
+				estaBloqueado = true;
+				motivoLiberacionCPU = MOT_BLOQUEO;
+				enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
 				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
@@ -335,8 +347,9 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia){
 		break;
 
 		case OPERACION_BORRAR:// AL DIEGO PARA MDJ PATH
-
-				estaBloqueado= true; //DESALOJO DTB
+				estaBloqueado = true;
+				motivoLiberacionCPU = MOT_BLOQUEO;
+				enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
 				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
@@ -355,15 +368,35 @@ void hardcodearSentencia(){
 	sentencia *laSentencia;
 
 	laSentencia = malloc(sizeof(sentencia));
-	laSentencia->operacion = OPERACION_BORRAR;
+	laSentencia->operacion = OPERACION_WAIT;
 	laSentencia->param1 = malloc(strlen("HOLA")+1);;
 	laSentencia->param2 = -1;
 	laSentencia->param3 = NULL;
 
 	strcpy(laSentencia->param1,"HOLA");
-	listaSentencias = list_create();
+
 	list_add(listaSentencias,laSentencia);
 
+	sentencia *laSentencia2;
+
+	laSentencia2 = malloc(sizeof(sentencia));
+	laSentencia2->operacion = OPERACION_SIGNAL;
+	laSentencia2->param1 = malloc(strlen("HOLA")+1);;
+	laSentencia2->param2 = -1;
+	laSentencia2->param3 = NULL;
+
+	strcpy(laSentencia2->param1,"HOLA");
+
+	list_add(listaSentencias,laSentencia2);
+
+}
+
+void limpiarVariables(){
+	instruccionesEjecutadas = 0;
+	motivoLiberacionCPU = -1;
+	codigoError = 0;
+	estaBloqueado = false;
+	list_clean(listaSentencias); //TODO liberar memoria
 }
 
 void ejecutarInstruccion(DTB* miDTB){
@@ -371,37 +404,36 @@ void ejecutarInstruccion(DTB* miDTB){
 
 	hardcodearSentencia();
 
-	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB(miDTB) && !DTBBloqueado() && !hayError()){
+	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB(miDTB)  && !hayError() && !DTBBloqueado()){
 
 		miSentencia = list_get(listaSentencias,miDTB->PC);
-
-		gestionDeSentencia(miDTB,miSentencia);
 
 		miDTB->PC ++;
 
 		instruccionesEjecutadas++;
 
+		gestionDeSentencia(miDTB,miSentencia,instruccionesEjecutadas);
+
 	}
-	 if(terminoElDTB(miDTB)){
+
+	if(hayError()){
+		motivoLiberacionCPU = MOT_ERROR;
+
+	} else if(terminoElDTB(miDTB)){
 
 		motivoLiberacionCPU = MOT_FINALIZO;
 
-	}  else if(DTBBloqueado()){
+	}else if(instruccionesEjecutadas == quantum){
 
-		motivoLiberacionCPU = MOT_BLOQUEO;
-
-	} else if(instruccionesEjecutadas == quantum){
-
-		motivoLiberacionCPU =  MOT_QUANTUM;
-
-	}else if (hayError()){
-		motivoLiberacionCPU =  MOT_ERROR;
+		motivoLiberacionCPU = MOT_QUANTUM;
 
 	}
 
-	enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
+	if(!DTBBloqueado()){
+		enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
+	}
 
-	instruccionesEjecutadas = 0;
+	limpiarVariables();
 }
 
 ///PARSEAR SCRIPTS///
@@ -409,7 +441,6 @@ void ejecutarInstruccion(DTB* miDTB){
 void parsear(char * linea){
 	sentencia *laSentencia;
 
-	listaSentencias = list_create();
 	nroSentenciaActual = -1;
 
 	t_parser_operacion parsed = parse(linea);
@@ -633,7 +664,11 @@ int main() {
 	pthread_t hiloConnectionSAFA;
 	pthread_t hiloConnectionFM9;
 
+	sem_init(&semDAM,0,0);
+
 	configCPU=config_create(PATHCONFIGCPU);
+
+	listaSentencias = list_create();
 
 	mostrarConfig();
 

@@ -160,6 +160,7 @@ DTB* crearDTB(char *rutaMiScript){
 	miDTB->PC = 0;
 	miDTB->Flag_GDTInicializado = 1;
 	miDTB->tablaArchivosAbiertos = list_create();
+	miDTB->ejecutoSuUltimaSentencia = 0;
 
 	IDGlobal++;
 
@@ -353,7 +354,7 @@ bool debeFinalizarse(int idDTB){
 }
 
 	///RECURSOS///
-int buscarRecurso(char* recursoABuscar){
+int buscarIndicePorRecurso(char* recursoABuscar){
 	for (int indice = 0;indice < list_size(listaRecursos);indice++){
 		recurso *miRecurso= list_get(listaRecursos,indice);
 		if(strcmp(miRecurso->recurso,recursoABuscar)==0){
@@ -545,10 +546,14 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 
 		sobra = configModificable.quantum - instruccionesRealizadas;
 
-		if(strcmp(configModificable.algoPlani,"VRR") == 0 && sobra > 0){
-			DTBPrioridadVRR * miDTBVRR;
-			miDTBVRR = crearDTBVRR(miDTB,sobra);
-			queue_push(colaVRR,miDTBVRR);
+		if(strcmp(configModificable.algoPlani,"VRR") == 0){
+			if(sobra > 0){
+				DTBPrioridadVRR * miDTBVRR;
+				miDTBVRR = crearDTBVRR(miDTB,sobra);
+				queue_push(colaVRR,miDTBVRR);
+			}else{
+				queue_push(colaBLOCK,miDTB);
+			}
 		}
 
 	break;
@@ -600,13 +605,15 @@ DTB* recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 	DTB *miDTB;
 	clienteCPU *miCPU;
 	int instruccionesRealizadas;
-	int tiempoCPU;
+	int tiempoCPU = 0;
 
 	miDTB = recibirDTB(socketCPU);
 
 	myRecibirDatosFijos(socketCPU,&instruccionesRealizadas,sizeof(int));
 
-	myRecibirDatosFijos(socketCPU,&tiempoCPU,sizeof(int));
+	if(miDTB->Flag_GDTInicializado ==1){
+		myRecibirDatosFijos(socketCPU,&tiempoCPU,sizeof(int));
+	}
 
 	tiempoCPUs  = tiempoCPUs + tiempoCPU;
 	cantHistoricaDeSentencias += instruccionesRealizadas;
@@ -683,7 +690,7 @@ void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 
 		recurso = recibirDatosAccionWaitSignal(socketCPU);
 
-		indiceRecurso = buscarRecurso(recurso);
+		indiceRecurso = buscarIndicePorRecurso(recurso);
 
 		if(indiceRecurso == -1){
 			miRecurso = crearRecurso(recurso);
@@ -696,6 +703,7 @@ void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 			myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // OK
 		}else{
 			miRecurso = list_get(listaRecursos,indiceRecurso);
+			myPuts(GREEN"Se hizo WAIT del recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
 			miRecurso->semaforo -= 1;
 			asignarRecurso(socketCPU,miRecurso,miDTB->ID_GDT);
 		}
@@ -711,7 +719,7 @@ void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 		continuarEjecucion = 1;
 		myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // OK
 
-		indiceRecurso = buscarRecurso(recurso);
+		indiceRecurso = buscarIndicePorRecurso(recurso);
 
 		if(indiceRecurso == -1){
 			miRecurso = crearRecurso(recurso);
@@ -720,8 +728,8 @@ void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 			myPuts(GREEN"Se creo el recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
 
 		}else{
-			myPuts(GREEN"Se hizo SIGNAL del recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
 			miRecurso = list_get(listaRecursos,indiceRecurso);
+			myPuts(GREEN"Se hizo SIGNAL del recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
 			miRecurso->semaforo += 1;
 			verificarSiSePuedeLiberarUnRecurso(miRecurso);
 		}
@@ -872,7 +880,9 @@ void finalizarDTB(int idDTB, t_list* miLista){
 	DTBenPCP--;
 
 	PLP();
+
 }
+
 
 	///OPERACION DUMMY///
 
@@ -972,11 +982,14 @@ void operacionDummy(DTB *miDTB){
 
 void agregarArchivoALaTabla(int idDTB, char * pathArchivo){
 	datosArchivo* archivo;
-	DTB * miDTB;
+	DTB* miDTB = NULL;
 
 	archivo = crearDatosArchivos(pathArchivo);
 
 	miDTB = buscarDTBPorID(colaBLOCK,idDTB);
+
+	//if(miDTB==NULL)
+	//miDTB = buscarDTBPorID(colaEXIT,idDTB);
 
 	list_add(miDTB->tablaArchivosAbiertos, archivo);
 
@@ -984,8 +997,8 @@ void agregarArchivoALaTabla(int idDTB, char * pathArchivo){
 
 int buscarIndicePorArchivo(char * pathArchivo,t_list* listaArchivos){
 	for (int indice = 0;indice < list_size(listaArchivos);indice++){
-		recurso *miRecurso= list_get(listaArchivos,indice);
-		if(strcmp(miRecurso->recurso,pathArchivo)==0){
+		datosArchivo *miArchivo= list_get(listaArchivos,indice);
+		if(strcmp(miArchivo->pathArchivo,pathArchivo)==0){
 			return indice;
 		}
 	}
@@ -994,15 +1007,31 @@ int buscarIndicePorArchivo(char * pathArchivo,t_list* listaArchivos){
 
 void borrarArchivoDeLaTabla(int idDTB, char* pathArchivo){
 	int indice;
-	datosArchivo* miArchivo;
+	//datosArchivo* miArchivo; //TODO liberar la memoria del archivo
 
 	DTB * miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
 	indice = buscarIndicePorArchivo(pathArchivo,miDTB->tablaArchivosAbiertos);
 
-	miArchivo = list_remove(miDTB->tablaArchivosAbiertos,indice);
+	if(indice != -1){
+	list_remove(miDTB->tablaArchivosAbiertos,indice);
+	}
 
-	free(miArchivo);
+}
+
+void verificarSiExisteArchivoEnAlgunaTabla(int idDTB,char *pathArchivo){
+	for(int i = 0; i < queue_size(colaBLOCK); i ++){
+		DTB *miDTB = list_get(colaBLOCK->elements,i);
+		borrarArchivoDeLaTabla(miDTB->ID_GDT,pathArchivo);
+	}
+	for(int i = 0; i < queue_size(colaREADY); i ++){
+		DTB *miDTB = list_get(colaREADY->elements,i);
+		borrarArchivoDeLaTabla(miDTB->ID_GDT,pathArchivo);
+	}
+	for(int i = 0; i < queue_size(colaEXEC); i ++){
+		DTB *miDTB = list_get(colaEXEC->elements,i);
+		borrarArchivoDeLaTabla(miDTB->ID_GDT,pathArchivo);
+	}
 
 }
 
@@ -1102,6 +1131,7 @@ void gestionarConexionDAM(int *sock_cliente){
 
 	int result, accion,socketCPUDesconectada, idDTB,tamanio;
 	char* pathArchivo = NULL ;
+	int indice;
 
 	while(1){
 
@@ -1146,6 +1176,8 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_DUMMY_ERROR:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
+					myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
+
 					finalizarDTB(idDTB, colaBLOCK->elements);
 
 				break;
@@ -1162,14 +1194,23 @@ void gestionarConexionDAM(int *sock_cliente){
 					if(myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio)==1)
 						myPuts(RED"Error al recibir el path del Archivo"COLOR_RESET"\n");
 
-					agregarArchivoALaTabla(idDTB,pathArchivo);
+					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
+					miDTB = list_get(colaBLOCK->elements,indice);
 
-					desbloquearDTB(idDTB);
+					if(miDTB->ejecutoSuUltimaSentencia == 1){
+						myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
+
+						finalizarDTB(idDTB, colaBLOCK->elements);
+					}else{
+						desbloquearDTB(idDTB);
+					}
 
 				break;
 
 				case ACC_CREAR_ERROR:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+
+					myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
 
 					finalizarDTB(idDTB, colaBLOCK->elements);
 
@@ -1187,15 +1228,25 @@ void gestionarConexionDAM(int *sock_cliente){
 					if(myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio)==1)
 						myPuts(RED"Error al recibir el path del Archivo"COLOR_RESET"\n");
 
-					borrarArchivoDeLaTabla(idDTB,pathArchivo);
+					verificarSiExisteArchivoEnAlgunaTabla(idDTB,pathArchivo);
 
-					desbloquearDTB(idDTB);
+					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
+					miDTB = list_get(colaBLOCK->elements,indice);
 
+					if(miDTB->ejecutoSuUltimaSentencia == 1){
+						myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
+
+						finalizarDTB(idDTB, colaBLOCK->elements);
+					}else{
+						desbloquearDTB(idDTB);
+					}
 
 				break;
 
 				case ACC_BORRAR_ERROR:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+
+					myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
 
 					finalizarDTB(idDTB, colaBLOCK->elements);
 

@@ -299,7 +299,7 @@ void operacionDummy(int socketCPU){
 
 	printf("script %s \n", script);
 
-	enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio);
+	enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio); //Enviar al FM9 y dependiendo la respuesta enviar al S-AFA
 
 	free(script);
 	free(escriptorio);
