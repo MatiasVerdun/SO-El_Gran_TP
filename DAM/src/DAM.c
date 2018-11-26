@@ -276,13 +276,50 @@ void operacionAlFM9(int operacion, int socketCPU){
 		myPuts(RED"Error al recibir el recurso"COLOR_RESET"\n");
 }
 
+int tamSplit(char** split){
+	int i=0;
+	while(split[i]){
+		i++;
+	}
+	return i;
+}
+
+int contadorLineas(char* texto){
+	int lineas=0;
+
+	for(int i=0;i<strlen(texto);i++){
+		if(texto[i]=='\n'){
+			lineas++;
+		}
+	}
+	return lineas;
+}
+
+char** bytesToLineas(char* bytes){//Covierte los bytes a lineas y los devuelve en un array de strings
+	char** lineas=malloc(strlen(bytes)+1);
+	char** splitLineas=string_split(bytes,"\n");
+	memset(lineas,'\0',strlen(bytes)+1);
+	for(int i=0;i<contadorLineas(bytes);i++){
+		char* linea;
+		if(splitLineas[i]!=NULL)
+			linea=string_from_format("%s\n",splitLineas[i]);
+		else
+			linea=string_from_format("\n");
+		lineas[i]=linea;
+		//printf("%s",linea);
+	}
+	liberarSplit(splitLineas);
+	return lineas;
+}
+
 void operacionDummy(int socketCPU){
 	char * escriptorio;
+	char** lineasScript;
 	int largoRuta;
 	int idDTB;
 	int operacion;
 	int tamScript;
-
+	int i=0;
 	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
 
 	myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int));
@@ -296,19 +333,24 @@ void operacionDummy(int socketCPU){
 
 	char * script = obtenerDatos(escriptorio,0,0);
 
-	printf("script %s \n", script);
-
+	lineasScript=bytesToLineas(script);//Guarda un array de lineas en lineasScript, cada posicion del array es una linea del script
 	operacion = OPERACION_DUMMY;
 
-	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+	while(lineasScript[i]!=NULL){//Print de prueba
+		printf("%s",lineasScript[i]);
+		i++;
+	}
 
-	/*tamScript = strlen(script);
+	//myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
 
-	myEnviarDatosFijos(socketGFM9,&tamScript,sizeof(int));*/
+	//tamScript=contadorLineas(script);//Tamaño del script en lineas
+
+	//myEnviarDatosFijos(socketGFM9,&tamScript,sizeof(int));
 	//TODO ver si se envia todo el script o si hay que dividirlo en lineas
 
 	enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio);
 
+	liberarSplit(lineasScript);
 	free(script);
 	free(escriptorio);
 

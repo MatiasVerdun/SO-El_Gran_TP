@@ -159,6 +159,7 @@ DTB* DTBString2Struct (char *miStringDTB){
 			char fileID[10];
 			int id;
 
+			memset(fileID,'\0',10);
 			misDatos = malloc(sizeof(datosArchivo));
 
 			strncpy(path,nInicioLista + ((256 + 4) * indice),256);
