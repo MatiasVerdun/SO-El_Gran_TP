@@ -191,9 +191,7 @@ DTB* DTBString2Struct (char *miStringDTB){
 	if (resultRecv!=0)
 	{
 		myPuts("Se deconecto el Socket %d de un proceso Esi!!\n", sock);
-
 	}
-
 	char strLenValor[5];
 	strncpy(strLenValor,buffer+41,4);
 	strLenValor[4] = '\0';
@@ -208,7 +206,6 @@ DTB* DTBString2Struct (char *miStringDTB){
 	buffer[45+lenValor] = '\0';
 	return DTBString2Struct(buffer);
 }
-
 void enviarDTBNueva(int sock,DTB *miEntrada){
 	char* strDTB;
 	strDTB = DTBStruct2String (miEntrada);
@@ -216,4 +213,3 @@ void enviarDTBNueva(int sock,DTB *miEntrada){
 	//liberarDTBString(strDTB);
 	free(strDTB);
 }*/
-

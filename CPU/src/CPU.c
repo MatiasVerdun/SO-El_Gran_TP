@@ -63,8 +63,13 @@ void mostrarConfig(){
 
 	/// VALIDACIONES PLANIFICACION///
 bool hayQuantum(int inst){
-	if(strcmp(tipoPlanificacion,"VRR")==0 && remanente > 0){
-		return inst < remanente;
+
+	if(strcmp(tipoPlanificacion,"VRR")==0 ){
+		if(remanente > 0){
+			return inst < remanente;
+		}else{
+			return inst < quantum;
+		}
 	}
 
 	return inst < quantum || quantum < 0;
@@ -162,7 +167,7 @@ void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso
 
 }
 
-void recibirRespuestaWaitSignal(){
+void recibirRespuestaWaitSignal(DTB* miDTB){
 	int resultRecv;
 	int resultado;
 
@@ -172,7 +177,9 @@ void recibirRespuestaWaitSignal(){
 	}
 
 	if(resultado == 0){
+		estaBloqueado = true;
 		motivoLiberacionCPU = MOT_BLOQUEO;
+		enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 	}
 }
 
@@ -280,13 +287,13 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 		case OPERACION_WAIT:
 			enviarMotivoyDatos(NULL,ACC_WAIT,-1,miSentencia->param1);
 
-			recibirRespuestaWaitSignal();
+			recibirRespuestaWaitSignal(miDTB);
 		break;
 
 		case OPERACION_SIGNAL:
 			enviarMotivoyDatos(NULL,ACC_SIGNAL,-1,miSentencia->param1);
 
-			recibirRespuestaWaitSignal();
+			recibirRespuestaWaitSignal(miDTB);
 		break;
 
 		case OPERACION_FLUSH: // AL DIEGO PARA FM9 OP ID PATH
@@ -367,6 +374,8 @@ void hardcodearSentencia(){
 	//ESTO LO HARIA EL PARSER
 	sentencia *laSentencia;
 
+	listaSentencias = list_create();
+
 	laSentencia = malloc(sizeof(sentencia));
 	laSentencia->operacion = OPERACION_WAIT;
 	laSentencia->param1 = malloc(strlen("HOLA")+1);;
@@ -380,7 +389,7 @@ void hardcodearSentencia(){
 	sentencia *laSentencia2;
 
 	laSentencia2 = malloc(sizeof(sentencia));
-	laSentencia2->operacion = OPERACION_SIGNAL;
+	laSentencia2->operacion = OPERACION_WAIT;
 	laSentencia2->param1 = malloc(strlen("HOLA")+1);;
 	laSentencia2->param2 = -1;
 	laSentencia2->param3 = NULL;
@@ -396,7 +405,13 @@ void limpiarVariables(){
 	motivoLiberacionCPU = -1;
 	codigoError = 0;
 	estaBloqueado = false;
-	list_clean(listaSentencias); //TODO liberar memoria
+	for(int i = 0; i < list_size(listaSentencias); i++){
+		sentencia* miSentencia = list_get(listaSentencias,i);
+		free(miSentencia->param1);
+		free(miSentencia->param3);
+		free(miSentencia);
+	}
+	list_destroy_and_destroy_elements(listaSentencias,(void*)free); //OJO, la listaSentencias se tiene que volver a crear
 }
 
 void ejecutarInstruccion(DTB* miDTB){
@@ -671,8 +686,6 @@ int main() {
 
 	configCPU=config_create(PATHCONFIGCPU);
 
-	listaSentencias = list_create();
-
 	mostrarConfig();
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
@@ -683,6 +696,6 @@ int main() {
     {
 
     }
-
+	config_destroy(configCPU);
 	return EXIT_SUCCESS;
 }

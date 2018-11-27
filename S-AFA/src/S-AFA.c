@@ -345,7 +345,7 @@ DTB* buscarDTBPorID(t_queue *miCola,int idGDT){
 	return NULL;
 }
 
-int buscarIndicePorIdGDT(t_list *miLista,int idGDT){
+int buscarIndicePorIdGDT(t_list* miLista,int idGDT){
 	for (int indice = 0;indice < list_size(miLista);indice++){
 		DTB *miDTB= list_get(miLista,indice);
 		if(miDTB->ID_GDT==idGDT){
@@ -504,7 +504,7 @@ void mostrarMetricasDTB(int idDTB){
 		bool esMetricaDelDTB(metrica *metricaAux){
 				return metricaAux->ID_DTB == idDTB;
 			}
-		int porcentaje;
+		float porcentaje;
 		metrica *laMetrica;
 		laMetrica = list_find(listaMetricas, (void*) esMetricaDelDTB);
 
@@ -512,17 +512,17 @@ void mostrarMetricasDTB(int idDTB){
 
 		myPuts(BLUE "Las Metricas del DTB %d son :"COLOR_RESET"\n", idDTB);
 		myPuts(MAGENTA "Cant. de sentencias ejecutadas que esperó un DTB en la cola NEW: %d"COLOR_RESET"\n",laMetrica->sentenciasEjecutadasEnNEW);
-		myPuts(MAGENTA "Porcentaje de las sentencias ejecutadas promedio que fueron a “El Diego” %d %%"COLOR_RESET"\n",porcentaje);
+		myPuts(MAGENTA "Porcentaje de las sentencias ejecutadas promedio que fueron a “El Diego” %f %%"COLOR_RESET"\n",porcentaje);
 	}else{
 		myPuts(RED "El ID: %d no es vaido"COLOR_RESET"\n", idDTB);
 	}
 }
 
 void mostrarMetricasSistema(){
-	int promedioDiego;
-	int promedioEXIT;
-	int tiempoPromedio;
-	int tiempoSAFA;
+	float promedioDiego;
+	float promedioEXIT;
+	float tiempoPromedio;
+	float tiempoSAFA;
 
 	promedioEXIT  = cantDeSentenciasHastaExit/cantHistoricaDeSentencias;
 	promedioDiego = cantDeSentenciasQueUsaronADiego/cantHistoricaDeSentencias;
@@ -531,9 +531,9 @@ void mostrarMetricasSistema(){
 	tiempoPromedio = tiempoCPUs / tiempoSAFA;
 
 	myPuts(BLUE "Las Metricas del Sistema son :" COLOR_RESET"\n");
-	myPuts(MAGENTA "Cant.de sentencias ejecutadas prom. del sistema que usaron a El Diego:  %d"COLOR_RESET"\n",promedioDiego);
-	myPuts(MAGENTA "Cant. de sentencias ejecutadas prom. del sistema para que un DTB termine en la cola EXIT:  %d %%"COLOR_RESET"\n",promedioEXIT);
-	myPuts(MAGENTA " Tiempo de Respuesta promedio del Sistema %d "COLOR_RESET"\n",tiempoPromedio);
+	myPuts(MAGENTA "Cant.de sentencias ejecutadas prom. del sistema que usaron a El Diego:  %f"COLOR_RESET"\n",promedioDiego);
+	myPuts(MAGENTA "Cant. de sentencias ejecutadas prom. del sistema para que un DTB termine en la cola EXIT:  %f "COLOR_RESET"\n",promedioEXIT);
+	myPuts(MAGENTA "Tiempo de Respuesta promedio del Sistema %f "COLOR_RESET"\n",tiempoPromedio);
 }
 
 
@@ -606,7 +606,6 @@ void accionSegunPlanificacion(DTB* miDTB, int motivoLiberacionCPU, int instrucci
 				queue_push(colaBLOCK,miDTB);
 			}
 		}
-
 	break;
 
 	case MOT_FINALIZO:
@@ -664,11 +663,10 @@ DTB* recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 
 	if(miDTB->Flag_GDTInicializado ==1){
 		myRecibirDatosFijos(socketCPU,&tiempoCPU,sizeof(int));
+		actualizarMetricaSentenciasEjecutadas(miDTB->ID_GDT);
+		tiempoCPUs  = tiempoCPUs + tiempoCPU;
+		cantHistoricaDeSentencias += instruccionesRealizadas;
 	}
-
-	tiempoCPUs  = tiempoCPUs + tiempoCPU;
-	cantHistoricaDeSentencias += instruccionesRealizadas;
-	actualizarMetricaSentenciasEjecutadas(miDTB->ID_GDT);
 
 	miCPU = buscarCPUporSock(socketCPU);	//Se libera la CPU
 	miCPU->libre = 1;
@@ -700,12 +698,12 @@ void asignarRecurso(int socketCPU, recurso *miRecurso, int idDTB){
 	if(miRecurso->semaforo >= 0 ){
 		list_add(miRecurso->DTBWait,(int*)idDTB);
 		resultado = 1;
-		myPuts(GREEN"Se creo asigno el recurso '%s' al DTB %d, enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso,idDTB);
+		myPuts(GREEN"Se asigno el recurso '%s' al DTB %d, enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso,idDTB);
 		myEnviarDatosFijos(socketCPU,&resultado,sizeof(int)); // OK
 	}else{
 		list_add(miRecurso->DTBBloqueados,(int*)idDTB);
 		resultado = 0;
-		myPuts(GREEN"No se pudo asignar el recurso '%s' se bloqueo el DTB %d, avisando a CPU "COLOR_RESET"\n",miRecurso->recurso,idDTB);
+		myPuts(MAGENTA"No se pudo asignar el recurso '%s' se bloqueo el DTB %d, avisando a CPU "COLOR_RESET"\n",miRecurso->recurso,idDTB);
 		myEnviarDatosFijos(socketCPU,&resultado,sizeof(int)); // BloquearDTB
 	}
 
@@ -803,6 +801,7 @@ DTB * elegirProximoAEjecutarSegunPlanificacion(int socketCPU, int remanente){
 
 	DTB* miDTB;
 	if(strcmp(configModificable.algoPlani,"FIFO")==0|| strcmp(configModificable.algoPlani,"RR")==0){
+
 		miDTB = queue_pop(colaREADY);
 
 	}else if(strcmp(configModificable.algoPlani,"VRR")==0){
@@ -870,10 +869,8 @@ void PCP(){
 		}
 
 		free(strDTB);
-		DTB *DTBrecibido=recibirDTBeInstrucciones(socketCPU,motivo);
+		recibirDTBeInstrucciones(socketCPU,motivo);
 
-		list_destroy_and_destroy_elements(DTBrecibido->tablaArchivosAbiertos, (void*)free);
-		free(DTBrecibido);
 	}
 }
 
@@ -1251,15 +1248,14 @@ void gestionarConexionDAM(int *sock_cliente){
 	buffer[4]='\0';
 	myEnviarDatosFijos(socketDAM,buffer,5);*/
 
-	int result, accion,socketCPUDesconectada, idDTB,tamanio;
+	int result, accion,socketCPUDesconectada, idDTB,tamanio,indice;
 	int fileID = -1;
 	char* pathArchivo = NULL ;
-	int indice;
+	DTB* miDTB = NULL;
 
 	while(1){
 
 		result = myRecibirDatosFijos(GsocketDAM,&accion,sizeof(int));
-
 		if(result != 1){
 			switch(accion){
 				case DESCONEXION_CPU:
@@ -1287,7 +1283,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					//if(myRecibirDatosFijos(GsocketDAM,&fileID,tamanio)==1)
 					//	myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
 
-					DTB* miDTB = buscarDTBPorID(colaBLOCK,idDTB);
+					miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
 					if(miDTB != NULL){
 						myPuts(BLUE "OPERACION DUMMY finalizada correctamente" COLOR_RESET "\n");
