@@ -21,14 +21,17 @@ enum{ SEG,
 
 int modoEjecucion;
 t_config *configFM9;
-void* memoriaFM9;
+char** memoriaFM9;
 typedef struct SegmentoDeTabla {
 	int fileID; //Se me ocurre que sea el mismo ID que el de la tabla de archivos abiertos del S-AFA y que se pase hasta aca
 	int base; //en lineas
 	int limite; //en lineas
 } SegmentoDeTabla;
 
+int GsocketDAM;
 int* lineasOcupadas;
+int GfileID = 0;
+int maxTransfer;
 
 t_list* tablaDeSegmentos; //TODO create_list() en algun lado
 
@@ -109,7 +112,7 @@ void abrirArchivoSPA(){
 void abrirArchivo(){
 	switch(modoEjecucion){
 	case SEG:
-		abrirArchivoSEG();
+		recibirScript();
 		break;
 	case TPI:
 		abrirArchivoTPI();
@@ -151,7 +154,44 @@ void asignarLinea(){
 
 	/// FLUSH ///
 
+int  buscarBasePorfileID(int fileId){
+	for(int i = 0 ; i < list_size(tablaDeSegmentos); i++){
+
+		SegmentoDeTabla * elemento;
+
+		elemento = list_get(tablaDeSegmentos,i);
+
+		if(elemento->fileID == fileId)
+			return elemento->base;
+	}
+
+	return -1;
+}
+
+int  buscarLimitePorfileID(int fileId){
+	for(int i = 0 ; i < list_size(tablaDeSegmentos); i++){
+
+		SegmentoDeTabla * elemento;
+
+		elemento = list_get(tablaDeSegmentos,i);
+
+		if(elemento->fileID == fileId)
+			return elemento->limite;
+	}
+
+	return -1;
+}
+
 void flushSEG(){
+	int fileID;
+	int base;
+	int limite;
+	char* paqueteEnvio;
+
+	myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int));
+
+	base = buscarBasePorfileID(fileID);
+	limite = buscarLimitePorfileID(fileID);
 
 }
 
@@ -222,6 +262,20 @@ void leerDatos(int size,int base){
 	free(datos);
 }
 
+SegmentoDeTabla* crearSegmento(){
+	SegmentoDeTabla *miSegmento;
+
+	miSegmento = malloc(sizeof(SegmentoDeTabla));
+
+	miSegmento->fileID = GfileID;
+	miSegmento->base = -1;
+	miSegmento->limite = -1;
+
+	GfileID++;
+
+	return miSegmento;
+}
+
 	///FUNCIONES DE CONFIG///
 
 void setModoEjecucion(){
@@ -262,6 +316,7 @@ void inicializarMemoria(){
 
 	int tamMemoria=(int)getConfig("TMM","FM9.txt",1);
 	memoriaFM9=malloc(tamMemoria);
+	memset(memoriaFM9,'\0',tamMemoria);
 
 }
 
@@ -299,50 +354,116 @@ void mostrarConfig(){
 
 	///GESTION DE CONEXIONES///
 
+void ocuparLineas(int base, int num){
+	for(int i=0; i<base+num; i++){
+		lineasOcupadas[base+i] = 1;
+	}
+}
+
+int contarBarraN (char *conj){
+	int c = 0;
+	for(int i=0; i < maxTransfer; i++){
+		if(conj[i] == '\n')
+			c++;
+	}
+	return c;
+}
+
 void guardarScript(char* script){
 
 }
 
-void recibirScript(int socketDAM){
+void recibirScript(){
 	u_int32_t respuesta=0;
 	u_int32_t tamScript=0;
+	int cantLineas;
 	myPuts(BLUE "Obteniendo script");
 	loading(1);
-	myRecibirDatosFijos(socketDAM,(u_int32_t*)&tamScript,sizeof(u_int32_t)); //Recibo el size
-	char* buffer= malloc(ntohl(tamScript)+1);
-	myRecibirDatosFijos(socketDAM,(char*)buffer,ntohl(tamScript));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
-	/*memset(buffer+ntohl(tamScript),'\0',1);*/
+
+	myRecibirDatosFijos(GsocketDAM,&cantLineas,sizeof(int));
+
+	int maxEspacioLibre = espacioMaximoLibre();
+
+	if(maxEspacioLibre >= cantLineas){
+		int hayEspacio = 0;
+		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+
+		SegmentoDeTabla *miSegmento = crearSegmento();
+		miSegmento->base = primeraLineaLibreDelEspacioMaximo();
+		miSegmento->limite = cantLineas;
+
+		ocuparLineas(miSegmento->base,miSegmento->limite);
+
+		int cantConjuntos;
+		myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int));
+
+		int lineaMemoria = miSegmento->base;
+
+		for(int i = 0; i <= cantConjuntos; i++){
+
+			char *conjAEnviar = malloc(maxTransfer+1);
+
+			myRecibirDatosFijos(GsocketDAM,conjAEnviar,maxTransfer);
+
+		    if(contarBarraN(conjAEnviar) == 0){
+		        strcat(memoriaFM9[lineaMemoria], conjAEnviar);
+
+		    } else {
+
+		        char **vecStrings = string_split(conjAEnviar,"\n");
+
+		        for(int j = 0; j < strlen(vecStrings); j++){ //Creo que ese strlen me devuelve la cantidad de posiciones del vector, no?
+
+		            strcat(memoriaFM9[lineaMemoria + j], vecStrings[j]);
+
+		        }
+
+		        lineaMemoria = lineaMemoria + strlen(vecStrings) - 1;
+
+		    }
+		}
+
+		myEnviarDatosFijos(GsocketDAM,miSegmento->fileID,sizeof(int));
+
+	} else {
+		int hayEspacio = 1;
+		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+	}
+	/*//myRecibirDatosFijos(socketDAM,(u_int32_t*)&tamScript,sizeof(u_int32_t)); //Recibo el size
+	//char* buffer= malloc(ntohl(tamScript)+1);
+	//myRecibirDatosFijos(socketDAM,(char*)buffer,ntohl(tamScript));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
+	//memset(buffer+ntohl(tamScript),'\0',1);
 	//myPuts("%s",buffer);
 	//free(buffer);
-	guardarDatos(buffer,ntohl(tamScript),0);
-	leerDatos(ntohl(tamScript),0);
+	//guardarDatos(buffer,ntohl(tamScript),0);
+	//leerDatos(ntohl(tamScript),0);*/
 }
 
 void gestionarConexionDAM(int *sock){
-	int socketDAM = *(int*)sock;
-	u_int32_t buffer=0,operacion=0;
+	GsocketDAM = *(int*)sock;
+	int operacion;
+
+	myRecibirDatosFijos(GsocketDAM,&maxTransfer,sizeof(int));
+
 	while(1){
-
-		if(myRecibirDatosFijos(socketDAM,(u_int32_t*)&buffer,sizeof(u_int32_t))==0){
-			operacion=ntohl(buffer);
-
+		if(myRecibirDatosFijos(GsocketDAM,&operacion,sizeof(int))==0){
 			switch(operacion){
 				case(OPERACION_DUMMY):
-					recibirScript(socketDAM);
+					abrirArchivo();
 					break;
-				/*case (OPERACION_ABRIR):
-					//  TODO rcv tamaño en lineas, chequear si hay espacio comparando el tamaño contra espacioMaximoLibre()
-					// responder por si o por no
-					// Si hay espacio, rcv datos, llamar a abrirArchivo(), break
+				case (OPERACION_ABRIR):
+					abrirArchivo();
+					break;
 				case (OPERACION_ASIGNAR):
 					//TODO idealmente se recibe la linea y posicion en la linea en la cual tengo que asignar
 					//(no se si DAM sabe tanto) llamar a AsignarLinea(), break
 				case (OPERACION_FLUSH):
+					flush();
+					break;
 					//TODO se recibe la primera linea del archivo a flushear (y no se si el tamaño), flush()
-					//hago un super send del archivo en cuestion, break
+					//hago un super send del archivo en cuestion
 				case (OPERACION_CLOSE):
 					//TODO se recibe el archivo a cerrar (y no se si el tamaño), cerrarArchivo(), break
-				*/
 
 			}
 		}else{
@@ -464,10 +585,19 @@ int main() {
 
 	mostrarConfig();
 	setModoEjecucion();
+	inicializarMemoria();
+
+	if(modoEjecucion == SEG)
+	{
+		tablaDeSegmentos = list_create();
+	} else if(modoEjecucion == TPI)
+	{
+	} else if(modoEjecucion == SPA)
+	{
+	}
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
-	inicializarMemoria();
 	pruebaGuardadoDTB();
 
     while(1)
