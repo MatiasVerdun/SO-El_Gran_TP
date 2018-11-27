@@ -32,11 +32,17 @@ int cantHistoricaDeSentencias = 0;
 int cantDeSentenciasQueUsaronADiego = 0;
 int cantDeSentenciasHastaExit;
 int GsocketDAM;
-int finalizarPorConsola = -1;
 
 int tiempoCPUs;
 int tiempoSAFAI;
 int tiempoSAFAF;
+
+enum{ COLA_NEW,
+	  COLA_EXEC,
+	  COLA_EXIT,
+	  COLA_READY,
+	  COLA_BLOCK,
+	  COLA_VRR };
 
 typedef struct ModiConfig {
 	char IP_ESCUCHA[15];
@@ -92,6 +98,10 @@ t_list *listaRecursos;
 static sem_t semCPU;
 static sem_t semDAM;
 static bool conectionDAM = false;
+
+void verificarSiSePuedeLiberarUnRecurso(recurso *miRecurso);
+void finalizarDTB(int idDTB, t_list* miLista);
+void operacionDummy(DTB *miDTB);
 
 	///FUNCIONES DE CONFIG///
 
@@ -353,6 +363,42 @@ bool debeFinalizarse(int idDTB){
 	return list_any_satisfy(listaProcesosAFinalizar, (void*) esElDTB);
 }
 
+int esIDDTBValido(int idDTBABuscar){
+	int indice;
+
+	indice = buscarIndicePorIdGDT(colaEXIT->elements,idDTBABuscar);
+	if(indice != -1){
+		return COLA_EXIT;
+	}
+
+	indice = buscarIndicePorIdGDT(colaBLOCK->elements,idDTBABuscar);
+	if(indice != -1){
+		return COLA_BLOCK;
+	}
+
+	indice = buscarIndicePorIdGDT(colaREADY->elements,idDTBABuscar);
+	if(indice != -1){
+		return COLA_READY;
+	}
+
+	indice = buscarIndicePorIdGDT(colaEXEC->elements,idDTBABuscar);
+	if(indice != -1){
+		return COLA_EXEC;
+	}
+
+	indice = buscarIndicePorIdGDT(colaNEW->elements,idDTBABuscar);
+	if(indice != -1){
+		return COLA_NEW;
+	}
+
+	indice = buscarIndicePorIdGDT(colaVRR->elements,idDTBABuscar);
+	if(indice != -1){
+		return COLA_VRR;
+	}
+
+	return -1;
+}
+
 	///RECURSOS///
 int buscarIndicePorRecurso(char* recursoABuscar){
 	for (int indice = 0;indice < list_size(listaRecursos);indice++){
@@ -389,10 +435,10 @@ void mostrarRecursos(){
 	}
 }
 
-int buscarIndiceListaRecursos(t_list *miLista, int idDTBBuscado){
-
+int buscarIndiceListaDeIDDTB(t_list *miLista, int idDTBBuscado){
 	for (int indice = 0;indice < list_size(miLista);indice++){
-		int idDTB = list_get(miLista,indice);
+
+		int idDTB =(int) list_get(miLista,indice);
 		if(idDTB == idDTBBuscado){
 				return indice;
 		}
@@ -453,18 +499,23 @@ void actualizarMetricaSentenciasEjecutadas(int idDTB){
 }
 
 void mostrarMetricasDTB(int idDTB){
-	bool esMetricaDelDTB(metrica *metricaAux){
-			return metricaAux->ID_DTB == idDTB;
-		}
-	int porcentaje;
-	metrica *laMetrica;
-	laMetrica = list_find(listaMetricas, (void*) esMetricaDelDTB);
+	if(esIDDTBValido(idDTB)!=-1){
 
-	porcentaje = ( laMetrica->sentenciasEjecutadasQueFueronAlDiego * 100) / laMetrica->sentenciasEjecutadas;
+		bool esMetricaDelDTB(metrica *metricaAux){
+				return metricaAux->ID_DTB == idDTB;
+			}
+		int porcentaje;
+		metrica *laMetrica;
+		laMetrica = list_find(listaMetricas, (void*) esMetricaDelDTB);
 
-	myPuts(BLUE "Las Metricas del DTB %d son :"COLOR_RESET"\n", idDTB);
-	myPuts(MAGENTA "Cant. de sentencias ejecutadas que esperó un DTB en la cola NEW: %d"COLOR_RESET"\n",laMetrica->sentenciasEjecutadasEnNEW);
-	myPuts(MAGENTA "Porcentaje de las sentencias ejecutadas promedio que fueron a “El Diego” %d %%"COLOR_RESET"\n",porcentaje);
+		porcentaje = ( laMetrica->sentenciasEjecutadasQueFueronAlDiego * 100) / laMetrica->sentenciasEjecutadas;
+
+		myPuts(BLUE "Las Metricas del DTB %d son :"COLOR_RESET"\n", idDTB);
+		myPuts(MAGENTA "Cant. de sentencias ejecutadas que esperó un DTB en la cola NEW: %d"COLOR_RESET"\n",laMetrica->sentenciasEjecutadasEnNEW);
+		myPuts(MAGENTA "Porcentaje de las sentencias ejecutadas promedio que fueron a “El Diego” %d %%"COLOR_RESET"\n",porcentaje);
+	}else{
+		myPuts(RED "El ID: %d no es vaido"COLOR_RESET"\n", idDTB);
+	}
 }
 
 void mostrarMetricasSistema(){
@@ -625,14 +676,13 @@ DTB* recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 	if(!list_is_empty(listaProcesosAFinalizar)){
 		if(debeFinalizarse(miDTB->ID_GDT)){
 			int indice;
-			indice= buscarIndicePorIdGDT(listaProcesosAFinalizar,miDTB->ID_GDT);
-			list_remove(listaProcesosAFinalizar, indice);
+			indice = buscarIndiceListaDeIDDTB(listaProcesosAFinalizar,miDTB->ID_GDT);
+			list_remove_and_destroy_element(listaProcesosAFinalizar, indice,(void*)free);
 
 			finalizarDTB(miDTB->ID_GDT,colaEXEC->elements);
 
-			myPuts(GREEN "Se mando correctamente el DTB con ID %d a la cola de EXIT por el comando finalizar"COLOR_RESET"\n",finalizarPorConsola);
+			myPuts(GREEN "Se mando correctamente el DTB con ID %d a la cola de EXIT por el comando finalizar"COLOR_RESET"\n",miDTB->ID_GDT);
 
-			finalizarPorConsola=-1;
 		}
 	}else{
 		accionSegunPlanificacion(miDTB,motivoLiberacionCPU,instruccionesRealizadas);
@@ -648,12 +698,12 @@ void asignarRecurso(int socketCPU, recurso *miRecurso, int idDTB){
 	int resultado;
 
 	if(miRecurso->semaforo >= 0 ){
-		list_add(miRecurso->DTBWait,idDTB);
+		list_add(miRecurso->DTBWait,(int*)idDTB);
 		resultado = 1;
 		myPuts(GREEN"Se creo asigno el recurso '%s' al DTB %d, enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso,idDTB);
 		myEnviarDatosFijos(socketCPU,&resultado,sizeof(int)); // OK
 	}else{
-		list_add(miRecurso->DTBBloqueados,idDTB);
+		list_add(miRecurso->DTBBloqueados,(int*)idDTB);
 		resultado = 0;
 		myPuts(GREEN"No se pudo asignar el recurso '%s' se bloqueo el DTB %d, avisando a CPU "COLOR_RESET"\n",miRecurso->recurso,idDTB);
 		myEnviarDatosFijos(socketCPU,&resultado,sizeof(int)); // BloquearDTB
@@ -680,60 +730,69 @@ char* recibirDatosAccionWaitSignal(int socketCPU){
 void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 	recurso *miRecurso;
 	int indiceRecurso;
+	int indiceEXEC;
 	char * recurso = NULL;
 	int continuarEjecucion;
 
 	switch(accion){
 	case ACC_WAIT:
-		myPuts(BLUE"Ejecutando OPERACION WAIT");
-		loading(1);
-
 		recurso = recibirDatosAccionWaitSignal(socketCPU);
+		indiceEXEC  = buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
+		if(indiceEXEC  != -1){
+			myPuts(BLUE"Ejecutando OPERACION WAIT");
+			loading(1);
 
-		indiceRecurso = buscarIndicePorRecurso(recurso);
+			indiceRecurso = buscarIndicePorRecurso(recurso);
 
-		if(indiceRecurso == -1){
-			miRecurso = crearRecurso(recurso);
+			if(indiceRecurso == -1){
+				miRecurso = crearRecurso(recurso);
 
-			list_add(listaRecursos,miRecurso);
+				list_add(listaRecursos,miRecurso);
 
-			myPuts(GREEN"Se creo el recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
+				myPuts(GREEN"Se creo el recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
 
-			continuarEjecucion = 1;
-			myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // OK
+				continuarEjecucion = 1;
+				myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // OK
+			}else{
+				miRecurso = list_get(listaRecursos,indiceRecurso);
+				myPuts(GREEN"Se hizo WAIT del recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
+				miRecurso->semaforo -= 1;
+				asignarRecurso(socketCPU,miRecurso,miDTB->ID_GDT);
+			}
 		}else{
-			miRecurso = list_get(listaRecursos,indiceRecurso);
-			myPuts(GREEN"Se hizo WAIT del recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
-			miRecurso->semaforo -= 1;
-			asignarRecurso(socketCPU,miRecurso,miDTB->ID_GDT);
+			continuarEjecucion = 0;
+			myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // EL DTB FINALIZO (POR CONSOLA)
 		}
-
 	break;
 
 	case ACC_SIGNAL:
-		myPuts(BLUE"Ejecutando OPERACION SIGNAL");
-		loading(1);
-
 		recurso = recibirDatosAccionWaitSignal(socketCPU);
+		indiceEXEC  = buscarIndicePorIdGDT(colaEXEC->elements,miDTB->ID_GDT);
+		if(indiceEXEC != -1){
+			myPuts(BLUE"Ejecutando OPERACION SIGNAL");
+			loading(1);
 
-		continuarEjecucion = 1;
-		myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // OK
+			continuarEjecucion = 1;
+			myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // OK
 
-		indiceRecurso = buscarIndicePorRecurso(recurso);
+			indiceRecurso = buscarIndicePorRecurso(recurso);
 
-		if(indiceRecurso == -1){
-			miRecurso = crearRecurso(recurso);
-			list_add(listaRecursos,miRecurso);
+			if(indiceRecurso == -1){
+				miRecurso = crearRecurso(recurso);
+				list_add(listaRecursos,miRecurso);
 
-			myPuts(GREEN"Se creo el recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
+				myPuts(GREEN"Se creo el recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
 
+			}else{
+				miRecurso = list_get(listaRecursos,indiceRecurso);
+				myPuts(GREEN"Se hizo SIGNAL del recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
+				miRecurso->semaforo += 1;
+				verificarSiSePuedeLiberarUnRecurso(miRecurso);
+			}
 		}else{
-			miRecurso = list_get(listaRecursos,indiceRecurso);
-			myPuts(GREEN"Se hizo SIGNAL del recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
-			miRecurso->semaforo += 1;
-			verificarSiSePuedeLiberarUnRecurso(miRecurso);
+			continuarEjecucion = 0;
+			myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // EL DTB FINALIZO (POR CONSOLA)
 		}
-
 	break;
 
 	}
@@ -838,9 +897,11 @@ DTB * desbloquearDTB(int idDTB){
 
 void verificarSiSePuedeLiberarUnRecurso(recurso *miRecurso){
 	if(miRecurso->semaforo >= 0){
+
 		if(!list_is_empty(miRecurso->DTBBloqueados)){
-			int idDTBaDesbloquear = list_get(miRecurso->DTBBloqueados,0); //Lo saca de la cola de Bloqueados y lo pone en la de Wait/Asignado
-			list_add(miRecurso->DTBWait, idDTBaDesbloquear);
+
+			int idDTBaDesbloquear = (int)list_get(miRecurso->DTBBloqueados,0); //Lo saca de la cola de Bloqueados y lo pone en la de Wait/Asignado
+			list_add(miRecurso->DTBWait, (int*)idDTBaDesbloquear);
 			miRecurso->semaforo -= 1;
 
 			desbloquearDTB(idDTBaDesbloquear);
@@ -851,11 +912,10 @@ void verificarSiSePuedeLiberarUnRecurso(recurso *miRecurso){
 
 void liberarRecursosAsignados(DTB *miDTB){
 	if(!list_is_empty(listaRecursos)){
-
 		for(int i = 0 ; i < list_size(listaRecursos); i++){
 			recurso * miRecurso = list_get(listaRecursos,i);
 
-			int indice = buscarIndiceListaRecursos(miRecurso->DTBWait, miDTB->ID_GDT);
+			int indice = buscarIndiceListaDeIDDTB(miRecurso->DTBWait, miDTB->ID_GDT);
 			if(indice != -1){
 				miRecurso->semaforo += 1;
 				list_remove(miRecurso->DTBWait,indice);
@@ -871,22 +931,77 @@ void finalizarDTB(int idDTB, t_list* miLista){
 	int indice;
 	DTB * miDTB;
 
-	indice = buscarIndicePorIdGDT(miLista,idDTB);
+	indice = buscarIndicePorIdGDT(colaEXIT->elements,idDTB);
+	if(indice == -1){
+		indice = buscarIndicePorIdGDT(miLista,idDTB);
 
-	miDTB = list_remove(miLista, indice);
+		miDTB = list_remove(miLista, indice);
 
-	queue_push(colaEXIT,miDTB);
+		queue_push(colaEXIT,miDTB);
 
-	actualizarMetricaEXIT(miDTB->ID_GDT);
+		actualizarMetricaEXIT(miDTB->ID_GDT);
 
-	liberarRecursosAsignados(miDTB);
+		liberarRecursosAsignados(miDTB);
 
-	DTBenPCP--;
+		DTBenPCP--;
 
-	PLP();
-
+		PLP();
+	}
 }
 
+void finalizarPorConsola(int idDTB){ //TODO
+
+	int cola = esIDDTBValido(idDTB);
+
+	switch(cola){
+	case COLA_EXIT:
+
+		myPuts(GREEN "El DTB con id %d ya se encuentra en la cola EXIT" COLOR_RESET "\n",idDTB);
+
+	break;
+
+	case COLA_NEW:
+
+		DTBenPCP++; 	// Porque finalizarDTB hace un -- no se debe hacer aca porque la cola NEW no es PCP
+		finalizarDTB(idDTB,colaNEW->elements);
+		myPuts(GREEN "Se mando el DTB con ID %d a la cola de EXIT desde la cola NEW" COLOR_RESET "\n",idDTB);
+
+	break;
+
+	case COLA_EXEC:
+
+		myPuts(BLUE "El DTB con ID %d esta ejecutando cuando termine se finalizara" COLOR_RESET "\n", idDTB);
+		list_add(listaProcesosAFinalizar,(int*)idDTB);
+
+	break;
+
+	case COLA_BLOCK:
+
+		finalizarDTB(idDTB,colaBLOCK->elements);
+		myPuts(GREEN "Se mando el DTB con ID %d a la cola de EXIT desde la cola BLOCK" COLOR_RESET "\n",idDTB);
+
+	break;
+
+
+	case COLA_VRR:
+
+		finalizarDTB(idDTB,colaVRR->elements);
+		myPuts(GREEN "Se mando el DTB con ID %d a la cola de EXIT desde la cola VRR" COLOR_RESET "\n",idDTB);
+
+	break;
+
+	case COLA_READY:
+
+		finalizarDTB(idDTB,colaREADY->elements);
+		myPuts(GREEN "Se mando el DTB con ID %d a la cola de EXIT desde la cola READY" COLOR_RESET "\n",idDTB);
+
+	break;
+
+	default:
+		myPuts(RED "El ID %d no es valido" COLOR_RESET "\n",idDTB);
+	break;
+	}
+}
 
 	///OPERACION DUMMY///
 
@@ -918,6 +1033,7 @@ void operacionDummy(DTB *miDTB){
 		myRecibirDatosFijos(socketCPU,&motivo,sizeof(int));
 
 		recibirDTBeInstrucciones(CPULibre->socketCPU,motivo);
+
 		free(strDTB);
 		PCP();
 	}
@@ -984,16 +1100,15 @@ void operacionDummy(DTB *miDTB){
 
 	///TABLA DE ARCHIVOS ABIERTOS///
 
-void agregarArchivoALaTabla(int idDTB, char * pathArchivo){
+void agregarArchivoALaTabla(int idDTB, char * pathArchivo, int fileID){
 	datosArchivo* archivo;
 	DTB* miDTB = NULL;
 
 	archivo = crearDatosArchivos(pathArchivo);
 
-	miDTB = buscarDTBPorID(colaBLOCK,idDTB);
+	archivo->fileID = fileID;
 
-	//if(miDTB==NULL)
-	//miDTB = buscarDTBPorID(colaEXIT,idDTB);
+	miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
 	list_add(miDTB->tablaArchivosAbiertos, archivo);
 
@@ -1001,10 +1116,13 @@ void agregarArchivoALaTabla(int idDTB, char * pathArchivo){
 
 int buscarIndicePorArchivo(char * pathArchivo,t_list* listaArchivos){
 	for (int indice = 0;indice < list_size(listaArchivos);indice++){
+
 		datosArchivo *miArchivo= list_get(listaArchivos,indice);
+
 		if(strcmp(miArchivo->pathArchivo,pathArchivo)==0){
 			return indice;
 		}
+
 	}
 	return -1;
 }
@@ -1018,7 +1136,7 @@ void borrarArchivoDeLaTabla(int idDTB, char* pathArchivo){
 	indice = buscarIndicePorArchivo(pathArchivo,miDTB->tablaArchivosAbiertos);
 
 	if(indice != -1){
-	list_remove(miDTB->tablaArchivosAbiertos,indice);
+		list_remove(miDTB->tablaArchivosAbiertos,indice);
 	}
 
 }
@@ -1134,6 +1252,7 @@ void gestionarConexionDAM(int *sock_cliente){
 	myEnviarDatosFijos(socketDAM,buffer,5);*/
 
 	int result, accion,socketCPUDesconectada, idDTB,tamanio;
+	int fileID = -1;
 	char* pathArchivo = NULL ;
 	int indice;
 
@@ -1165,15 +1284,22 @@ void gestionarConexionDAM(int *sock_cliente){
 					if(myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio)==1)
 						myPuts(RED"Error al recibir el path del Archivo"COLOR_RESET"\n");
 
+					//if(myRecibirDatosFijos(GsocketDAM,&fileID,tamanio)==1)
+					//	myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+
 					DTB* miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
-					miDTB->Flag_GDTInicializado = 1;
+					if(miDTB != NULL){
+						myPuts(BLUE "OPERACION DUMMY finalizada correctamente" COLOR_RESET "\n");
 
-					agregarArchivoALaTabla(idDTB,pathArchivo);
+						miDTB->Flag_GDTInicializado = 1;
 
-					actualizarMetricaNEW(idDTB);
+						agregarArchivoALaTabla(idDTB,pathArchivo,fileID);
 
-					desbloquearDTB(idDTB);
+						actualizarMetricaNEW(idDTB);
+
+						desbloquearDTB(idDTB);
+					}
 
 				break;
 
@@ -1201,7 +1327,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 					miDTB = list_get(colaBLOCK->elements,indice);
 
-					if(miDTB->ejecutoSuUltimaSentencia == 1){
+					if(miDTB!= NULL && miDTB->ejecutoSuUltimaSentencia == 1){
 						myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
 
 						finalizarDTB(idDTB, colaBLOCK->elements);
@@ -1237,7 +1363,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 					miDTB = list_get(colaBLOCK->elements,indice);
 
-					if(miDTB->ejecutoSuUltimaSentencia == 1){
+					if(miDTB != NULL && miDTB->ejecutoSuUltimaSentencia == 1){
 						myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
 
 						finalizarDTB(idDTB, colaBLOCK->elements);
@@ -1341,6 +1467,7 @@ int main(void)
 			add_history(linea);
 
 		add_history("ejecutar Archivos/scripts/checkpoint.escriptorio");
+		add_history("finalizar 0");
 
 		if(!strncmp(linea,"config",6))
 		{
@@ -1506,60 +1633,19 @@ int main(void)
 		{
 			char** split;
 			char idS[3]; //Asumiendo que como maximo es 999
-			int id = -1;
+			int idDTB = -1;
 			split = string_split(linea, " ");
 
 			strcpy(idS,"0");
 
 			strcpy(idS, split[1]);
-			id = atoi(idS);
+			idDTB = atoi(idS);
 
-			DTB *miDTB;
-
-			miDTB = buscarDTBPorID(colaNEW, id);
-				if (miDTB == NULL){
-					miDTB = buscarDTBPorID(colaREADY, id);
-					if (miDTB == NULL){
-						miDTB = buscarDTBPorID(colaBLOCK, id);
-						if (miDTB == NULL){
-							miDTB = buscarDTBPorID(colaEXEC, id);
-							if (miDTB == NULL){
-								miDTB = buscarDTBPorID(colaEXIT, id);
-								if (miDTB == NULL){
-									myPuts(RED"El ID: %d es erroneo, no se encuentra ningun DTB con ese ID" COLOR_RESET "\n",id);
-								} else {
-									myPuts(GREEN "El DTB con id %d ya se encuentra en la cola EXIT" COLOR_RESET "\n",id);
-								}
-							} else {
-								printf("El DTB con ID %d esta ejecutando cuando termine se finalizara \n", id);
-								list_add(listaProcesosAFinalizar,id);
-							}
-						} else {
-							myPuts(GREEN "Se mando el DTB con ID %d a la cola de EXIT desde la cola BLOCK" COLOR_RESET "\n",id);
-
-							finalizarDTB(id, colaBLOCK->elements);
-
-					}
-				}else {
-					myPuts(GREEN "Se mando el DTB con ID %d a la cola de EXIT desde la cola READY" COLOR_RESET "\n",id);
-
-					finalizarDTB(id,colaREADY->elements);
-
-				}
-			} else {
-				myPuts(GREEN "Se mando el DTB con ID %d a la cola de EXIT desde la cola NEW" COLOR_RESET "\n",id);
-
-				DTBenPCP++; 	// Porque finalizarDTB hace un -- no se debe hacer aca porque la cola NEW no es PCP
-
-				finalizarDTB(id,colaNEW->elements);
-
-			}
-
+			finalizarPorConsola(idDTB);
 
 			free(split[0]);
 			free(split[1]);
 			free(split);
-
 		}
 
 		if(!strncmp(linea,"metricas",8))
