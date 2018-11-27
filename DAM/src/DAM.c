@@ -16,6 +16,8 @@ u_int32_t socketGFM9;
 u_int32_t socketGMDJ;
 u_int32_t socketGSAFA;
 
+int maxTransfer;
+
 #define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAM.txt"
 t_config *configDAM;
 
@@ -195,7 +197,7 @@ void mostrarConfig(){
     free(myText);
 }
 
-void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo){
+void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo, int fileID){
 
 	myEnviarDatosFijos(socketGSAFA,&accion,sizeof(int));
 	myEnviarDatosFijos(socketGSAFA,&idDTB,sizeof(int));
@@ -204,84 +206,8 @@ void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo){
 		myEnviarDatosFijos(socketGSAFA,&tamanio,sizeof(int));
 		myEnviarDatosFijos(socketGSAFA,pathArchivo,tamanio);
 	}
+	//if(accion == ACC_DUMMY_OK || )//TODO
 
-}
-
-void operacionAlMDJ(int operacion, int socketCPU){
-	char * pathArchivo = NULL;
-	int tamanio;
-	int respuesta;
-	int idDTB;
-
-	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
-
-	if(myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int))==1)
-		myPuts(RED"Error al recibir el tamaño del path"COLOR_RESET"\n");
-
-	pathArchivo = malloc(tamanio+1);
-	memset(pathArchivo,'\0',tamanio+1);
-
-	if(myRecibirDatosFijos(socketCPU,pathArchivo,tamanio)==1)
-		myPuts(RED"Error al recibir el path del Archivo"COLOR_RESET"\n");
-
-	myPuts("El path que se recibio es: %s\n",pathArchivo);
-
-	myPuts("Enviando solicitud de archivo al MDJ \n");
-
-	switch(operacion){
-
-	case OPERACION_ABRIR:
-		//RECIBIR EL ARCHIVO Y MANDARLO AL FM9
-	break;
-
-	case OPERACION_CREAR:
-		respuesta = crearArchivo(pathArchivo,tamanio);
-
-		if(respuesta == 0){
-			enviarAccionASAFA(ACC_CREAR_OK, idDTB, tamanio, pathArchivo);
-		}else{
-			enviarAccionASAFA(ACC_CREAR_ERROR, idDTB, tamanio, pathArchivo);
-		}
-
-	break;
-
-	case OPERACION_BORRAR:
-		respuesta = borrarArchivo(pathArchivo);
-
-		if(respuesta == 0){
-			enviarAccionASAFA(ACC_BORRAR_OK, idDTB, tamanio, pathArchivo);
-		}else{
-			enviarAccionASAFA(ACC_BORRAR_ERROR, idDTB, tamanio, pathArchivo);
-		}
-
-	break;
-
-	}
-}
-
-void operacionAlFM9(int operacion, int socketCPU){
-	int tamanio;
-	int fileID;
-	char * pathArchivo = NULL;
-
-	myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
-
-	if(myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int))==1)
-		myPuts(RED"Error al recibir el tamaño del path"COLOR_RESET"\n");
-
-	pathArchivo = malloc(tamanio+1);
-	memset(pathArchivo,'\0',tamanio+1);
-
-	if(myRecibirDatosFijos(socketCPU,pathArchivo,tamanio)==1)
-		myPuts(RED"Error al recibir el recurso"COLOR_RESET"\n");
-}
-
-int tamSplit(char** split){
-	int i=0;
-	while(split[i]){
-		i++;
-	}
-	return i;
 }
 
 int contadorLineas(char* texto){
@@ -312,14 +238,105 @@ char** bytesToLineas(char* bytes){//Covierte los bytes a lineas y los devuelve e
 	return lineas;
 }
 
-void operacionDummy(int socketCPU){
+void operacionAlMDJ(int operacion, int socketCPU){
+	char * pathArchivo = NULL;
+	char * script;
+	int tamanio;
+	int respuesta;
+	int idDTB;
+	int cantLineas;
+	int hayEspacio;
+	int cantConjuntos;
+	char *conjAEnviar;
+
+	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
+
+	if(myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int))==1)
+		myPuts(RED"Error al recibir el tamaño del path"COLOR_RESET"\n");
+
+	pathArchivo = malloc(tamanio+1);
+	memset(pathArchivo,'\0',tamanio+1);
+
+	if(myRecibirDatosFijos(socketCPU,pathArchivo,tamanio)==1)
+		myPuts(RED"Error al recibir el path del Archivo"COLOR_RESET"\n");
+
+	myPuts("El path que se recibio es: %s\n",pathArchivo);
+
+	myPuts("Enviando solicitud de archivo al MDJ \n");
+
+	switch(operacion){
+
+	case OPERACION_CREAR:
+		respuesta = crearArchivo(pathArchivo,tamanio);
+
+		if(respuesta == 0){
+			//enviarAccionASAFA(ACC_CREAR_OK, idDTB, tamanio, pathArchivo);
+		}else{
+			//enviarAccionASAFA(ACC_CREAR_ERROR, idDTB, tamanio, pathArchivo);
+		}
+
+	break;
+
+	case OPERACION_BORRAR:
+		respuesta = borrarArchivo(pathArchivo);
+
+		if(respuesta == 0){
+			//enviarAccionASAFA(ACC_BORRAR_OK, idDTB, tamanio, pathArchivo);
+		}else{
+			//enviarAccionASAFA(ACC_BORRAR_ERROR, idDTB, tamanio, pathArchivo);
+		}
+
+	break;
+
+	}
+}
+
+void operacionFlush(int operacion, int socketCPU){
+	int tamanio;
+	int fileID;
+	int idDTB;
+	int cantConjuntos;
+	char * pathArchivo = NULL;
+
+	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
+
+	myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
+
+	if(myRecibirDatosFijos(socketCPU,&tamanio,sizeof(int))==1)
+		myPuts(RED"Error al recibir el tamaño del path"COLOR_RESET"\n");
+
+	pathArchivo = malloc(tamanio+1);
+	memset(pathArchivo,'\0',tamanio+1);
+
+	if(myRecibirDatosFijos(socketCPU,pathArchivo,tamanio)==1)
+		myPuts(RED"Error al recibir el recurso"COLOR_RESET"\n");
+
+	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+
+	myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));
+
+	myRecibirDatosFijos(socketCPU,&cantConjuntos,sizeof(int));
+
+	for(int i=0; i < cantConjuntos; i++){
+		;//Enviar a MDJ
+	}
+}
+
+int tamSplit(char** split){
+	int i=0;
+	while(split[i]){
+		i++;
+	}
+	return i;
+}
+
+
+void operacionDummyOAbrir(int operacion, int socketCPU){
 	char * escriptorio;
 	char** lineasScript;
 	int largoRuta;
 	int idDTB;
-	int operacion;
-	int tamScript;
-	int i=0;
+	int cantLineas;
 	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
 
 	myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int));
@@ -329,26 +346,57 @@ void operacionDummy(int socketCPU){
 
 	myRecibirDatosFijos(socketCPU,escriptorio,largoRuta);
 
-	myPuts("La ruta del Escriptorio que se recibio es: %s\n",escriptorio);
-
 	char * script = obtenerDatos(escriptorio,0,0);
 
-	lineasScript=bytesToLineas(script);//Guarda un array de lineas en lineasScript, cada posicion del array es una linea del script
-	operacion = OPERACION_DUMMY;
+	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+
+	cantLineas = contadorLineas(script);
+	myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
+
+	int hayEspacio; // 0 hay 1 no hay espacio
+	myRecibirDatosFijos(socketGFM9,&hayEspacio,sizeof(int));
+
+	if (hayEspacio == 0){
+
+		int cantConjuntos = (strlen(script) / maxTransfer)+1;
+		myEnviarDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
+
+		char *conjAEnviar = malloc(maxTransfer+1);
+
+		for(int i=0; i<cantConjuntos;i++){
+			memset(conjAEnviar,'\0',maxTransfer+1);
+			strcpy(conjAEnviar,script[i*maxTransfer]);
+			myEnviarDatosFijos(socketGFM9,&conjAEnviar,maxTransfer);
+		}
+
+		int fileID;
+		myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int));
+
+		if(operacion == OPERACION_DUMMY){
+			//enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio);
+			//TODO
+		} else {
+			//enviarAccionASAFA(ACC_ABRIR_OK,idDTB,largoRuta,escriptorio);
+		}
+
+	} else {
+
+		//enviarAccionASAFA(ACC_DUMMY_ERROR,idDTB,0,NULL);
+		//TODO Avisar a CPU o S-AFA que pasa cuando no hay espacio para el dummy. (VICKY)
+	}
+
+	/*lineasScript = bytesToLineas(script);//Guarda un array de lineas en lineasScript, cada posicion del array es una linea del script
 
 	while(lineasScript[i]!=NULL){//Print de prueba
 		printf("%s",lineasScript[i]);
 		i++;
-	}
+	}*/
 
-	//myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
 
 	//tamScript=contadorLineas(script);//Tamaño del script en lineas
 
 	//myEnviarDatosFijos(socketGFM9,&tamScript,sizeof(int));
 	//TODO ver si se envia todo el script o si hay que dividirlo en lineas
-
-	enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio);
 
 	liberarSplit(lineasScript);
 	free(script);
@@ -366,7 +414,6 @@ void avisarDesconexionCPU(int socketCPU){
 
 }
 
-
 void gestionarConexionCPU(int *sock_cliente){
 	int socketCPU = *(int*)sock_cliente;
 	int operacion;
@@ -380,19 +427,19 @@ void gestionarConexionCPU(int *sock_cliente){
 
 			case OPERACION_DUMMY:
 
-				operacionDummy(socketCPU);
+				operacionDummyOAbrir(operacion, socketCPU);
 
 			break;
 
 			case OPERACION_ABRIR:
 
-				operacionAlMDJ(operacion,socketCPU);
+				operacionDummyOAbrir(operacion, socketCPU);
 
 			break;
 
 			case OPERACION_FLUSH: //AL FM9
 
-				operacionAlFM9(operacion, socketCPU);
+				operacionFlush(operacion, socketCPU);
 
 			break;
 
@@ -434,6 +481,10 @@ void gestionarConexionSAFA(int socketSAFA){
 }
 
 void gestionarConexionFM9(){
+
+	maxTransfer = (int)getConfigR("TSIZE",1,configDAM);
+
+	myEnviarDatosFijos(socketGFM9,maxTransfer,sizeof(int));
 
 }
 
