@@ -29,7 +29,7 @@ typedef struct SegmentoDeTabla {
 } SegmentoDeTabla;
 
 int GsocketDAM;
-int* lineasOcupadas;//TODO ¿?
+bool *lineasOcupadas;
 int GfileID = 0;
 int maxTransfer;
 
@@ -330,10 +330,13 @@ int inicializarLineasOcupadas(){
 
 	lineasOcupadas = malloc(tamMemoria/tamLinea);
 
-	for(int i = 0; i < (sizeof(lineasOcupadas)/sizeof(int)); i++){
+	for(int i = 0; i < (tamMemoria/tamLinea); i++){
 		lineasOcupadas[i] = 0;
 	}
 
+	/*for(int i = 0; i < cantEntradas; i++){
+		bArray[i] = false;
+	}*/
 }
 
 void inicializarMemoria(){
@@ -397,6 +400,14 @@ void guardarScript(char* script){
 
 }
 
+int tamSplit(char** split){
+	int i=0;
+	while(split[i]){
+		i++;
+	}
+	return i;
+}
+
 void recibirScript(int cantLineas){
 	u_int32_t respuesta=0;
 	u_int32_t tamScript=0;
@@ -418,7 +429,7 @@ void recibirScript(int cantLineas){
 
 		int cantConjuntos;
 		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int)))
-			myPuts(RED "Error al recibir la cantidad de lineas" COLOR_RESET "\n");
+			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
 
 		int lineaMemoria = miSegmento->base;
 
@@ -436,10 +447,12 @@ void recibirScript(int cantLineas){
 
 		        char **vecStrings = string_split(conjARecibir,"\n");
 
-		        for(int j = 0; j < strlen(vecStrings); j++){ //Creo que ese strlen me devuelve la cantidad de posiciones del vector, no?
+		       int cantElementos = tamSplit(vecStrings);
+
+		        for(int j = 0; j < cantElementos; j++){
 
 		            strcat(memoriaFM9[lineaMemoria + j], vecStrings[j]);
-
+		        	printf("cantLineas %d",cantLineas);
 		        }
 
 		        lineaMemoria = lineaMemoria + strlen(vecStrings) - 1;
@@ -571,7 +584,7 @@ void* connectionCPU()
 		exit(1);
 	}
 
-	result = myAtenderClientesEnHilos((int*) &socketCPU, "FM9", "CPU",(void*) gestionarConexionDAM);
+	result = myAtenderClientesEnHilos((int*) &socketCPU, "FM9", "CPU",(void*) gestionarConexionCPU);
 	if (result != 0) {
 		myPuts("No fue posible atender requerimientos de CPU");
 		exit(1);
