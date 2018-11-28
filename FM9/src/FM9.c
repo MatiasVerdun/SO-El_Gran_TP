@@ -29,7 +29,7 @@ typedef struct SegmentoDeTabla {
 } SegmentoDeTabla;
 
 int GsocketDAM;
-int* lineasOcupadas;
+int* lineasOcupadas;//TODO ¿?
 int GfileID = 0;
 int maxTransfer;
 
@@ -109,10 +109,10 @@ void abrirArchivoSPA(){
 
 }
 
-void abrirArchivo(){
+void abrirArchivo(int cantLineas){
 	switch(modoEjecucion){
 	case SEG:
-		recibirScript();
+		recibirScript(cantLineas);
 		break;
 	case TPI:
 		abrirArchivoTPI();
@@ -305,7 +305,7 @@ SegmentoDeTabla* crearSegmento(){
 void setModoEjecucion(){
 	char *miModoEjecucion;
 
-	miModoEjecucion = (char *) getConfig("MODO_EJ","FM9.txt",1);
+	miModoEjecucion = (char *) getConfigR("MODO_EJ",0,configFM9);
 
 	if(strcmp(miModoEjecucion, "SEG")==0)
 	{
@@ -397,14 +397,12 @@ void guardarScript(char* script){
 
 }
 
-void recibirScript(){
+void recibirScript(int cantLineas){
 	u_int32_t respuesta=0;
 	u_int32_t tamScript=0;
-	int cantLineas;
+	//int cantLineas;
 	myPuts(BLUE "Obteniendo script");
 	loading(1);
-
-	myRecibirDatosFijos(GsocketDAM,&cantLineas,sizeof(int));
 
 	int maxEspacioLibre = espacioMaximoLibre();
 
@@ -419,22 +417,24 @@ void recibirScript(){
 		ocuparLineas(miSegmento->base,miSegmento->limite);
 
 		int cantConjuntos;
-		myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int));
+		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int)))
+			myPuts(RED "Error al recibir la cantidad de lineas" COLOR_RESET "\n");
 
 		int lineaMemoria = miSegmento->base;
 
 		for(int i = 0; i <= cantConjuntos; i++){
 
-			char *conjAEnviar = malloc(maxTransfer+1);
+			char *conjARecibir = malloc(maxTransfer+1);
 
-			myRecibirDatosFijos(GsocketDAM,conjAEnviar,maxTransfer);
+			if(myRecibirDatosFijos(GsocketDAM,conjARecibir,maxTransfer)==1)
+				myPuts(RED "Error al recibir el conjunto nro %d" COLOR_RESET "\n",i);
 
-		    if(contarBarraN(conjAEnviar) == 0){
-		        strcat(memoriaFM9[lineaMemoria], conjAEnviar);
+		    if(contarBarraN(conjARecibir) == 0){
+		        strcat(memoriaFM9[lineaMemoria], conjARecibir);
 
 		    } else {
 
-		        char **vecStrings = string_split(conjAEnviar,"\n");
+		        char **vecStrings = string_split(conjARecibir,"\n");
 
 		        for(int j = 0; j < strlen(vecStrings); j++){ //Creo que ese strlen me devuelve la cantidad de posiciones del vector, no?
 
@@ -465,18 +465,23 @@ void recibirScript(){
 
 void gestionarConexionDAM(int *sock){
 	GsocketDAM = *(int*)sock;
-	int operacion;
+	int operacion,cantLineas;
 
-	myRecibirDatosFijos(GsocketDAM,&maxTransfer,sizeof(int));
+	if(myRecibirDatosFijos(GsocketDAM,&maxTransfer,sizeof(int))==1)
+		myPuts(RED "Error al recibir el Max Transfer" COLOR_RESET "\n");
 
 	while(1){
 		if(myRecibirDatosFijos(GsocketDAM,&operacion,sizeof(int))!=1){
 			switch(operacion){
 				case(OPERACION_DUMMY):
-					abrirArchivo();
+						if(myRecibirDatosFijos(GsocketDAM,&cantLineas,sizeof(int))==1)
+							myPuts(RED "Error al recibir la cantidad de lineas" COLOR_RESET "\n");
+						abrirArchivo(cantLineas);
 					break;
 				case (OPERACION_ABRIR):
-					abrirArchivo();
+					if(myRecibirDatosFijos(GsocketDAM,&cantLineas,sizeof(int))==1)
+							myPuts(RED "Error al recibir la cantidad de lineas" COLOR_RESET "\n");
+					abrirArchivo(cantLineas);
 				break;
 				case (OPERACION_FLUSH):
 					flush();
@@ -498,8 +503,8 @@ void gestionarConexionDAM(int *sock){
 
 void gestionarConexionCPU(int *sock){
 	int socketCPU = *(int*)sock;
-	int operacion,fileID,linea,tamanioDatos;
-	char *datos = NULL;
+	int operacion,fileID;
+
 	while(1){
 		if(myRecibirDatosFijos(socketCPU,&operacion,sizeof(int))!=1){
 			switch(operacion){
@@ -562,13 +567,13 @@ void* connectionCPU()
 
 	result = myEnlazarServidor((int*) &socketCPU, &direccionServidor,IP_ESCUCHA,PUERTO_ESCUCHA); // Obtener socket a la escucha
 	if (result != 0) {
-		myPuts("No fue posible conectarse con los procesos DAM");
+		myPuts("No fue posible conectarse con los procesos CPU");
 		exit(1);
 	}
 
-	result = myAtenderClientesEnHilos((int*) &socketCPU, "FM9", "DAM",(void*) gestionarConexionDAM);
+	result = myAtenderClientesEnHilos((int*) &socketCPU, "FM9", "CPU",(void*) gestionarConexionDAM);
 	if (result != 0) {
-		myPuts("No fue posible atender requerimientos de DAM");
+		myPuts("No fue posible atender requerimientos de CPU");
 		exit(1);
 	}
 
@@ -634,15 +639,15 @@ int main() {
 	}
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
-    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
-	pruebaGuardadoDTB();
+    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+	//pruebaGuardadoDTB();
 
     while(1)
     {
 
     }
 
-    //config_destroy(configFM9);
+    config_destroy(configFM9);
 	return EXIT_SUCCESS;
 }
 

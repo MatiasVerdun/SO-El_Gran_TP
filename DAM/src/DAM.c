@@ -265,8 +265,6 @@ void operacionAlMDJ(int operacion, int socketCPU){
 
 	myPuts("El path que se recibio es: %s\n",pathArchivo);
 
-	myPuts("Enviando solicitud de archivo al MDJ \n");
-
 	switch(operacion){
 
 	case OPERACION_CREAR:
@@ -339,42 +337,49 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 	char** lineasScript;
 	int largoRuta;
 	int idDTB;
-	int cantLineas;
-	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
+	int cantLineas=0;
 
-	myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int));
+	if(myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int))==1)
+		myPuts(RED "Error al recibir el ID del DTB"COLOR_RESET"\n");
+
+	if(myRecibirDatosFijos(socketCPU,&largoRuta,sizeof(int))==1)
+		myPuts(RED "Error al recibir el largo del la Ruta"COLOR_RESET"\n");
 
 	escriptorio = malloc(largoRuta+1);
 	memset(escriptorio,'\0',largoRuta+1);
 
-	myRecibirDatosFijos(socketCPU,escriptorio,largoRuta);
+	if(myRecibirDatosFijos(socketCPU,escriptorio,largoRuta)==1)
+		myPuts(RED "Error al recibir el escriptorio"COLOR_RESET"\n");
 
 	char * script = obtenerDatos(escriptorio,0,0);
 	printf("%s",script);
 
-//	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
-//
-//	cantLineas = contadorLineas(script);
-//	myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
+	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+
+	cantLineas = contadorLineas(script);
+	printf("cantLineas %d",cantLineas);
+	myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
 
 	int hayEspacio=0; // 0 hay 1 no hay espacio
-//	myRecibirDatosFijos(socketGFM9,&hayEspacio,sizeof(int));
+	if(myRecibirDatosFijos(socketGFM9,&hayEspacio,sizeof(int))==1)
+		myPuts(RED "Error al recibir la confirmacion de espacio disponible "COLOR_RESET"\n ");
 
 	if (hayEspacio == 0){
-//
-//		int cantConjuntos = (strlen(script) / maxTransfer)+1;
-//		myEnviarDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
-//
-//		char *conjAEnviar = malloc(maxTransfer+1);
-//
-//		for(int i=0; i<cantConjuntos;i++){
-//			memset(conjAEnviar,'\0',maxTransfer+1);
-//			strcpy(conjAEnviar,script[i*maxTransfer]);
-//			myEnviarDatosFijos(socketGFM9,&conjAEnviar,maxTransfer);
-//		}
+
+		int cantConjuntos = (strlen(script) / maxTransfer)+1;
+		myEnviarDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
+
+		char *conjAEnviar = malloc(maxTransfer+1);
+
+		for(int i=0; i<cantConjuntos;i++){
+			memset(conjAEnviar,'\0',maxTransfer+1);
+			strcpy(conjAEnviar,script[i*maxTransfer]);
+			myEnviarDatosFijos(socketGFM9,conjAEnviar,maxTransfer);
+		}
 
 		int fileID = -1;
-		//myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int));
+		if(myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int))==1)
+			myPuts(RED "Error al recibir la confirmacion del FM9 (fileID)"COLOR_RESET"\n ");
 
 		if(operacion == OPERACION_DUMMY){
 			enviarAccionASAFA(ACC_DUMMY_OK,idDTB,fileID,NULL);
@@ -404,7 +409,7 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 	//myEnviarDatosFijos(socketGFM9,&tamScript,sizeof(int));
 	//TODO ver si se envia todo el script o si hay que dividirlo en lineas
 
-	//liberarSplit(lineasScript);
+	liberarSplit(lineasScript);
 	free(script);
 	free(escriptorio);
 
@@ -570,6 +575,7 @@ void *connectionSAFA(){
 
 void *connectionFM9(){
 	u_int32_t result;
+	u_int32_t cliente;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 
@@ -581,7 +587,9 @@ void *connectionFM9(){
 		myPuts("No se encuentra disponible el FM9 para conectarse.\n");
 		exit(1);
 	}
+
 	gestionarConexionFM9();
+
 	return 0;
 }
 
@@ -617,7 +625,7 @@ int main() {
 
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
 	pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
     pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();

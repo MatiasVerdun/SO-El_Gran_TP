@@ -686,7 +686,7 @@ int main() {
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
-    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
 
     while(1)
     {
