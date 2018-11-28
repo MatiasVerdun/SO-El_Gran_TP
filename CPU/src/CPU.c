@@ -377,10 +377,11 @@ void hardcodearSentencia(){
 	listaSentencias = list_create();
 
 	laSentencia = malloc(sizeof(sentencia));
-	laSentencia->operacion = OPERACION_WAIT;
-	laSentencia->param1 = malloc(strlen("HOLA")+1);;
+	laSentencia->operacion = OPERACION_CREAR;
+	laSentencia->param1 = malloc(strlen("HOLA")+1);
 	laSentencia->param2 = -1;
-	laSentencia->param3 = NULL;
+	laSentencia->param3 = malloc(4);
+
 
 	strcpy(laSentencia->param1,"HOLA");
 
@@ -389,10 +390,10 @@ void hardcodearSentencia(){
 	sentencia *laSentencia2;
 
 	laSentencia2 = malloc(sizeof(sentencia));
-	laSentencia2->operacion = OPERACION_WAIT;
-	laSentencia2->param1 = malloc(strlen("HOLA")+1);;
+	laSentencia2->operacion = OPERACION_BORRAR;
+	laSentencia2->param1 = malloc(strlen("HOLA")+1);
 	laSentencia2->param2 = -1;
-	laSentencia2->param3 = NULL;
+	laSentencia2->param3 = malloc(4);
 
 	strcpy(laSentencia2->param1,"HOLA");
 
@@ -573,7 +574,8 @@ void gestionarConexionSAFA(){
 				}else{
 					ejecutarInstruccion(miDTB);
 				}
-				list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos, (void*)free);
+
+				list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
 				free(miDTB);
 			}
 

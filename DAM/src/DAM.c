@@ -197,16 +197,19 @@ void mostrarConfig(){
     free(myText);
 }
 
-void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo, int fileID){
+void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo){
 
 	myEnviarDatosFijos(socketGSAFA,&accion,sizeof(int));
 	myEnviarDatosFijos(socketGSAFA,&idDTB,sizeof(int));
 
-	if(accion == ACC_CREAR_OK || accion == ACC_BORRAR_OK || accion == ACC_DUMMY_OK){
+	if(accion == ACC_CREAR_OK || accion == ACC_BORRAR_OK ){
 		myEnviarDatosFijos(socketGSAFA,&tamanio,sizeof(int));
 		myEnviarDatosFijos(socketGSAFA,pathArchivo,tamanio);
 	}
-	//if(accion == ACC_DUMMY_OK || )//TODO
+
+	if(accion == ACC_DUMMY_OK || accion == ACC_ABRIR_OK){
+		myEnviarDatosFijos(socketGSAFA,&tamanio,sizeof(int)); //tamanio = fileID reutilizo el parametro
+	}
 
 }
 
@@ -270,9 +273,9 @@ void operacionAlMDJ(int operacion, int socketCPU){
 		respuesta = crearArchivo(pathArchivo,tamanio);
 
 		if(respuesta == 0){
-			//enviarAccionASAFA(ACC_CREAR_OK, idDTB, tamanio, pathArchivo);
+			enviarAccionASAFA(ACC_CREAR_OK, idDTB, tamanio, pathArchivo);
 		}else{
-			//enviarAccionASAFA(ACC_CREAR_ERROR, idDTB, tamanio, pathArchivo);
+			enviarAccionASAFA(ACC_CREAR_ERROR, idDTB, tamanio, pathArchivo);
 		}
 
 	break;
@@ -281,9 +284,9 @@ void operacionAlMDJ(int operacion, int socketCPU){
 		respuesta = borrarArchivo(pathArchivo);
 
 		if(respuesta == 0){
-			//enviarAccionASAFA(ACC_BORRAR_OK, idDTB, tamanio, pathArchivo);
+			enviarAccionASAFA(ACC_BORRAR_OK, idDTB, tamanio, pathArchivo);
 		}else{
-			//enviarAccionASAFA(ACC_BORRAR_ERROR, idDTB, tamanio, pathArchivo);
+			enviarAccionASAFA(ACC_BORRAR_ERROR, idDTB, tamanio, pathArchivo);
 		}
 
 	break;
@@ -347,42 +350,45 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 	myRecibirDatosFijos(socketCPU,escriptorio,largoRuta);
 
 	char * script = obtenerDatos(escriptorio,0,0);
+	printf("%s",script);
 
-	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+//	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+//
+//	cantLineas = contadorLineas(script);
+//	myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
 
-	cantLineas = contadorLineas(script);
-	myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
-
-	int hayEspacio; // 0 hay 1 no hay espacio
-	myRecibirDatosFijos(socketGFM9,&hayEspacio,sizeof(int));
+	int hayEspacio=0; // 0 hay 1 no hay espacio
+//	myRecibirDatosFijos(socketGFM9,&hayEspacio,sizeof(int));
 
 	if (hayEspacio == 0){
+//
+//		int cantConjuntos = (strlen(script) / maxTransfer)+1;
+//		myEnviarDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
+//
+//		char *conjAEnviar = malloc(maxTransfer+1);
+//
+//		for(int i=0; i<cantConjuntos;i++){
+//			memset(conjAEnviar,'\0',maxTransfer+1);
+//			strcpy(conjAEnviar,script[i*maxTransfer]);
+//			myEnviarDatosFijos(socketGFM9,&conjAEnviar,maxTransfer);
+//		}
 
-		int cantConjuntos = (strlen(script) / maxTransfer)+1;
-		myEnviarDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
-
-		char *conjAEnviar = malloc(maxTransfer+1);
-
-		for(int i=0; i<cantConjuntos;i++){
-			memset(conjAEnviar,'\0',maxTransfer+1);
-			strcpy(conjAEnviar,script[i*maxTransfer]);
-			myEnviarDatosFijos(socketGFM9,&conjAEnviar,maxTransfer);
-		}
-
-		int fileID;
-		myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int));
+		int fileID = -1;
+		//myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int));
 
 		if(operacion == OPERACION_DUMMY){
-			//enviarAccionASAFA(ACC_DUMMY_OK,idDTB,largoRuta,escriptorio);
-			//TODO
+			enviarAccionASAFA(ACC_DUMMY_OK,idDTB,fileID,NULL);
 		} else {
-			//enviarAccionASAFA(ACC_ABRIR_OK,idDTB,largoRuta,escriptorio);
+			enviarAccionASAFA(ACC_ABRIR_OK,idDTB,fileID,NULL);
 		}
 
 	} else {
+		if(operacion == OPERACION_DUMMY){
+			enviarAccionASAFA(ACC_DUMMY_ERROR,idDTB,0,NULL);
+		} else {
+			enviarAccionASAFA(ACC_ABRIR_ERROR,idDTB,0,NULL);
+		}
 
-		//enviarAccionASAFA(ACC_DUMMY_ERROR,idDTB,0,NULL);
-		//TODO Avisar a CPU o S-AFA que pasa cuando no hay espacio para el dummy. (VICKY)
 	}
 
 	/*lineasScript = bytesToLineas(script);//Guarda un array de lineas en lineasScript, cada posicion del array es una linea del script
@@ -398,7 +404,7 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 	//myEnviarDatosFijos(socketGFM9,&tamScript,sizeof(int));
 	//TODO ver si se envia todo el script o si hay que dividirlo en lineas
 
-	liberarSplit(lineasScript);
+	//liberarSplit(lineasScript);
 	free(script);
 	free(escriptorio);
 
@@ -484,7 +490,7 @@ void gestionarConexionFM9(){
 
 	maxTransfer = (int)getConfigR("TSIZE",1,configDAM);
 
-	myEnviarDatosFijos(socketGFM9,maxTransfer,sizeof(int));
+	myEnviarDatosFijos(socketGFM9,&maxTransfer,sizeof(int));
 
 }
 
