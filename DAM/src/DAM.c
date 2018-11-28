@@ -99,6 +99,7 @@ char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 	u_int32_t tempOffset = htonl(offset);
 	u_int32_t tempSize = htonl(size);
 	u_int32_t pathSize=htonl(strlen(path));
+	u_int32_t transferSize=htonl((int)getConfigR("TSIZE",1,configDAM));
 	if(size==0)
 		operacion=htonl(5);
 	else
@@ -106,6 +107,7 @@ char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 
 	myPuts(BLUE "Obteniendo datos '%s' ",path);
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&transferSize,sizeof(u_int32_t));
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&pathSize,sizeof(u_int32_t));
 	myEnviarDatosFijos(socketGMDJ,path,ntohl(pathSize)+1);
 	loading(1);
@@ -113,12 +115,13 @@ char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 
 	if(ntohl(respuesta)==0){
 		if(size==0){
-			myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&tamDatos,sizeof(u_int32_t));
+			/*myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&tamDatos,sizeof(u_int32_t));
 			char* buffer= malloc(ntohl(tamDatos)+1);
 			myRecibirDatosFijos(socketGMDJ,(char*)buffer,ntohl(tamDatos));
-			memset(buffer+ntohl(tamDatos),'\0',1);
+			memset(buffer+ntohl(tamDatos),'\0',1);*/
+			char* datos = recibirDatosTS(socketGMDJ,ntohl(transferSize));
 
-			return buffer;
+			return datos;
 		}else{//TODO obtener datos con offset y size
 			myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempOffset,sizeof(u_int32_t));
 			myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempSize,sizeof(u_int32_t));
@@ -519,7 +522,9 @@ void gestionarConexionMDJ(){
 	//validarArchivo("../root/bou.txt");
 	//crearArchivo("scripts/prueba.archivo",256);
 	//borrarArchivo("scripts/prueba.archivo");
-	//char *archivo=obtenerDatos("scripts/checkpoint.escriptorio",0,0);
+	char *archivo=obtenerDatos("Archivos/scripts/checkpoint.escriptorio",0,0);
+	printf("%s",archivo);
+	free(archivo);
 	//enviarDatosFM9(archivo,strlen(archivo));
 	//free(archivo);
 	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
@@ -623,10 +628,10 @@ int main() {
 	configDAM=config_create(PATHCONFIGDAM);
 
 
-    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
 	pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
-    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

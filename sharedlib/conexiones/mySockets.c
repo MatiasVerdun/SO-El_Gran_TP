@@ -261,3 +261,59 @@ void recibirDatos(void* datos,u_int32_t socket){//TODO Probar
 	myRecibirDatosFijos(socket,buffer+sizeof(u_int32_t),size);
 
 }
+
+char** bytesToTS(char* bytes,int transferSize){//Divide segun el Transfer size los datos a enviar para poder mandarlos a MDJ o FM9
+	char** datosTS=malloc(strlen(bytes)+1);
+	memset(datosTS,'\0',strlen(bytes)+1);
+	int cantidadElementos=strlen(bytes)/transferSize;
+	if((strlen(bytes)%transferSize)!=0)
+		cantidadElementos++;
+	int i=0,offset=0;
+	while(i<cantidadElementos){
+		char* dato=malloc(transferSize+1);
+		memset(dato,'\0',transferSize+1);
+		if(strlen(bytes)>(offset+transferSize)){
+			memcpy(dato,bytes+offset,transferSize);
+		}
+		else{
+			memcpy(dato,bytes+offset,(strlen(bytes)-offset));
+		}
+		datosTS[i]=dato;
+		i++;
+		offset+=transferSize;
+	}
+	return datosTS;
+}
+
+int enviarDatosTS(int socket,char* datos,int transferSize){
+	char** datosTransfer= bytesToTS(datos,transferSize);
+	u_int32_t elementSize;
+	int i=0;
+	while(datosTransfer[i]!=NULL){
+		elementSize=htonl(strlen(datosTransfer[i]));
+		myEnviarDatosFijos(socket,(u_int32_t*)&elementSize,sizeof(u_int32_t));
+		myEnviarDatosFijos(socket,(char*)datosTransfer[i],ntohl(elementSize));
+		printf("%s",datosTransfer[i]);
+		printf("+");
+		i++;
+	}
+	elementSize=htonl(-1);
+	myEnviarDatosFijos(socket,(u_int32_t*)&elementSize,sizeof(u_int32_t));
+	liberarSplit(datosTransfer);
+	return 0;
+}
+
+char* recibirDatosTS(int socket,int transferSize){
+	 u_int32_t elementSize=0;
+	 char* datosTransfer=string_new();
+	 char* buffer=malloc(transferSize+1);
+	 while(elementSize!=-1){
+		 elementSize=0;
+		 memset(buffer,'\0',transferSize+1);
+		 myRecibirDatosFijos(socket,(u_int32_t*)&elementSize,sizeof(u_int32_t));
+		 elementSize=ntohl(elementSize);
+		 myRecibirDatosFijos(socket,(char*)buffer,elementSize);
+		 string_append(&datosTransfer,buffer);
+	 }
+	 return datosTransfer;
+ }

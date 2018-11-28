@@ -85,11 +85,12 @@ void gestionArchivos(int socketDAM,int operacion){
 void gestionDatos(int socketDAM, int operacion){
 	char path[50];
 	char datosDummy[30];
-	u_int32_t offset,size,respuesta,pathSize;
+	u_int32_t offset,size,respuesta,pathSize,transferSize;
 	offset=size=respuesta=0;
-
+	myRecibirDatosFijos(socketDAM,(u_int32_t*)&transferSize,sizeof(u_int32_t));
 	myRecibirDatosFijos(socketDAM,(u_int32_t*)&pathSize,sizeof(u_int32_t));
 	printf("%d\n",ntohl(pathSize));
+	transferSize=ntohl(transferSize);
 	myRecibirDatosFijos(socketDAM,(char*)path,ntohl(pathSize)+1);
 
 	switch(operacion){
@@ -126,7 +127,7 @@ void gestionDatos(int socketDAM, int operacion){
 				myRecibirDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t)); //Recibo el size
 				myPuts(GREEN "Offset: %d\nSize: %d" COLOR_RESET "\n",ntohl(offset),ntohl(size));
 				myRecibirDatosFijos(socketDAM,(char*)datosDummy,sizeof(datosDummy));
-				myPuts(GREEN "Datos recibidos: %s" COLOR_RESET "\n");
+				myPuts(GREEN "Datos recibidos: %s" COLOR_RESET "\n",datosDummy);
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 			}
 			else{
@@ -145,10 +146,9 @@ void gestionDatos(int socketDAM, int operacion){
 
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t)); //Le indico al DAM que el archivo existe para que siga operando
 				char* archivo=obtenerArchivoFS(path);
-				size=htonl(obtenerTamArchivoFS(path));
-
-				myEnviarDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t));
-				myEnviarDatosFijos(socketDAM,(char*)archivo,ntohl(size));
+				enviarDatosTS(socketDAM,archivo,transferSize);
+				/*myEnviarDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t));
+				myEnviarDatosFijos(socketDAM,(char*)archivo,ntohl(size));*/
 				free(archivo);
 			}
 			else{
