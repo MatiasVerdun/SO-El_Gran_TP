@@ -956,6 +956,15 @@ void liberarRecursosAsignados(DTB *miDTB){
 }
 
 void liberarMemoriaFM9(DTB *miDTB){
+	int cantidadDeArchivos = list_size(miDTB->tablaArchivosAbiertos);
+
+	myEnviarDatosFijos(GsocketDAM,&cantidadDeArchivos,sizeof(int));
+
+	for(int i = 0; i < cantidadDeArchivos; i++){
+		datosArchivo* archivo = list_get(miDTB->tablaArchivosAbiertos,i);
+		int fileID = archivo->fileID;
+		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
+	}
 
 }
 
@@ -976,7 +985,7 @@ void finalizarDTB(int idDTB, t_list* miLista){
 
 		liberarRecursosAsignados(miDTB);
 
-		liberarMemoriaFM9(miDTB);
+		//liberarMemoriaFM9(miDTB);
 
 		list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
 
@@ -1241,7 +1250,7 @@ void desconectarCPU(int socketCPU){
 	}
 
 	if(list_is_empty(listaCPU)){
-		myPuts(RED "No hay CPU's disponibles" COLOR_RESET "\n");
+		myPuts(RED "No hay CPU's disponibles, no estoy en estado operativo" COLOR_RESET "\n");
 		exit(1);
 	}
 

@@ -318,7 +318,7 @@ void operacionFlush(int operacion, int socketCPU){
 
 	myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));
 
-	myRecibirDatosFijos(socketCPU,&cantConjuntos,sizeof(int));
+	myRecibirDatosFijos(socketCPU,&cantConjuntos,sizeof(int)); //TODO ¿?
 
 	for(int i=0; i < cantConjuntos; i++){
 		;//Enviar a MDJ
@@ -459,15 +459,7 @@ void gestionarConexionCPU(int *sock_cliente){
 
 				operacionAlMDJ(operacion,socketCPU);
 
-				break;
-
-			case SE_DESCONECTO_SAFA:
-
-				myPuts(RED "Se desconecto SAFA "COLOR_RESET"\n ");
-
-				exit(1);
 			break;
-
 			}
 		}else{
 
@@ -484,6 +476,29 @@ void gestionarConexionSAFA(int socketSAFA){
 
 	socketGSAFA = socketSAFA;
 
+	int cantidadDeArchivos,fileID;
+	int operacion=OPERACION_CLOSE;
+
+	while(1){
+		if(myRecibirDatosFijos(socketGSAFA,&cantidadDeArchivos,sizeof(int))!=1){
+
+			myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+			myEnviarDatosFijos(socketGFM9,&cantidadDeArchivos,sizeof(int));
+
+			for(int i = 0; i < cantidadDeArchivos; i++){
+				if(myRecibirDatosFijos(socketGSAFA,&fileID,sizeof(int))==1){
+					myPuts(RED "Error al recibir el fileID del archivo en la posicion nro  %d"COLOR_RESET"\n",i);
+				}else{
+					myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));
+				}
+			}
+
+		}else{
+			myPuts(RED "Se desconecto el proceso S-AFA"COLOR_RESET"\n ");
+
+			exit(1);
+		}
+	}
 }
 
 void gestionarConexionFM9(){

@@ -263,13 +263,9 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 
 				myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int)); 		//ENVIO OPERACION
 
-				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));			//ENVIO ID
-
 				//PARAMETROS
 
-				tamanio = strlen(miSentencia->param1);
-				myEnviarDatosFijos(socketGFM9,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
-				myEnviarDatosFijos(socketGFM9,miSentencia->param1,tamanio); //ENVIO EL PATH
+				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));
 
 				parametro2= miSentencia->param2;
 				myEnviarDatosFijos(socketGFM9,&parametro2,sizeof(int)); //ENVIO LA LINEA
@@ -326,7 +322,6 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 			if(fileID != -1){
 
 				myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int)); 		//ENVIO OPERACION
-				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
 
 				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));			//ENVIO ID
 
@@ -586,8 +581,7 @@ void gestionarConexionSAFA(){
 
 		}else{
 			myPuts(RED "Se desconecto el proceso S-AFA" COLOR_RESET "\n");
-			int desconexion = SE_DESCONECTO_SAFA;
-			myEnviarDatosFijos(socketGDAM,&desconexion,sizeof(int));
+
 			exit(1);
 		}
 	}

@@ -138,7 +138,15 @@ void asignarLineaSPA(){
 
 }
 
-void asignarLinea(){
+void asignarLinea(int socketCPU){
+	int fileID,linea,tamanioDatos;
+	char* datos = NULL;
+
+	myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
+	myRecibirDatosFijos(socketCPU,&linea,sizeof(int));
+	myRecibirDatosFijos(socketCPU,&tamanioDatos,sizeof(int));
+	myRecibirDatosFijos(socketCPU,datos,tamanioDatos);
+
 	switch(modoEjecucion){
 	case SEG:
 		asignarLineaSEG();
@@ -204,6 +212,8 @@ void flushSPA(){
 }
 
 void flush(){
+	int fileID;
+	myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int));
 	switch(modoEjecucion){
 	case SEG:
 		flushSEG();
@@ -231,7 +241,7 @@ void cerrarArchivoSPA(){
 
 }
 
-void cerrarArchivo(){
+void cerrarArchivo(int fileID){
 	switch(modoEjecucion){
 	case SEG:
 		cerrarArchivoSEG();
@@ -242,6 +252,20 @@ void cerrarArchivo(){
 	case SPA:
 		cerrarArchivoSPA();
 		break;
+	}
+}
+
+void cerrarVariosArchivos(){
+	int cantidadDeArchivos;
+	if(myRecibirDatosFijos(GsocketDAM,&cantidadDeArchivos,sizeof(int))==1)
+		myPuts(RED "Error al recibir la cantidad de archivos que se debe cerrar" COLOR_RESET "\n");
+
+	for(int i = 0; i < cantidadDeArchivos;i++){
+		int fileID;
+		if(myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int))==1)
+				myPuts(RED "Error al recibir el fileID en la posicion nro %d " COLOR_RESET "\n",i);
+
+		cerrarArchivo(fileID);
 	}
 }
 
@@ -422,8 +446,8 @@ void recibirScript(){
 
 		    }
 		}
-
-		myEnviarDatosFijos(GsocketDAM,miSegmento->fileID,sizeof(int));
+		int fileID = miSegmento->fileID;
+		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
 
 	} else {
 		int hayEspacio = 1;
@@ -446,25 +470,23 @@ void gestionarConexionDAM(int *sock){
 	myRecibirDatosFijos(GsocketDAM,&maxTransfer,sizeof(int));
 
 	while(1){
-		if(myRecibirDatosFijos(GsocketDAM,&operacion,sizeof(int))==0){
+		if(myRecibirDatosFijos(GsocketDAM,&operacion,sizeof(int))!=1){
 			switch(operacion){
 				case(OPERACION_DUMMY):
 					abrirArchivo();
 					break;
 				case (OPERACION_ABRIR):
 					abrirArchivo();
-					break;
-				case (OPERACION_ASIGNAR):
-					//TODO idealmente se recibe la linea y posicion en la linea en la cual tengo que asignar
-					//(no se si DAM sabe tanto) llamar a AsignarLinea(), break
+				break;
 				case (OPERACION_FLUSH):
 					flush();
-					break;
+				break;
 					//TODO se recibe la primera linea del archivo a flushear (y no se si el tamaño), flush()
 					//hago un super send del archivo en cuestion
-				case (OPERACION_CLOSE):
-					//TODO se recibe el archivo a cerrar (y no se si el tamaño), cerrarArchivo(), break
-
+				case (OPERACION_CLOSE): //Si DAM envia esta operacion es porque termino un DTB
+					//TODO se recibe el archivo a cerrar (y no se si el tamaño)
+					cerrarVariosArchivos();
+				break;
 			}
 		}else{
 			myPuts(RED "Se desconecto el proceso DAM" COLOR_RESET "\n");
@@ -476,9 +498,24 @@ void gestionarConexionDAM(int *sock){
 
 void gestionarConexionCPU(int *sock){
 	int socketCPU = *(int*)sock;
+	int operacion,fileID,linea,tamanioDatos;
+	char *datos = NULL;
 	while(1){
-		if(gestionarDesconexion((int)socketCPU,"CPU")!=0)
+		if(myRecibirDatosFijos(socketCPU,&operacion,sizeof(int))!=1){
+			switch(operacion){
+				case (OPERACION_ASIGNAR):
+					asignarLinea(socketCPU);
+				break;
+
+				case (OPERACION_CLOSE):
+					myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
+					cerrarArchivo(fileID);
+				break;
+			}
+		}else{
+			myPuts(RED "Se desconecto el proceso CPU" COLOR_RESET "\n");
 			break;
+		}
 	}
 }
 
