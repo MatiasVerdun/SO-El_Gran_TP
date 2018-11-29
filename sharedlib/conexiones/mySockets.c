@@ -262,6 +262,34 @@ void recibirDatos(void* datos,u_int32_t socket){//TODO Probar
 
 }
 
+int contadorLineas(char* texto){
+	int lineas=0;
+
+	for(int i=0;i<strlen(texto);i++){
+		if(texto[i]=='\n'){
+			lineas++;
+		}
+	}
+	return lineas;
+}
+
+char** bytesToLineas(char* bytes){//Covierte los bytes a lineas y los devuelve en un array de strings
+	char** lineas=malloc(strlen(bytes)+1);
+	char** splitLineas=string_split(bytes,"\n");
+	memset(lineas,'\0',strlen(bytes)+1);
+	for(int i=0;i<contadorLineas(bytes);i++){
+		char* linea;
+		if(splitLineas[i]!=NULL)
+			linea=string_from_format("%s\n",splitLineas[i]);
+		else
+			linea=string_from_format("\n");
+		lineas[i]=linea;
+		//printf("%s",linea);
+	}
+	liberarSplit(splitLineas);
+	return lineas;
+}
+
 char** bytesToTS(char* bytes,int transferSize){//Divide segun el Transfer size los datos a enviar para poder mandarlos a MDJ o FM9
 	char** datosTS=malloc(strlen(bytes)+1);
 	memset(datosTS,'\0',strlen(bytes)+1);

@@ -216,34 +216,6 @@ void enviarAccionASAFA(int accion, int idDTB,int tamanio,char* pathArchivo){
 
 }
 
-int contadorLineas(char* texto){
-	int lineas=0;
-
-	for(int i=0;i<strlen(texto);i++){
-		if(texto[i]=='\n'){
-			lineas++;
-		}
-	}
-	return lineas;
-}
-
-char** bytesToLineas(char* bytes){//Covierte los bytes a lineas y los devuelve en un array de strings
-	char** lineas=malloc(strlen(bytes)+1);
-	char** splitLineas=string_split(bytes,"\n");
-	memset(lineas,'\0',strlen(bytes)+1);
-	for(int i=0;i<contadorLineas(bytes);i++){
-		char* linea;
-		if(splitLineas[i]!=NULL)
-			linea=string_from_format("%s\n",splitLineas[i]);
-		else
-			linea=string_from_format("\n");
-		lineas[i]=linea;
-		//printf("%s",linea);
-	}
-	liberarSplit(splitLineas);
-	return lineas;
-}
-
 void operacionAlMDJ(int operacion, int socketCPU){
 	char * pathArchivo = NULL;
 	char * script;
@@ -334,7 +306,6 @@ int tamSplit(char** split){
 	return i;
 }
 
-
 void operacionDummyOAbrir(int operacion, int socketCPU){
 	char * escriptorio;
 	char** lineasScript;
@@ -360,7 +331,7 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
 
 	cantLineas = contadorLineas(script);
-	printf("cantLineas %d",cantLineas);
+	//printf("cantLineas %d",cantLineas);
 	myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
 
 	int hayEspacio=0; // 0 hay 1 no hay espacio
@@ -369,16 +340,15 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 
 	if (hayEspacio == 0){
 
-		int cantConjuntos = (strlen(script) / maxTransfer)+1;
+		int cantConjuntos = (strlen(script) / maxTransfer);
+
+		if(strlen(script) % maxTransfer != 0){
+			cantConjuntos++;
+		}
+
 		myEnviarDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
 
-		char *conjAEnviar = malloc(maxTransfer+1);
-
-		for(int i=0; i<cantConjuntos;i++){
-			memset(conjAEnviar,'\0',maxTransfer+1);
-			strcpy(conjAEnviar,script[i*maxTransfer]);
-			myEnviarDatosFijos(socketGFM9,conjAEnviar,maxTransfer);
-		}
+		enviarDatosTS(socketGFM9,script,maxTransfer);
 
 		int fileID = -1;
 		if(myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int))==1)
@@ -522,9 +492,9 @@ void gestionarConexionMDJ(){
 	//validarArchivo("../root/bou.txt");
 	//crearArchivo("scripts/prueba.archivo",256);
 	//borrarArchivo("scripts/prueba.archivo");
-	char *archivo=obtenerDatos("Archivos/scripts/checkpoint.escriptorio",0,0);
-	printf("%s",archivo);
-	free(archivo);
+	//char *archivo=obtenerDatos("Archivos/scripts/checkpoint.escriptorio",0,0);
+	//printf("%s",archivo);
+	//free(archivo);
 	//enviarDatosFM9(archivo,strlen(archivo));
 	//free(archivo);
 	//guardarDatos("root/fifa/jugadores/bou.txt",40,100,"Numero->9");
@@ -628,10 +598,10 @@ int main() {
 	configDAM=config_create(PATHCONFIGDAM);
 
 
-    //pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
-	pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
-    //pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
-    //pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
+    pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
+    pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
+    pthread_create(&hiloConnectionFM9,NULL,(void*)&connectionFM9,NULL);
+    pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 
     mostrarConfig();
     while(1)

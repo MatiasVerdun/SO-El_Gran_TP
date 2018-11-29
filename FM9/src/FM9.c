@@ -19,6 +19,9 @@ enum{ SEG,
 	  TPI,
 	  SPA};
 
+int tamMemoria;
+int tamLinea;
+
 int modoEjecucion;
 t_config *configFM9;
 char** memoriaFM9;
@@ -42,7 +45,7 @@ int espacioMaximoLibre(){
 	int max = 0;
 	int c = 0;
 
-	for(int i = 0; i < (sizeof(lineasOcupadas)/sizeof(int)); i++){
+	for(int i = 0; i < (tamMemoria/tamLinea); i++){
 		if(!lineasOcupadas[i]){
 			c++;
 			if(c > max){
@@ -65,7 +68,7 @@ int primeraLineaLibreDelEspacioMaximo(){
 	int posMax = -1;
 	int posActual = 0;
 
-	for(int i = 0; i < (sizeof(lineasOcupadas)/sizeof(int)); i++){
+	for(int i = 0; i < (tamMemoria/tamLinea); i++){
 		if(!lineasOcupadas[i]){
 			c++;
 			if(c > max){
@@ -320,8 +323,8 @@ void setModoEjecucion(){
 }
 
 int inicializarLineasOcupadas(){
-	int tamMemoria=(int)getConfig("TMM","FM9.txt",1);
-	int tamLinea=(int)getConfig("TML","FM9.txt",1);
+	tamMemoria=(int)getConfig("TMM","FM9.txt",1);
+	tamLinea=(int)getConfig("TML","FM9.txt",1);
 
 	if((tamMemoria % tamLinea) != 0){
 		printf("El tamaño de memoria no es multiplo del tamaño de linea");
@@ -428,12 +431,18 @@ void recibirScript(int cantLineas){
 		ocuparLineas(miSegmento->base,miSegmento->limite);
 
 		int cantConjuntos;
-		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int)))
+		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
 			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
 
-		int lineaMemoria = miSegmento->base;
+		char* conjuntos = recibirDatosTS(GsocketDAM,ntohl(maxTransfer));
 
-		for(int i = 0; i <= cantConjuntos; i++){
+		char **vecStrings = bytesToLineas(conjuntos);
+
+		for(int i = 0;  i < cantLineas; i++){
+			memoriaFM9[miSegmento->base + i] = vecStrings[i];
+		}
+
+		/*for(int i = 0; i <= cantConjuntos; i++){
 
 			char *conjARecibir = malloc(maxTransfer+1);
 
@@ -458,7 +467,8 @@ void recibirScript(int cantLineas){
 		        lineaMemoria = lineaMemoria + strlen(vecStrings) - 1;
 
 		    }
-		}
+		}*/
+
 		int fileID = miSegmento->fileID;
 		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
 
@@ -641,6 +651,8 @@ int main() {
 	mostrarConfig();
 	setModoEjecucion();
 	inicializarMemoria();
+	if(inicializarLineasOcupadas()==-1)
+			myPuts(RED "El tamaño de memoria no es multiplo del tamaño de linea" COLOR_RESET "\n");
 
 	if(modoEjecucion == SEG)
 	{

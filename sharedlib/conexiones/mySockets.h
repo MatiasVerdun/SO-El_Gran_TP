@@ -29,6 +29,8 @@ int myEnviarDatosFijos(int descriptorSocket, const void* buffer, const unsigned 
 
 int gestionarDesconexion(int socket,char* nombreProceso);
 
+int contadorLineas(char* texto);
+char** bytesToLineas(char* bytes);
 char** bytesToTS(char* bytes,int transferSize);
 int enviarDatosTS(int socket,char* datos,int transferSize);
 char* recibirDatosTS(int socket,int transferSize);
