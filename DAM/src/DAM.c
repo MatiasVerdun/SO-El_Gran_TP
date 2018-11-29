@@ -359,6 +359,8 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 
 	if (hayEspacio == 0){
 
+		myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
+
 		int cantConjuntos = (strlen(script) / maxTransfer);
 
 		if(strlen(script) % maxTransfer != 0){
