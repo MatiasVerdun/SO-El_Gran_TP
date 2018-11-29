@@ -24,8 +24,6 @@ u_int32_t socketGFM9;
 
 int	nroSentenciaActual;
 
-t_list *listaSentencias;
-
 //Configuracion de Planificacion
 int quantum;
 int remanente;
@@ -324,6 +322,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 	int parametro2;
 	int operacion = miSentencia->operacion;
 	int tamanio;
+	int respuestaFM9;
 	int idDTB = miDTB->ID_GDT;
 
 	usleep((int)getConfigR("RETARDO",1,configCPU)); //CONCENTRAR
@@ -369,6 +368,16 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 				tamanio = strlen(miSentencia->param3);
 				myEnviarDatosFijos(socketGFM9,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO DE LOS DATOS
 				myEnviarDatosFijos(socketGFM9,miSentencia->param3,tamanio); //ENVIO DATOS
+
+				myRecibirDatosFijos(socketGFM9,&respuestaFM9,sizeof(int));
+
+				if(respuestaFM9 == 1){
+					codigoError = 20002;
+				}
+
+				if(respuestaFM9 == 2){
+					codigoError = 20003;
+				}
 
 			}else{
 				codigoError = 20001;										//ERROR: El archivo no se encuentra abierto
@@ -460,6 +469,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 	}
 
 }
+
 /*
 void hardcodearSentencia(){
 	//ESTO LO HARIA EL PARSER
@@ -493,22 +503,21 @@ void hardcodearSentencia(){
 
 }*/
 
-
-void limpiarVariables(){
+void limpiarVariables(sentencia* miSentencia){
 	instruccionesEjecutadas = 0;
 	motivoLiberacionCPU = -1;
 	codigoError = 0;
 	estaBloqueado = false;
-	list_clean(listaSentencias);
+	free(miSentencia->param1);
+	free(miSentencia->param3);
+	free(miSentencia);
 }
-
 
 sentencia* buscarSentencia(DTB* miDTB){
 	char* laSentencia = NULL;
 	sentencia* miSentencia = NULL;
 	int PC,operacion,fileEscriptorio;
 	int tamanio = 0;
-	char *miString = malloc(258);
 
 	operacion = OPERACION_LINEA;
 
@@ -524,22 +533,18 @@ sentencia* buscarSentencia(DTB* miDTB){
 	if(myRecibirDatosFijos(socketGFM9,&tamanio,sizeof(int))==1)
 		myPuts(RED"Error al recibir el tamaño de la linea"COLOR_RESET"\n");
 
-	printf("tamaño %d\n", tamanio);
-
 	laSentencia = malloc(tamanio+1);
 	memset(laSentencia,'\0',tamanio+1);
 
 	if(myRecibirDatosFijos(socketGFM9,laSentencia,tamanio)==1)
 		myPuts(RED"Error al recibir la sentencia"COLOR_RESET"\n");
 
-	printf("sentencia %s \n",laSentencia);
+	myPuts(MAGENTA"Se ejecutara la siguiente instruccion: %s"COLOR_RESET"\n",laSentencia);
 
 	miSentencia = parsear(laSentencia);
 
 	return miSentencia;
 }
-
-
 
 void ejecutarInstruccion(DTB* miDTB){
 	sentencia *miSentencia;
@@ -573,13 +578,11 @@ void ejecutarInstruccion(DTB* miDTB){
 		enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 	}
 
-	limpiarVariables();
+	limpiarVariables(miSentencia);
 }
 
 
-
 ///GESTION DE CONEXIONES///
-
 
 void gestionarConexionSAFA(){
 	int ejecucion;
@@ -601,6 +604,7 @@ void gestionarConexionSAFA(){
 					ejecutarInstruccion(miDTB);
 				}
 
+				//list_destroy(miDTB->tablaArchivosAbiertos);
 				free(miDTB);
 			}
 

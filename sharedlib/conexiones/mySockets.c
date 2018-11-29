@@ -321,8 +321,8 @@ int enviarDatosTS(int socket,char* datos,int transferSize){
 		elementSize=htonl(strlen(datosTransfer[i]));
 		myEnviarDatosFijos(socket,(u_int32_t*)&elementSize,sizeof(u_int32_t));
 		myEnviarDatosFijos(socket,(char*)datosTransfer[i],ntohl(elementSize));
-		printf("%s",datosTransfer[i]);
-		printf("+");
+		//printf("%s",datosTransfer[i]);
+		//printf("+");
 		i++;
 	}
 	elementSize=htonl(-1);

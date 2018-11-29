@@ -173,6 +173,7 @@ void guardarDatos(char* path,u_int32_t offset, u_int32_t size,char* buffer){
 	}
 
 }
+
 ///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
@@ -295,11 +296,12 @@ void operacionFlush(int operacion, int socketCPU){
 
 	myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));
 
-	myRecibirDatosFijos(socketCPU,&cantConjuntos,sizeof(int)); //TODO ¿?
+	myRecibirDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
 
-	for(int i=0; i < cantConjuntos; i++){
-		;//Enviar a MDJ
-	}
+	char* datos = recibirDatosTS(socketGFM9,ntohl(maxTransfer));
+
+	enviarDatosTS(socketGMDJ,ntohl(maxTransfer));
+
 }
 
 int tamSplit(char** split){
@@ -350,7 +352,7 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
 
 	cantLineas = contadorLineas(script);
-	printf("cantLineas %d",cantLineas);
+
 	myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
 
 	int hayEspacio=0; // 0 hay 1 no hay espacio
@@ -376,7 +378,6 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 			myPuts(RED "Error al recibir la confirmacion del FM9 (fileID)"COLOR_RESET"\n ");
 
 		int cantSentencias = cantidadSentencias(script,cantLineas);
-		printf("cantSentencias %d",cantSentencias);
 
 		if(operacion == OPERACION_DUMMY){
 			enviarAccionASAFA(ACC_DUMMY_OK,idDTB,fileID,NULL,cantSentencias);
@@ -478,22 +479,13 @@ void gestionarConexionSAFA(int socketSAFA){
 
 	socketGSAFA = socketSAFA;
 
-	int cantidadDeArchivos,fileID;
+	int idDTB;
 	int operacion=OPERACION_CLOSE;
 
 	while(1){
-		if(myRecibirDatosFijos(socketGSAFA,&cantidadDeArchivos,sizeof(int))!=1){
+		if(myRecibirDatosFijos(socketGSAFA,&idDTB,sizeof(int))!=1){
 
-			myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
-			myEnviarDatosFijos(socketGFM9,&cantidadDeArchivos,sizeof(int));
-
-			for(int i = 0; i < cantidadDeArchivos; i++){
-				if(myRecibirDatosFijos(socketGSAFA,&fileID,sizeof(int))==1){
-					myPuts(RED "Error al recibir el fileID del archivo en la posicion nro  %d"COLOR_RESET"\n",i);
-				}else{
-					myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));
-				}
-			}
+			myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
 
 		}else{
 			myPuts(RED "Se desconecto el proceso S-AFA"COLOR_RESET"\n ");
