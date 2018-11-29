@@ -76,7 +76,7 @@ bool hayQuantum(int inst){
 }
 
 bool terminoElDTB(DTB *miDTB){
-	return miDTB->PC >= list_size(listaSentencias);
+	return miDTB->PC >= miDTB->totalDeSentenciasAEjecutar;
 }
 
 bool hayError(){
@@ -145,10 +145,6 @@ void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso
 
 	}else{
 		char* strDTB;
-
-		if((miDTB->Flag_GDTInicializado == 1) && (motivo == MOT_BLOQUEO) && terminoElDTB(miDTB)){
-			miDTB->ejecutoSuUltimaSentencia = 1;
-		}
 
 		strDTB = DTBStruct2String (miDTB);
 
@@ -372,9 +368,9 @@ void hardcodearSentencia(){
 	listaSentencias = list_create();
 
 	laSentencia = malloc(sizeof(sentencia));
-	laSentencia->operacion = OPERACION_CREAR;
+	laSentencia->operacion = OPERACION_WAIT;
 	laSentencia->param1 = malloc(strlen("HOLA")+1);
-	laSentencia->param2 = -1;
+	laSentencia->param2 = 1;
 	laSentencia->param3 = malloc(4);
 
 
@@ -385,7 +381,7 @@ void hardcodearSentencia(){
 	sentencia *laSentencia2;
 
 	laSentencia2 = malloc(sizeof(sentencia));
-	laSentencia2->operacion = OPERACION_BORRAR;
+	laSentencia2->operacion = OPERACION_SIGNAL;
 	laSentencia2->param1 = malloc(strlen("HOLA")+1);
 	laSentencia2->param2 = -1;
 	laSentencia2->param3 = malloc(4);
@@ -401,13 +397,7 @@ void limpiarVariables(){
 	motivoLiberacionCPU = -1;
 	codigoError = 0;
 	estaBloqueado = false;
-	for(int i = 0; i < list_size(listaSentencias); i++){
-		sentencia* miSentencia = list_get(listaSentencias,i);
-		free(miSentencia->param1);
-		free(miSentencia->param3);
-		free(miSentencia);
-	}
-	list_destroy_and_destroy_elements(listaSentencias,(void*)free); //OJO, la listaSentencias se tiene que volver a crear
+	list_clean(listaSentencias);
 }
 
 void ejecutarInstruccion(DTB* miDTB){
@@ -570,8 +560,8 @@ void gestionarConexionSAFA(){
 					ejecutarInstruccion(miDTB);
 				}
 
-				list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
 				free(miDTB);
+
 			}
 
 			if(ejecucion == PREGUNTAR_DESCONEXION_CPU){

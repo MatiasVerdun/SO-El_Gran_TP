@@ -273,6 +273,7 @@ int contadorLineas(char* texto){
 	return lineas;
 }
 
+
 char** bytesToLineas(char* bytes){//Covierte los bytes a lineas y los devuelve en un array de strings
 	char** lineas=malloc(strlen(bytes)+1);
 	char** splitLineas=string_split(bytes,"\n");

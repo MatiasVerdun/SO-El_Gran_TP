@@ -102,6 +102,7 @@ static bool conectionDAM = false;
 void verificarSiSePuedeLiberarUnRecurso(recurso *miRecurso);
 void finalizarDTB(int idDTB, t_list* miLista);
 void operacionDummy(DTB *miDTB);
+int buscarIndiceListaDeMetricas(t_list* miLista, int idDTB);
 
 	///FUNCIONES DE CONFIG///
 
@@ -170,7 +171,7 @@ DTB* crearDTB(char *rutaMiScript){
 	miDTB->PC = 0;
 	miDTB->Flag_GDTInicializado = 1;
 	miDTB->tablaArchivosAbiertos = list_create();
-	miDTB->ejecutoSuUltimaSentencia = 0;
+	miDTB->totalDeSentenciasAEjecutar = 0;
 
 	IDGlobal++;
 
@@ -363,6 +364,7 @@ bool debeFinalizarse(int idDTB){
 	return list_any_satisfy(listaProcesosAFinalizar, (void*) esElDTB);
 }
 
+
 int esIDDTBValido(int idDTBABuscar){
 
 	int indice = buscarIndiceListaDeMetricas(colaEXIT->elements,idDTBABuscar);
@@ -402,7 +404,7 @@ void copiarDatosDTB(DTB *miDTB,DTB *DTBrecibido){
 
 	miDTB->PC = DTBrecibido->PC;
 
-	miDTB->ejecutoSuUltimaSentencia = DTBrecibido->ejecutoSuUltimaSentencia;
+	miDTB->totalDeSentenciasAEjecutar = DTBrecibido->totalDeSentenciasAEjecutar;
 }
 
 	///RECURSOS///
@@ -483,6 +485,8 @@ metrica* buscarMetrica(int idDTB){
 }
 
 metrica* actualizarMetricaEXIT(int idDTB){
+
+	//metrica* laMetrica = malloc(sizeof(metrica));
 
 	int indice  = buscarIndiceListaDeMetricas(listaMetricas,idDTB);
 
@@ -612,10 +616,12 @@ void accionSegunPlanificacion(DTB* DTBrecibido, int motivoLiberacionCPU, int ins
 	switch(motivoLiberacionCPU){
 
 	case MOT_QUANTUM:
+
 		queue_push(colaREADY,miDTB);
 	break;
 
 	case MOT_BLOQUEO:
+
 		if(miDTB->Flag_GDTInicializado == 1){		//Los DUMMY no cuentan para las metricas
 			cantDeSentenciasQueUsaronADiego += 1; // Todas las sentencias que se bloquearon usaron al DAM y solo se puede hacer de a una por vez
 			actualizarMetricaDiego(miDTB->ID_GDT);
@@ -639,6 +645,7 @@ void accionSegunPlanificacion(DTB* DTBrecibido, int motivoLiberacionCPU, int ins
 	break;
 
 	case MOT_FINALIZO:
+		queue_push(colaEXEC,miDTB);
 
 		myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
 
@@ -647,6 +654,7 @@ void accionSegunPlanificacion(DTB* DTBrecibido, int motivoLiberacionCPU, int ins
 	break;
 
 	case MOT_ERROR:
+		queue_push(colaEXEC,miDTB);
 
 		myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",miDTB->ID_GDT);
 
@@ -987,8 +995,6 @@ void finalizarDTB(int idDTB, t_list* miLista){
 
 		//liberarMemoriaFM9(miDTB);
 
-		list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
-
 		free(miDTB);
 
 		DTBenPCP--;
@@ -1300,7 +1306,7 @@ void gestionarConexionDAM(int *sock_cliente){
 	buffer[4]='\0';
 	myEnviarDatosFijos(socketDAM,buffer,5);*/
 
-	int result, accion,socketCPUDesconectada, idDTB,tamanio,indice;
+	int result, accion,socketCPUDesconectada, idDTB,tamanio,indice,cantSentencias;
 	int fileID = -1;
 	char* pathArchivo = NULL ;
 	DTB* miDTB = NULL;
@@ -1323,8 +1329,11 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_DUMMY_OK:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					if(myRecibirDatosFijos(GsocketDAM,&fileID,tamanio)==1)
+					if(myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int))==1)
 						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+
+					if(myRecibirDatosFijos(GsocketDAM,&cantSentencias,sizeof(int))==1)
+						myPuts(RED"Error al recibir la cantidad de sentencias"COLOR_RESET"\n");
 
 					miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
@@ -1332,6 +1341,8 @@ void gestionarConexionDAM(int *sock_cliente){
 						myPuts(BLUE "OPERACION DUMMY finalizada correctamente" COLOR_RESET "\n");
 
 						miDTB->Flag_GDTInicializado = 1;
+
+						miDTB->totalDeSentenciasAEjecutar = cantSentencias;
 
 						agregarArchivoALaTabla(idDTB,miDTB->Escriptorio,fileID);
 
@@ -1345,7 +1356,7 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_DUMMY_ERROR:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
+					myPuts(RED"Hubo un error en la operacion DUMMY se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
 
 					finalizarDTB(idDTB, colaBLOCK->elements);
 
@@ -1366,7 +1377,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 					miDTB = list_get(colaBLOCK->elements,indice);
 
-					if(miDTB!= NULL && miDTB->ejecutoSuUltimaSentencia == 1){
+					if(miDTB!= NULL && miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
 						myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
 
 						finalizarDTB(idDTB, colaBLOCK->elements);
@@ -1402,7 +1413,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 					miDTB = list_get(colaBLOCK->elements,indice);
 
-					if(miDTB != NULL && miDTB->ejecutoSuUltimaSentencia == 1){
+					if(miDTB != NULL && miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
 						myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
 
 						finalizarDTB(idDTB, colaBLOCK->elements);
@@ -1434,7 +1445,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					if(miDTB != NULL ){
 						agregarArchivoALaTabla(idDTB,miDTB->Escriptorio,fileID);
 
-						if(miDTB->ejecutoSuUltimaSentencia == 1){
+						if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
 							desbloquearDTB(idDTB);
 						}else{
 							finalizarDTB(idDTB,colaBLOCK->elements);
@@ -1762,12 +1773,11 @@ int main(void)
 
 		if(!strncmp(linea,"exit",4))
 		{
-			/*t_queue *colaNEW;
-			t_queue *colaREADY;
-			t_queue *colaEXEC;
-			t_queue *colaBLOCK;
-			t_queue *colaEXIT;
-			t_queue *colaVRR;*/
+			//queue_clean_and_destroy_elements(colaEXIT, (void*)dtb_destroy);
+			queue_clean_and_destroy_elements(colaEXEC, (void*)dtb_destroy);
+			queue_clean_and_destroy_elements(colaREADY, (void*)dtb_destroy);
+			queue_clean_and_destroy_elements(colaVRR, (void*)dtb_destroy);
+			queue_clean_and_destroy_elements(colaBLOCK, (void*)dtb_destroy);
 			queue_clean_and_destroy_elements(colaNEW, (void*)dtb_destroy);
 			exit(1);
 		}

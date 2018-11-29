@@ -475,6 +475,7 @@ void recibirScript(int cantLineas){
 	} else {
 		int hayEspacio = 1;
 		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+		myPuts(RED "No hay espacio" COLOR_RESET "\n");
 	}
 	/*//myRecibirDatosFijos(socketDAM,(u_int32_t*)&tamScript,sizeof(u_int32_t)); //Recibo el size
 	//char* buffer= malloc(ntohl(tamScript)+1);
