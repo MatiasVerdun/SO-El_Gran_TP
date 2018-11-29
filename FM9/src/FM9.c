@@ -293,9 +293,9 @@ void enviarLinea(int socketCPU, int fileID, int linea){
 
 	myEnviarDatosFijos(socketCPU,&tamanio,sizeof(int));
 
-	printf("tamaño %d", tamanio);
+	printf("tamaño %d\n", tamanio);
 
-	myEnviarDatosFijos(socketCPU,strLinea,29);
+	myEnviarDatosFijos(socketCPU,strLinea,tamanio);
 
 }
 

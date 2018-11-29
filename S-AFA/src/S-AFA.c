@@ -364,7 +364,6 @@ bool debeFinalizarse(int idDTB){
 	return list_any_satisfy(listaProcesosAFinalizar, (void*) esElDTB);
 }
 
-
 int esIDDTBValido(int idDTBABuscar){
 
 	int indice = buscarIndiceListaDeMetricas(colaEXIT->elements,idDTBABuscar);
@@ -485,8 +484,6 @@ metrica* buscarMetrica(int idDTB){
 }
 
 metrica* actualizarMetricaEXIT(int idDTB){
-
-	//metrica* laMetrica = malloc(sizeof(metrica));
 
 	int indice  = buscarIndiceListaDeMetricas(listaMetricas,idDTB);
 
@@ -616,12 +613,10 @@ void accionSegunPlanificacion(DTB* DTBrecibido, int motivoLiberacionCPU, int ins
 	switch(motivoLiberacionCPU){
 
 	case MOT_QUANTUM:
-
 		queue_push(colaREADY,miDTB);
 	break;
 
 	case MOT_BLOQUEO:
-
 		if(miDTB->Flag_GDTInicializado == 1){		//Los DUMMY no cuentan para las metricas
 			cantDeSentenciasQueUsaronADiego += 1; // Todas las sentencias que se bloquearon usaron al DAM y solo se puede hacer de a una por vez
 			actualizarMetricaDiego(miDTB->ID_GDT);

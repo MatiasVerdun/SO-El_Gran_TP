@@ -508,6 +508,7 @@ sentencia* buscarSentencia(DTB* miDTB){
 	sentencia* miSentencia = NULL;
 	int PC,operacion,fileEscriptorio;
 	int tamanio = 0;
+	char *miString = malloc(258);
 
 	operacion = OPERACION_LINEA;
 
@@ -523,12 +524,12 @@ sentencia* buscarSentencia(DTB* miDTB){
 	if(myRecibirDatosFijos(socketGFM9,&tamanio,sizeof(int))==1)
 		myPuts(RED"Error al recibir el tamaño de la linea"COLOR_RESET"\n");
 
-	printf("tamaño %d", tamanio);
+	printf("tamaño %d\n", tamanio);
 
-	laSentencia = malloc(29+1);
-	memset(laSentencia,'\0',29+1);
+	laSentencia = malloc(tamanio+1);
+	memset(laSentencia,'\0',tamanio+1);
 
-	if(myRecibirDatosFijos(socketGFM9,laSentencia,29)==1)
+	if(myRecibirDatosFijos(socketGFM9,laSentencia,tamanio)==1)
 		myPuts(RED"Error al recibir la sentencia"COLOR_RESET"\n");
 
 	printf("sentencia %s \n",laSentencia);
@@ -601,7 +602,6 @@ void gestionarConexionSAFA(){
 				}
 
 				free(miDTB);
-
 			}
 
 			if(ejecucion == PREGUNTAR_DESCONEXION_CPU){
@@ -620,18 +620,12 @@ void gestionarConexionSAFA(){
 
 
 void gestionarConexionDAM(int socketDAM){
-	/*while(1){
-		if(gestionarDesconexion((int)socketDAM,"DAM")!=0)
-			break;
-	}*/
+
 }
 
 
-void gestionarConexionFM9(int socketFM9){
-	while(1){
-		if(gestionarDesconexion((int)socketFM9,"FM9")!=0)
-			break;
-	}
+void gestionarConexionFM9(){
+
 }
 
 ///FUNCIONES DE CONEXION///
@@ -652,7 +646,7 @@ void* connectionFM9(){
 	}
 
 	socketGFM9 = socketFM9;
-	gestionarConexionFM9(socketFM9);
+	gestionarConexionFM9();
 	return 0;
 }
 
