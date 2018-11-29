@@ -25,10 +25,12 @@ int tamLinea;
 int modoEjecucion;
 t_config *configFM9;
 char** memoriaFM9;
+
 typedef struct SegmentoDeTabla {
 	int fileID; //Se me ocurre que sea el mismo ID que el de la tabla de archivos abiertos del S-AFA y que se pase hasta aca
 	int base; //en lineas
 	int limite; //en lineas
+	int ID_GDT;
 } SegmentoDeTabla;
 
 int GsocketDAM;
@@ -272,6 +274,32 @@ void cerrarVariosArchivos(){
 	}
 }
 
+	/// CERRAR ARCHIVO ///
+
+void enviarLinea(int socketCPU, int fileID, int linea){
+	char* strLinea = malloc(tamLinea+1);
+	memset(strLinea,'\0',tamLinea+1);
+
+	int base = buscarBasePorfileID(fileID);
+
+	strLinea = memoriaFM9[base+linea];
+
+	while(strLinea == "\n"){
+		linea++;
+		strLinea = memoriaFM9[base+linea];
+	}
+
+	int tamanio = strlen(strLinea);
+
+	myEnviarDatosFijos(socketCPU,&tamanio,sizeof(int));
+
+	printf("tamaño %d", tamanio);
+
+	myEnviarDatosFijos(socketCPU,strLinea,29);
+
+}
+
+
 	/// TEMP ///
 
 void guardarDatos(void* datos,int size,int base){
@@ -412,9 +440,7 @@ int tamSplit(char** split){
 }
 
 void recibirScript(int cantLineas){
-	u_int32_t respuesta=0;
-	u_int32_t tamScript=0;
-	//int cantLineas;
+	int idDTB;
 	myPuts(BLUE "Obteniendo script");
 	loading(1);
 
@@ -424,9 +450,15 @@ void recibirScript(int cantLineas){
 		int hayEspacio = 0;
 		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
 
+		if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
+				myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
+
 		SegmentoDeTabla *miSegmento = crearSegmento();
 		miSegmento->base = primeraLineaLibreDelEspacioMaximo();
 		miSegmento->limite = cantLineas;
+		miSegmento->ID_GDT = idDTB;
+
+		list_add(tablaDeSegmentos,miSegmento);
 
 		ocuparLineas(miSegmento->base,miSegmento->limite);
 
@@ -527,7 +559,7 @@ void gestionarConexionDAM(int *sock){
 
 void gestionarConexionCPU(int *sock){
 	int socketCPU = *(int*)sock;
-	int operacion,fileID;
+	int operacion,fileID,linea;
 
 	while(1){
 		if(myRecibirDatosFijos(socketCPU,&operacion,sizeof(int))!=1){
@@ -537,8 +569,20 @@ void gestionarConexionCPU(int *sock){
 				break;
 
 				case (OPERACION_CLOSE):
-					myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
+					if(myRecibirDatosFijos(socketCPU,&fileID,sizeof(int))==1)
+						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+
 					cerrarArchivo(fileID);
+				break;
+
+				case (OPERACION_LINEA):
+					if(myRecibirDatosFijos(socketCPU,&fileID,sizeof(int))==1)
+						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+
+					if(myRecibirDatosFijos(socketCPU,&linea,sizeof(int))==1)
+						myPuts(RED"Error al recibir el numero de la linea"COLOR_RESET"\n");
+
+					enviarLinea(socketCPU,fileID,linea);
 				break;
 			}
 		}else{
