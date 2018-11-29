@@ -61,6 +61,106 @@ void mostrarConfig(){
     free(myText);
 }
 
+	///PARSEAR SCRIPTS///
+
+sentencia* parsear(char* linea){
+	sentencia *laSentencia;
+
+	nroSentenciaActual = -1;
+
+	t_parser_operacion parsed = parse(linea);
+
+	laSentencia = malloc(sizeof(sentencia));
+	laSentencia->operacion = 0;
+	laSentencia->param1 = NULL;
+	laSentencia->param2 = -1;
+	laSentencia->param3 = NULL;
+
+	if(parsed.valido){
+		switch(parsed.keyword){
+			case ABRIR:
+				laSentencia->operacion = OPERACION_ABRIR;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.ABRIR.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.ABRIR.param1);
+				laSentencia->param1[strlen(parsed.argumentos.ABRIR.param1)] = '\0';
+				break;
+
+			case CONCENTRAR:
+				laSentencia->operacion = OPERACION_CONCENTRAR;
+				break;
+
+			case ASIGNAR:
+				laSentencia->operacion = OPERACION_ASIGNAR;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.ASIGNAR.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.ASIGNAR.param1);
+				laSentencia->param1[strlen(parsed.argumentos.ASIGNAR.param1)] = '\0';
+				laSentencia->param2 = parsed.argumentos.ASIGNAR.param2;
+				laSentencia->param3 = malloc(strlen(parsed.argumentos.ASIGNAR.param3)+1);
+				strcpy(laSentencia->param3,parsed.argumentos.ASIGNAR.param3);
+				laSentencia->param3[strlen(parsed.argumentos.ASIGNAR.param3)] = '\0';
+				break;
+
+			case WAIT:
+				laSentencia->operacion = OPERACION_WAIT;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.WAIT.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.WAIT.param1);
+				laSentencia->param1[strlen(parsed.argumentos.WAIT.param1)] = '\0';
+				break;
+
+			case SIGNAL:
+				laSentencia->operacion = OPERACION_SIGNAL;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.SIGNAL.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.SIGNAL.param1);
+				laSentencia->param1[strlen(parsed.argumentos.SIGNAL.param1)] = '\0';
+				break;
+
+			case FLUSH:
+				laSentencia->operacion = OPERACION_FLUSH;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.FLUSH.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.FLUSH.param1);
+				laSentencia->param1[strlen(parsed.argumentos.FLUSH.param1)] = '\0';
+				break;
+
+			case CLOSE:
+				laSentencia->operacion = OPERACION_CLOSE;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.CLOSE.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.CLOSE.param1);
+				laSentencia->param1[strlen(parsed.argumentos.CLOSE.param1)] = '\0';
+				break;
+
+			case CREAR:
+				laSentencia->operacion = OPERACION_CREAR;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.CREAR.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.CREAR.param1);
+				laSentencia->param1[strlen(parsed.argumentos.CREAR.param1)] = '\0';
+				laSentencia->param2 = parsed.argumentos.CREAR.param2;
+				break;
+
+			case BORRAR:
+				laSentencia->operacion = OPERACION_BORRAR;
+				laSentencia->param1 = malloc(strlen(parsed.argumentos.BORRAR.param1)+1);
+				strcpy(laSentencia->param1,parsed.argumentos.BORRAR.param1);
+				laSentencia->param1[strlen(parsed.argumentos.BORRAR.param1)] = '\0';
+				break;
+
+			default:
+				printf("No pude interpretar <%s>\n", linea);
+				exit(EXIT_FAILURE);
+		}
+		} else {
+			fprintf(stderr, "La linea <%s> no es valida\n", linea);
+			exit(EXIT_FAILURE);
+		}
+
+
+
+	if (linea)
+		free(linea);
+
+	return laSentencia;
+}
+
+
 	/// VALIDACIONES PLANIFICACION///
 bool hayQuantum(int inst){
 
@@ -360,7 +460,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 	}
 
 }
-
+/*
 void hardcodearSentencia(){
 	//ESTO LO HARIA EL PARSER
 	sentencia *laSentencia;
@@ -390,7 +490,9 @@ void hardcodearSentencia(){
 
 	list_add(listaSentencias,laSentencia2);
 
-}
+
+}*/
+
 
 void limpiarVariables(){
 	instruccionesEjecutadas = 0;
@@ -400,14 +502,50 @@ void limpiarVariables(){
 	list_clean(listaSentencias);
 }
 
+
+sentencia* buscarSentencia(DTB* miDTB){
+	char* laSentencia = NULL;
+	sentencia* miSentencia = NULL;
+	int PC,operacion,fileEscriptorio;
+	int tamanio = 0;
+
+	operacion = OPERACION_LINEA;
+
+	myEnviarDatosFijos(socketGFM9, &operacion, sizeof(int));
+
+	fileEscriptorio = buscarFileID(miDTB->tablaArchivosAbiertos,miDTB->Escriptorio);
+
+	myEnviarDatosFijos(socketGFM9, &fileEscriptorio, sizeof(int));
+
+	PC  = miDTB->PC;
+	myEnviarDatosFijos(socketGFM9, &PC, sizeof(int));
+
+	if(myRecibirDatosFijos(socketGFM9,&tamanio,sizeof(int))==1)
+		myPuts(RED"Error al recibir el tamaño de la linea"COLOR_RESET"\n");
+
+	printf("tamaño %d", tamanio);
+
+	laSentencia = malloc(29+1);
+	memset(laSentencia,'\0',29+1);
+
+	if(myRecibirDatosFijos(socketGFM9,laSentencia,29)==1)
+		myPuts(RED"Error al recibir la sentencia"COLOR_RESET"\n");
+
+	printf("sentencia %s \n",laSentencia);
+
+	miSentencia = parsear(laSentencia);
+
+	return miSentencia;
+}
+
+
+
 void ejecutarInstruccion(DTB* miDTB){
 	sentencia *miSentencia;
 
-	hardcodearSentencia();
-
 	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB(miDTB)  && !hayError() && !DTBBloqueado()){
 
-		miSentencia = list_get(listaSentencias,miDTB->PC);
+		miSentencia = buscarSentencia(miDTB);
 
 		miDTB->PC ++;
 
@@ -437,105 +575,7 @@ void ejecutarInstruccion(DTB* miDTB){
 	limpiarVariables();
 }
 
-///PARSEAR SCRIPTS///
 
-void parsear(char * linea){
-	sentencia *laSentencia;
-
-	nroSentenciaActual = -1;
-
-	t_parser_operacion parsed = parse(linea);
-
-	laSentencia = malloc(sizeof(sentencia));
-	laSentencia->operacion = 0;
-	laSentencia->param1 = NULL;
-	laSentencia->param2 = -1;
-	laSentencia->param3 = NULL;
-
-	if(parsed.valido){
-		switch(parsed.keyword){
-			case ABRIR:
-				laSentencia->operacion = OPERACION_ABRIR;
-				laSentencia->param1 = malloc(strlen(parsed.argumentos.ABRIR.param1)+1);
-				strcpy(laSentencia->param1,parsed.argumentos.ABRIR.param1);
-				laSentencia->param1[strlen(parsed.argumentos.ABRIR.param1)] = '\0';
-				break;
-
-			case CONCENTRAR:
-				laSentencia->operacion = OPERACION_CONCENTRAR;
-				break;
-
-			case ASIGNAR:
-				laSentencia->operacion = OPERACION_ASIGNAR;
-				laSentencia->param1 = malloc(strlen(parsed.argumentos.ASIGNAR.param1)+1);
-				strcpy(laSentencia->param1,parsed.argumentos.ASIGNAR.param1);
-				laSentencia->param1[strlen(parsed.argumentos.ASIGNAR.param1)] = '\0';
-				laSentencia->param2 = parsed.argumentos.ASIGNAR.param2;
-				laSentencia->param3 = malloc(strlen(parsed.argumentos.ASIGNAR.param3)+1);
-				strcpy(laSentencia->param3,parsed.argumentos.ASIGNAR.param3);
-				laSentencia->param3[strlen(parsed.argumentos.ASIGNAR.param3)] = '\0';
-				break;
-
-			case WAIT:
-				laSentencia->operacion = OPERACION_WAIT;
-				laSentencia->param1 = malloc(strlen(parsed.argumentos.WAIT.param1)+1);
-				strcpy(laSentencia->param1,parsed.argumentos.WAIT.param1);
-				laSentencia->param1[strlen(parsed.argumentos.WAIT.param1)] = '\0';
-				break;
-
-			case SIGNAL:
-				laSentencia->operacion = OPERACION_SIGNAL;
-				laSentencia->param1 = malloc(strlen(parsed.argumentos.SIGNAL.param1)+1);
-				strcpy(laSentencia->param1,parsed.argumentos.SIGNAL.param1);
-				laSentencia->param1[strlen(parsed.argumentos.SIGNAL.param1)] = '\0';
-				break;
-
-			case FLUSH:
-				laSentencia->operacion = OPERACION_FLUSH;
-				laSentencia->param1 = malloc(strlen(parsed.argumentos.FLUSH.param1)+1);
-				strcpy(laSentencia->param1,parsed.argumentos.FLUSH.param1);
-				laSentencia->param1[strlen(parsed.argumentos.FLUSH.param1)] = '\0';
-				break;
-
-			case CLOSE:
-				laSentencia->operacion = OPERACION_CLOSE;
-				laSentencia->param1 = malloc(strlen(parsed.argumentos.CLOSE.param1)+1);
-				strcpy(laSentencia->param1,parsed.argumentos.CLOSE.param1);
-				laSentencia->param1[strlen(parsed.argumentos.CLOSE.param1)] = '\0';
-				break;
-
-			case CREAR:
-				laSentencia->operacion = OPERACION_CREAR;
-				laSentencia->param1 = malloc(strlen(parsed.argumentos.CREAR.param1)+1);
-				strcpy(laSentencia->param1,parsed.argumentos.CREAR.param1);
-				laSentencia->param1[strlen(parsed.argumentos.CREAR.param1)] = '\0';
-				laSentencia->param2 = parsed.argumentos.CREAR.param2;
-				break;
-
-			case BORRAR:
-				laSentencia->operacion = OPERACION_BORRAR;
-				laSentencia->param1 = malloc(strlen(parsed.argumentos.BORRAR.param1)+1);
-				strcpy(laSentencia->param1,parsed.argumentos.BORRAR.param1);
-				laSentencia->param1[strlen(parsed.argumentos.BORRAR.param1)] = '\0';
-				break;
-
-			default:
-				printf("No pude interpretar <%s>\n", linea);
-				exit(EXIT_FAILURE);
-		}
-		} else {
-			fprintf(stderr, "La linea <%s> no es valida\n", linea);
-			exit(EXIT_FAILURE);
-		}
-
-		list_add(listaSentencias,laSentencia);
-
-	if (linea)
-		free(linea);
-
-	myPuts("El archivo parseado es el siguiente: \n");
-	list_iterate(listaSentencias,(void*)imprimirSentencia);
-}
 
 ///GESTION DE CONEXIONES///
 
