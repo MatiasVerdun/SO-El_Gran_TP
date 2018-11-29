@@ -131,8 +131,28 @@ void abrirArchivo(int cantLineas){
 
 	/// ASIGNAR LINEA ///
 
-void asignarLineaSEG(){
+int  asignarLineaSEG(int fileID, int linea, char* datos){
+	int base;
+	int limite;
 
+	if(strlen(datos) >= tamLinea){
+		base  = buscarBasePorfileID(fileID);
+
+		limite = buscarLimitePorfileID(fileID);
+
+		if(limite-base >= linea){
+
+			memset(memoriaFM9[base+linea],'\0',tamLinea+1);
+
+			memoriaFM9[base+linea] = datos;
+
+			return 0;
+		}else{
+			return 1;
+		}
+	}else{
+		return 2;
+	}
 }
 
 void asignarLineaTPI(){
@@ -144,7 +164,7 @@ void asignarLineaSPA(){
 }
 
 void asignarLinea(int socketCPU){
-	int fileID,linea,tamanioDatos;
+	int fileID,linea,tamanioDatos,respuesta;
 	char* datos = NULL;
 
 	myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
@@ -154,8 +174,8 @@ void asignarLinea(int socketCPU){
 
 	switch(modoEjecucion){
 	case SEG:
-		asignarLineaSEG();
-		break;
+		respuesta = asignarLineaSEG(fileID, linea, datos);
+	break;
 	case TPI:
 		asignarLineaTPI();
 		break;
@@ -163,6 +183,9 @@ void asignarLinea(int socketCPU){
 		asignarLineaSPA();
 		break;
 	}
+
+	myPuts(GREEN "Operacion Asignar correcta." COLOR_RESET "\n");
+	myEnviarDatosFijos(socketCPU,&respuesta,sizeof(int));
 }
 
 	/// FLUSH ///
@@ -195,16 +218,19 @@ int  buscarLimitePorfileID(int fileId){
 	return -1;
 }
 
-void flushSEG(){
-	int fileID;
+void flushSEG(int fileID){
 	int base;
 	int limite;
 	char* paqueteEnvio;
 
-	myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int));
-
 	base = buscarBasePorfileID(fileID);
 	limite = buscarLimitePorfileID(fileID);
+
+	for(int i = base;i<limite;i++){
+		strcat(paqueteEnvio,memoriaFM9[i]);
+	}
+
+	enviarDatosTS(GsocketDAM,paqueteEnvio,maxTransfer);
 
 }
 
@@ -221,7 +247,7 @@ void flush(){
 	myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int));
 	switch(modoEjecucion){
 	case SEG:
-		flushSEG();
+		flushSEG(fileID);
 		break;
 	case TPI:
 		flushTPI();
@@ -234,7 +260,23 @@ void flush(){
 
 	/// CERRAR ARCHIVO ///
 
-void cerrarArchivoSEG(){
+void cerrarArchivoSEG(int fileID){
+
+	int base = buscarBasePorfileID(fileID);
+	int limite = buscarLimitePorfileID(fileID);
+
+	desocuparLineas(base,limite-base);
+
+	for(int i = base; i < limite ;i++){
+		memset(memoriaFM9[i],'\0',tamLinea);
+	}
+
+	for(int i = 0; i < list_size(tablaDeSegmentos);i++){
+		SegmentoDeTabla* segmento = list_get(tablaDeSegmentos,i);
+		if(segmento->fileID == fileID){
+			list_remove_and_destroy_element(tablaDeSegmentos,i,(void*)free);
+		}
+	}
 
 }
 
@@ -247,9 +289,10 @@ void cerrarArchivoSPA(){
 }
 
 void cerrarArchivo(int fileID){
+
 	switch(modoEjecucion){
 	case SEG:
-		cerrarArchivoSEG();
+		cerrarArchivoSEG(fileID);
 		break;
 	case TPI:
 		cerrarArchivoTPI();
@@ -258,23 +301,26 @@ void cerrarArchivo(int fileID){
 		cerrarArchivoSPA();
 		break;
 	}
+
 }
 
 void cerrarVariosArchivos(){
-	int cantidadDeArchivos;
-	if(myRecibirDatosFijos(GsocketDAM,&cantidadDeArchivos,sizeof(int))==1)
-		myPuts(RED "Error al recibir la cantidad de archivos que se debe cerrar" COLOR_RESET "\n");
+	int idDTB;
+	if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
+		myPuts(RED "Error al recibir el idDTB" COLOR_RESET "\n");
 
-	for(int i = 0; i < cantidadDeArchivos;i++){
-		int fileID;
-		if(myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int))==1)
-				myPuts(RED "Error al recibir el fileID en la posicion nro %d " COLOR_RESET "\n",i);
+	for(int i = 0; i < list_size(tablaDeSegmentos);i++){
+		SegmentoDeTabla* segmento = list_get(tablaDeSegmentos,i);
 
-		cerrarArchivo(fileID);
+		if(segmento->ID_GDT == idDTB){
+
+			cerrarArchivo(segmento->fileID);
+
+		}
 	}
 }
 
-	/// CERRAR ARCHIVO ///
+	/// ENVIAR LINEA  ///
 
 void enviarLinea(int socketCPU, int fileID, int linea){
 	char* strLinea = malloc(tamLinea+1);
@@ -292,8 +338,6 @@ void enviarLinea(int socketCPU, int fileID, int linea){
 	int tamanio = strlen(strLinea);
 
 	myEnviarDatosFijos(socketCPU,&tamanio,sizeof(int));
-
-	printf("tamaño %d\n", tamanio);
 
 	myEnviarDatosFijos(socketCPU,strLinea,tamanio);
 
@@ -368,6 +412,7 @@ int inicializarLineasOcupadas(){
 	/*for(int i = 0; i < cantEntradas; i++){
 		bArray[i] = false;
 	}*/
+	return 0;
 }
 
 void inicializarMemoria(){
@@ -415,6 +460,12 @@ void mostrarConfig(){
 void ocuparLineas(int base, int num){
 	for(int i=0; i<base+num; i++){
 		lineasOcupadas[base+i] = 1;
+	}
+}
+
+void desocuparLineas(int base, int num){
+	for(int i=0; i<base+num; i++){
+		lineasOcupadas[base+i] = 0;
 	}
 }
 
@@ -559,7 +610,7 @@ void gestionarConexionDAM(int *sock){
 
 void gestionarConexionCPU(int *sock){
 	int socketCPU = *(int*)sock;
-	int operacion,fileID,linea;
+	int operacion,fileID,linea,respuesta;
 
 	while(1){
 		if(myRecibirDatosFijos(socketCPU,&operacion,sizeof(int))!=1){
@@ -573,6 +624,10 @@ void gestionarConexionCPU(int *sock){
 						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
 
 					cerrarArchivo(fileID);
+
+					respuesta = 0;
+					myEnviarDatosFijos(socketCPU,&respuesta,sizeof(int));
+
 				break;
 
 				case (OPERACION_LINEA):
