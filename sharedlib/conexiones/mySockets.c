@@ -291,8 +291,8 @@ char** bytesToLineas(char* bytes){//Covierte los bytes a lineas y los devuelve e
 }
 
 char** bytesToTS(char* bytes,int transferSize){//Divide segun el Transfer size los datos a enviar para poder mandarlos a MDJ o FM9
-	char** datosTS=malloc(strlen(bytes)+1);
-	memset(datosTS,'\0',strlen(bytes)+1);
+	char** datosTS=malloc(strlen(bytes)+transferSize);
+	memset(datosTS,'\0',strlen(bytes)+transferSize);
 	int cantidadElementos=strlen(bytes)/transferSize;
 	if((strlen(bytes)%transferSize)!=0)
 		cantidadElementos++;
@@ -310,6 +310,9 @@ char** bytesToTS(char* bytes,int transferSize){//Divide segun el Transfer size l
 		i++;
 		offset+=transferSize;
 	}
+	char* dato=malloc(transferSize+1);
+	memset(dato,'\0',transferSize+1);
+	datosTS[i]=dato;
 	return datosTS;
 }
 
@@ -338,8 +341,10 @@ char* recibirDatosTS(int socket,int transferSize){
 		 memset(buffer,'\0',transferSize+1);
 		 myRecibirDatosFijos(socket,(u_int32_t*)&elementSize,sizeof(u_int32_t));
 		 elementSize=ntohl(elementSize);
-		 myRecibirDatosFijos(socket,(char*)buffer,elementSize+1);
-		 string_append(&datosTransfer,buffer);
+		 if(elementSize!=-1){
+			 myRecibirDatosFijos(socket,(char*)buffer,elementSize+1);
+			 string_append(&datosTransfer,buffer);
+		 }
 	 }
 	 free(buffer);
 	 return datosTransfer;
