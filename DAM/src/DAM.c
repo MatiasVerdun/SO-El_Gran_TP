@@ -73,10 +73,12 @@ int crearArchivo(char* path,u_int32_t size){
 	u_int32_t respuesta=0;
 	u_int32_t operacion = htonl(2);
 	u_int32_t sizeFile = htonl(size);
+	u_int32_t pathSize=htonl(strlen(path));
 
 	myPuts(BLUE "Creando '%s' ",path);
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
-	myEnviarDatosFijos(socketGMDJ,path,50);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&pathSize,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,ntohl(pathSize)+1);
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&sizeFile,sizeof(u_int32_t));
 	loading(1);
 	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
@@ -125,7 +127,8 @@ char* obtenerDatos(char* path,u_int32_t offset, u_int32_t size){
 		}else{//TODO obtener datos con offset y size
 			myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempOffset,sizeof(u_int32_t));
 			myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempSize,sizeof(u_int32_t));
-			return "ERROR";
+			char* datos = recibirDatosTS(socketGMDJ,ntohl(transferSize));
+			return datos;
 		}
 	}else{
 		myPuts(RED "El archivo solicitado no existe" COLOR_RESET "\n");
@@ -151,10 +154,14 @@ void guardarDatos(char* path,u_int32_t offset, u_int32_t size,char* buffer){
 	u_int32_t operacion= htonl(4);
 	u_int32_t tempOffset = htonl(offset);
 	u_int32_t tempSize = htonl(size);
+	u_int32_t transferSize=htonl((int)getConfigR("TSIZE",1,configDAM));
+	u_int32_t pathSize=htonl(strlen(path));
 
 	myPuts(BLUE "Guardando datos '%s' ",path);
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
-	myEnviarDatosFijos(socketGMDJ,path,50);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&transferSize,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&pathSize,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,ntohl(pathSize)+1);
 	loading(1);
 	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 
@@ -163,11 +170,14 @@ void guardarDatos(char* path,u_int32_t offset, u_int32_t size,char* buffer){
 		myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&tempSize,sizeof(u_int32_t));
 
 		//memcpy(datosDummy,buffer,strlen(buffer));
-		strcpy(datosDummy,buffer);
-		myEnviarDatosFijos(socketGMDJ,(char*)datosDummy,sizeof(datosDummy));//TODO Hacer que envie bien los datos (Indicar al MDJ los bytes a enviar para luego enviarlos)
+
+		enviarDatosTS(socketGMDJ,buffer,ntohl(transferSize));
+		//myEnviarDatosFijos(socketGMDJ,(char*)datosDummy,sizeof(datosDummy));//TODO Hacer que envie bien los datos (Indicar al MDJ los bytes a enviar para luego enviarlos)
 		myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 		if(ntohl(respuesta)==0)
-			myPuts(BOLDGREEN"El archivo fue guardado correctamente" COLOR_RESET "\n");
+			myPuts(BOLDGREEN"Los datos fueron guardados correctamente" COLOR_RESET "\n");
+		else
+			myPuts(BOLDGREEN"No se pudieron guardar los datos" COLOR_RESET "\n");
 	}else{
 		myPuts(RED "El archivo solicitado no existe" COLOR_RESET "\n");
 	}

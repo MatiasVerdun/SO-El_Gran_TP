@@ -193,7 +193,7 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 
 	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	//u_int32_t tamArchivo;
-	u_int32_t cantBloquesArchivo;
+	u_int32_t cantBloquesArchivo,i=0;
 	char** bloques;
 
 	if (stat(puntoMontaje, &st) == -1) {
@@ -202,7 +202,8 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 		return "ERROR";
 	}else{
 		if(existeArchivoFS(pathFSArchivo)==0){
-			char *pathABSarchivo=string_from_format("%s/%s", puntoMontaje,pathFSArchivo);
+			char *pathABSarchivo=string_from_format("%s%s", puntoMontaje,pathFSArchivo);
+
 			configFS=config_create(pathABSarchivo);
 			//tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
 			bloques=config_get_array_value(configFS, "BLOQUES");
@@ -211,12 +212,13 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 
 			//printf("Tamanio : %d\n", tamArchivo);
 			//printf("Cantidad de bloques: %d\n", cantBloquesArchivo);
-			for(int i=0;i<cantBloquesArchivo;i++){
+			while(bloques[i]!=NULL){
 				//printf("Bloque %d: %s\n",i,bloques[i]);
 				char *contenidoBloque=(char*)leerBloque(bloques[i]);
 				//printf("Contenido del bloque:\n%s\n",contenidoBloque);
 				string_append(&archivo,contenidoBloque);
 				free(contenidoBloque);
+				i++;
 			}
 			free(puntoMontaje);
 			free(pathABSarchivo);

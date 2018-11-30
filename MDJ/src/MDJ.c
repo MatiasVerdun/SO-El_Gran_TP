@@ -30,9 +30,13 @@ void mostrarConfig(){
 
 ///GESTION DE CONEXIONES///
 void gestionArchivos(int socketDAM,int operacion){
-	char path[50];
-	u_int32_t respuesta,size;
-	myRecibirDatosFijos(socketDAM,(char*)path,50);
+	u_int32_t respuesta,size,pathSize;
+	char* path;
+
+	myRecibirDatosFijos(socketDAM,(u_int32_t*)&pathSize,sizeof(u_int32_t));
+	path=malloc(ntohl(pathSize)+1);
+	myRecibirDatosFijos(socketDAM,(char*)path,ntohl(pathSize)+1);
+
 
 	switch(operacion){
 		case(1)://Validar existencia de archivo
@@ -79,20 +83,19 @@ void gestionArchivos(int socketDAM,int operacion){
 			}
 			break;
 	}
-
+	free(path);
 }
 
 void gestionDatos(int socketDAM, int operacion){
-	char path[50];
-	char datosDummy[30];
+	char* path;
 	u_int32_t offset,size,respuesta,pathSize,transferSize;
 	offset=size=respuesta=0;
 	myRecibirDatosFijos(socketDAM,(u_int32_t*)&transferSize,sizeof(u_int32_t));
 	myRecibirDatosFijos(socketDAM,(u_int32_t*)&pathSize,sizeof(u_int32_t));
-	printf("%d\n",ntohl(pathSize));
+	//printf("%d\n",ntohl(pathSize));
 	transferSize=ntohl(transferSize);
+	path=malloc(ntohl(pathSize)+1);
 	myRecibirDatosFijos(socketDAM,(char*)path,ntohl(pathSize)+1);
-
 	switch(operacion){
 		case(3):
 			printf(BLUE "Validando si existe el archivo '%s'" ,path);
@@ -105,9 +108,9 @@ void gestionDatos(int socketDAM, int operacion){
 				myRecibirDatosFijos(socketDAM,(u_int32_t*)&offset,sizeof(u_int32_t)); //Recibo el offset
 				myRecibirDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t)); //Recibo el size
 				myPuts(GREEN "Offset: %d\nSize: %d" COLOR_RESET "\n",ntohl(offset),ntohl(size));
-
-				memcpy(datosDummy,"Datos de prueba",16);
-				myEnviarDatosFijos(socketDAM,(char*)datosDummy,sizeof(datosDummy)); //TODO Enviar bien los datos *Envio los datos pedidos
+				char* datos=obtenerDatos(path,ntohl(offset),ntohl(size));
+				enviarDatosTS(socketDAM,datos,transferSize);
+				free(datos);
 			}
 			else{
 				myPuts(RED "Archivo inexistente" COLOR_RESET "\n");
@@ -126,9 +129,16 @@ void gestionDatos(int socketDAM, int operacion){
 				myRecibirDatosFijos(socketDAM,(u_int32_t*)&offset,sizeof(u_int32_t)); //Recibo el offset
 				myRecibirDatosFijos(socketDAM,(u_int32_t*)&size,sizeof(u_int32_t)); //Recibo el size
 				myPuts(GREEN "Offset: %d\nSize: %d" COLOR_RESET "\n",ntohl(offset),ntohl(size));
-				myRecibirDatosFijos(socketDAM,(char*)datosDummy,sizeof(datosDummy));
-				myPuts(GREEN "Datos recibidos: %s" COLOR_RESET "\n",datosDummy);
+				char* datos=recibirDatosTS(socketDAM,transferSize);
+				if(guardarDatos(path,ntohl(offset),ntohl(size),datos)==0){
+					myPuts(GREEN "Se guardaron los datos con exito" COLOR_RESET "\n");
+				}else{
+					myPuts(GREEN "No se pudieron guardar los datos" COLOR_RESET "\n");
+					respuesta=htonl(1);
+				}
+
 				myEnviarDatosFijos(socketDAM,(u_int32_t*)&respuesta,sizeof(u_int32_t));
+				free(datos);
 			}
 			else{
 				myPuts(RED "Archivo inexistente" COLOR_RESET "\n");
@@ -158,7 +168,7 @@ void gestionDatos(int socketDAM, int operacion){
 			}
 			break;
 	}
-
+	free(path);
 }
 
 void gestionarConexionDAM(int sock)
@@ -430,7 +440,12 @@ void consola(){
 	tableDirectory t_directorios[100];
 	while(1){
 		linea = readline(">");
-		add_history("cat Archivos/scripts/checkpoint.escriptorio");
+		add_history("mkfile Archivos/scripts/creacion.escriptorio 50");
+		//add_history("cat Archivos/scripts/checkpoint.escriptorio");
+		add_history("cat Archivos/scripts/creacion.escriptorio");
+		add_history("getData Archivos/scripts/creacion.escriptorio 25 25");
+		add_history("rmfile Archivos/scripts/creacion.escriptorio");
+
 		if (linea)
 			add_history(linea);
 

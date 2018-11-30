@@ -314,15 +314,13 @@ char** bytesToTS(char* bytes,int transferSize){//Divide segun el Transfer size l
 }
 
 int enviarDatosTS(int socket,char* datos,int transferSize){
-	char** datosTransfer= bytesToTS(datos,transferSize);
+	char** datosTransfer = bytesToTS(datos,transferSize);
 	u_int32_t elementSize;
 	int i=0;
 	while(datosTransfer[i]!=NULL){
 		elementSize=htonl(strlen(datosTransfer[i]));
 		myEnviarDatosFijos(socket,(u_int32_t*)&elementSize,sizeof(u_int32_t));
-		myEnviarDatosFijos(socket,(char*)datosTransfer[i],ntohl(elementSize));
-		//printf("%s",datosTransfer[i]);
-		//printf("+");
+		myEnviarDatosFijos(socket,(char*)datosTransfer[i],strlen(datosTransfer[i])+1);
 		i++;
 	}
 	elementSize=htonl(-1);
@@ -340,8 +338,9 @@ char* recibirDatosTS(int socket,int transferSize){
 		 memset(buffer,'\0',transferSize+1);
 		 myRecibirDatosFijos(socket,(u_int32_t*)&elementSize,sizeof(u_int32_t));
 		 elementSize=ntohl(elementSize);
-		 myRecibirDatosFijos(socket,(char*)buffer,elementSize);
+		 myRecibirDatosFijos(socket,(char*)buffer,elementSize+1);
 		 string_append(&datosTransfer,buffer);
 	 }
+	 free(buffer);
 	 return datosTransfer;
  }

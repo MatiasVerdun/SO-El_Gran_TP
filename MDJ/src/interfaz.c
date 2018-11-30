@@ -26,6 +26,7 @@ int crearArchivo(char* pathArchivoFS,u_int32_t filesize){
 	metadataArchivo=string_from_format("TAMANIO=%d\nBLOQUES=[",filesize);
 	if(validarPathArchivoFS(pathArchivoFS)==0){
 		//printf("Cantidad de bloques necesarios %d\n",cantidadBloques);
+
 		if(getCantBloquesLibres()<cantidadBloques){
 			printf("Bloques insuficientes para guardar los datos solicitados\n");
 			return -1;
@@ -34,10 +35,12 @@ int crearArchivo(char* pathArchivoFS,u_int32_t filesize){
 		for (int j=0;j<cantidadBloques;j++){//Para recorrer los bloques
 			char* proximoBloqueLibre=string_itoa((int)getNBloqueLibre());
 			string_append(&metadataArchivo,proximoBloqueLibre);
-			if(j==(cantidadBloques-1)){
+			if(j==(cantidadBloques-1) && offsetUltimoBloque!=0){
+				//printf("%d\n",offsetUltimoBloque);
 				char* datosVacios= malloc(offsetUltimoBloque+1);
 				memset(datosVacios,'\0',offsetUltimoBloque+1);
 				memset(datosVacios,'\n',offsetUltimoBloque);
+				//printf("pbl: %s\n",proximoBloqueLibre);
 				escribirBloque(proximoBloqueLibre,datosVacios);
 				free(datosVacios);
 			}else{
@@ -45,7 +48,8 @@ int crearArchivo(char* pathArchivoFS,u_int32_t filesize){
 				memset(datosVacios,'\0',tamBloque+1);
 				memset(datosVacios,'\n',tamBloque);
 				escribirBloque(proximoBloqueLibre,datosVacios);
-				string_append(&metadataArchivo,",");
+				if(!j==(cantidadBloques-1))
+					string_append(&metadataArchivo,",");
 				free(datosVacios);
 			}
 			free(proximoBloqueLibre);
@@ -87,7 +91,7 @@ int borrarArchivo(char* pathArchivoFS){
 	return 0;
 }
 
-char* obtenerDatos(char* pathArchivoFS,int offset,int size){
+char* obtenerDatosNew(char* pathArchivoFS,int offset,int size){ //TODO A probar
 	if(validarPathArchivoFS(pathArchivoFS)==0){
 		int tamArchivo = obtenerTamArchivoFS(pathArchivoFS);
 		if(size>tamArchivo)
@@ -107,7 +111,7 @@ char* obtenerDatos(char* pathArchivoFS,int offset,int size){
 	return "-1";
 }
 
-char* obtenerDatosOld(char* pathArchivoFS,int offset,int size){
+char* obtenerDatos(char* pathArchivoFS,int offset,int size){
 	if(validarPathArchivoFS(pathArchivoFS)==0){
 		char* datos;
 		char** bloquesArchivo=obtenerBloquesArchivoFS(pathArchivoFS);
