@@ -37,6 +37,7 @@ typedef struct SegmentoDeTabla {
 typedef struct filaTPI {
 	int pagina; //en lineas
 	int ID_GDT;
+	int cantPaginas; //Solo en la primera pagina
 } filaTPI;
 
 int GsocketDAM;
@@ -47,7 +48,88 @@ int maxTransfer;
 int paginaGlobal=0;
 
 t_list* tablaDeSegmentos;
-filaTPI* tablaDePaginasInvertidas;
+filaTPI** tablaDePaginasInvertidas;
+
+/// TEMP ///
+
+void guardarDatos(void* datos,int size,int base){
+
+	memcpy(memoriaFM9+base,datos,size);
+
+}
+
+void leerDatos(int size,int base){
+	char* datos=malloc(size);
+
+	memcpy(datos,memoriaFM9+base,size);
+	printf("Datos leidos de memoria:\n%s\n",datos);
+
+	free(datos);
+}
+
+SegmentoDeTabla* crearSegmento(){
+	SegmentoDeTabla *miSegmento;
+
+	miSegmento = malloc(sizeof(SegmentoDeTabla));
+
+	miSegmento->fileID = GfileID;
+	miSegmento->base = -1;
+	miSegmento->limite = -1;
+
+	GfileID++;
+
+	return miSegmento;
+}
+
+filaTPI* crearTPI(int idDTB){
+	filaTPI* fila = malloc(sizeof(filaTPI));
+	fila->pagina = paginaGlobal;
+	fila->ID_GDT = idDTB;
+	fila->cantPaginas = 0;
+
+	paginaGlobal++;
+	return fila;
+}
+
+/// BUSCAR///
+
+int buscarFramePorPagina(int pagina){
+
+	for(int i = 0 ; i < (tamMemoria/tamPagina); i++){
+		if(tablaDePaginasInvertidas[i]->pagina == pagina){
+			return i;
+		}
+	}
+	return -1;
+}
+
+int  buscarBasePorfileID(int fileId){
+	for(int i = 0 ; i < list_size(tablaDeSegmentos); i++){
+
+		SegmentoDeTabla * elemento;
+
+		elemento = list_get(tablaDeSegmentos,i);
+
+		if(elemento->fileID == fileId)
+			return elemento->base;
+	}
+
+	return -1;
+}
+
+int  buscarLimitePorfileID(int fileId){
+	for(int i = 0 ; i < list_size(tablaDeSegmentos); i++){
+
+		SegmentoDeTabla * elemento;
+
+		elemento = list_get(tablaDeSegmentos,i);
+
+		if(elemento->fileID == fileId)
+			return elemento->limite;
+	}
+
+	return -1;
+}
 
 	/// ABRIR ARCHIVO ///
 
@@ -198,12 +280,17 @@ void abrirArchivoTPI(int cantLineas){
 		filaTPI* fila = crearTPI(idDTB);
 		int frame = agregarFilaTPI(fila);
 		int dirLogica = fila->pagina * tamPagina;
+		fila->cantPaginas = cantFrames;
 
-		if(cantFrames == 1){
+		if(cantFrames == 1 && offsetUltimoFrame==0){
 			for(int i = 0;  i < (tamPagina/tamLinea); i++){
-					memoriaFM9[(frame * tamPagina)+i] = vecStrings[i];
+				memoriaFM9[(frame * tamPagina)+i] = vecStrings[i];
 			}
-		}else if(offsetUltimoFrame == 0){
+		}else if(cantFrames == 1 ){
+			for(int i = 0;  i < offsetUltimoFrame; i++){
+				memoriaFM9[(frame * tamPagina)+i] = vecStrings[i];
+			}
+		}	else if(offsetUltimoFrame == 0){
 
 			for(int j = 1;  j < cantFrames; j++){
 				fila = crearTPI(idDTB);
@@ -261,16 +348,16 @@ int  asignarLineaSEG(int fileID, int linea, char* datos){
 	int base;
 	int limite;
 
-	if(strlen(datos) >= tamLinea){
+	if(strlen(datos) < tamLinea){
 		base  = buscarBasePorfileID(fileID);
 
 		limite = buscarLimitePorfileID(fileID);
 
-		if(limite-base >= linea){
+		if(limite-base >= (linea-1)){
 
-			memset(memoriaFM9[base+linea],'\0',tamLinea+1);
+			memset(memoriaFM9[base+(linea-1)],'\0',tamLinea+1);
 
-			memoriaFM9[base+linea] = datos;
+			memoriaFM9[base+(linea-1)] = datos;
 
 			return 0;
 		}else{
@@ -281,7 +368,23 @@ int  asignarLineaSEG(int fileID, int linea, char* datos){
 	}
 }
 
-void asignarLineaTPI(){
+int asignarLineaTPI(int dirLogica,int linea,char*datos){
+
+	if(strlen(datos) > tamLinea){
+		return 2;
+	}
+
+	int pagina = (dirLogica + linea-1) / tamPagina;
+
+	int offset = (dirLogica + linea -1) % tamPagina;
+
+	int frame = buscarFramePorPagina(pagina);
+
+	memset(memoriaFM9[frame*tamPagina+offset],'\0',tamLinea+1);
+
+	memoriaFM9[frame*tamPagina+offset] = datos;
+
+	return 0;
 
 }
 
@@ -303,7 +406,7 @@ void asignarLinea(int socketCPU){
 		respuesta = asignarLineaSEG(fileID, linea, datos);
 	break;
 	case TPI:
-		asignarLineaTPI();
+		respuesta = asignarLineaTPI(fileID,linea,datos);
 		break;
 	case SPA:
 		asignarLineaSPA();
@@ -316,38 +419,10 @@ void asignarLinea(int socketCPU){
 
 	/// FLUSH ///
 
-int  buscarBasePorfileID(int fileId){
-	for(int i = 0 ; i < list_size(tablaDeSegmentos); i++){
-
-		SegmentoDeTabla * elemento;
-
-		elemento = list_get(tablaDeSegmentos,i);
-
-		if(elemento->fileID == fileId)
-			return elemento->base;
-	}
-
-	return -1;
-}
-
-int  buscarLimitePorfileID(int fileId){
-	for(int i = 0 ; i < list_size(tablaDeSegmentos); i++){
-
-		SegmentoDeTabla * elemento;
-
-		elemento = list_get(tablaDeSegmentos,i);
-
-		if(elemento->fileID == fileId)
-			return elemento->limite;
-	}
-
-	return -1;
-}
-
 void flushSEG(int fileID){
 	int base;
 	int limite;
-	char* paqueteEnvio;
+	char* paqueteEnvio=NULL;
 
 	base = buscarBasePorfileID(fileID);
 	limite = buscarLimitePorfileID(fileID);
@@ -360,7 +435,20 @@ void flushSEG(int fileID){
 
 }
 
-void flushTPI(){
+void flushTPI(int dirLogica){
+	char* paqueteEnvio=NULL;
+	int frame;
+	int pagina = dirLogica / tamPagina;
+	int primerFrame= buscarFramePorPagina(pagina);
+
+	for(int i = pagina ; i < (pagina + tablaDePaginasInvertidas[primerFrame]->cantPaginas) ;i++){
+		frame = buscarFramePorPagina(i);
+		for(int j = frame ; j < frame + tamPagina/tamLinea ;j++){
+			strcat(paqueteEnvio,memoriaFM9[j]);
+		}
+	}
+
+	enviarDatosTS(GsocketDAM,paqueteEnvio,maxTransfer);
 
 }
 
@@ -376,7 +464,7 @@ void flush(){
 		flushSEG(fileID);
 		break;
 	case TPI:
-		flushTPI();
+		flushTPI(fileID);
 		break;
 	case SPA:
 		flushSPA();
@@ -406,7 +494,19 @@ void cerrarArchivoSEG(int fileID){
 
 }
 
-void cerrarArchivoTPI(){
+void cerrarArchivoTPI(int dirLogica){
+	int frame;
+	int pagina = dirLogica / tamPagina;
+	int primerFrame= buscarFramePorPagina(pagina);
+
+	for(int i = pagina ; i < (pagina + tablaDePaginasInvertidas[primerFrame]->cantPaginas) ;i++){
+		frame = buscarFramePorPagina(i);
+		framesOcupados[frame]=0;			//Desocupa el frame
+		memset(memoriaFM9[frame*tamPagina],'\0',tamPagina);
+		tablaDePaginasInvertidas[frame]->pagina = -1;
+		tablaDePaginasInvertidas[frame]->ID_GDT = -1;
+		tablaDePaginasInvertidas[frame]->cantPaginas= -1;
+	}
 
 }
 
@@ -421,7 +521,7 @@ void cerrarArchivo(int fileID){
 		cerrarArchivoSEG(fileID);
 		break;
 	case TPI:
-		cerrarArchivoTPI();
+		cerrarArchivoTPI(fileID);
 		break;
 	case SPA:
 		cerrarArchivoSPA();
@@ -448,18 +548,15 @@ void cerrarVariosArchivos(){
 
 	/// ENVIAR LINEA  ///
 
-void enviarLinea(int socketCPU, int fileID, int linea){
+void enviarLineaSEG(int socketCPU, int fileID, int linea){
 	char* strLinea = malloc(tamLinea+1);
 	memset(strLinea,'\0',tamLinea+1);
 
 	int base = buscarBasePorfileID(fileID);
 
-	strLinea = memoriaFM9[base+linea];
+	strLinea = memoriaFM9[base+linea];					//TODO Marian no esta convencido
 
-	while(strLinea == "\n"){
-		linea++;
-		strLinea = memoriaFM9[base+linea];
-	}
+
 
 	int tamanio = strlen(strLinea);
 
@@ -469,43 +566,40 @@ void enviarLinea(int socketCPU, int fileID, int linea){
 
 }
 
+void enviarLineaTPI(int socketCPU, int dirLogica, int linea){
+	char* strLinea = malloc(tamLinea+1);
+	memset(strLinea,'\0',tamLinea+1);
 
-	/// TEMP ///
+	int pagina = (dirLogica + linea) / tamPagina;
 
-void guardarDatos(void* datos,int size,int base){
+	int offset = (dirLogica + linea) % tamPagina;
 
-	memcpy(memoriaFM9+base,datos,size);
+	int frame = buscarFramePorPagina(pagina);
+
+	strLinea = memoriaFM9[frame*tamPagina + offset];	//TODO Marian no esta convencido
+
+	int tamanio = strlen(strLinea);
+
+	myEnviarDatosFijos(socketCPU,&tamanio,sizeof(int));
+
+	myEnviarDatosFijos(socketCPU,strLinea,tamanio);
 
 }
 
-void leerDatos(int size,int base){
-	char* datos=malloc(size);
+void enviarLinea(int socketCPU, int fileID, int linea){
 
-	memcpy(datos,memoriaFM9+base,size);
-	printf("Datos leidos de memoria:\n%s\n",datos);
+	switch(modoEjecucion){
+	case SEG:
+		enviarLineaSEG(socketCPU,fileID,linea);
+		break;
+	case TPI:
+		enviarLineaTPI(socketCPU,fileID,linea);
+		break;
+	case SPA:
+		enviarLineaSPA(socketCPU,fileID,linea);
+		break;
+	}
 
-	free(datos);
-}
-
-SegmentoDeTabla* crearSegmento(){
-	SegmentoDeTabla *miSegmento;
-
-	miSegmento = malloc(sizeof(SegmentoDeTabla));
-
-	miSegmento->fileID = GfileID;
-	miSegmento->base = -1;
-	miSegmento->limite = -1;
-
-	GfileID++;
-
-	return miSegmento;
-}
-filaTPI* crearTPI(int idDTB){
-	filaTPI* fila = malloc(sizeof(filaTPI));
-	fila->pagina = paginaGlobal;
-	fila->ID_GDT = idDTB;
-
-	paginaGlobal++;
 }
 
 	///FUNCIONES DE CONFIG///
@@ -527,17 +621,34 @@ void setModoEjecucion(){
 	}
 }
 
-int inicializarLineaOPaginaOcupadas(bool* lineaOPagina,int tamLineaoPagina ){
+int inicializarLineasOcupadas( ){
 
-	if((tamMemoria % tamLineaoPagina) != 0){
+	if((tamMemoria % tamLinea) != 0){
 		printf("El tamaño de memoria no es multiplo del tamaño de linea");
 		return -1;
 	}
 
-	lineaOPagina = malloc(tamMemoria/tamLineaoPagina);
+	lineasOcupadas = malloc(tamMemoria/tamLinea);
 
-	for(int i = 0; i < (tamMemoria/tamLineaoPagina); i++){
-		lineaOPagina[i] = 0;
+	for(int i = 0; i < (tamMemoria/tamLinea); i++){
+		lineasOcupadas[i] = 0;
+	}
+
+
+	return 0;
+}
+
+int inicializarFramesOcupados(){
+
+	if((tamMemoria % tamPagina) != 0){
+		printf("El tamaño de memoria no es multiplo del tamaño de pagina");
+		return -1;
+	}
+
+	framesOcupados = malloc(tamMemoria/tamPagina);
+
+	for(int i = 0; i < (tamMemoria/tamPagina); i++){
+		framesOcupados[i] = 0;
 	}
 
 
@@ -810,12 +921,12 @@ int main() {
 
 	if(modoEjecucion == SEG)
 	{
-		if(inicializarLineaOPaginaOcupadas(lineasOcupadas,tamLinea)==-1)
+		if(inicializarLineasOcupadas()==-1)
 			myPuts(RED "El tamaño de memoria no es multiplo del tamaño de linea" COLOR_RESET "\n");
 		tablaDeSegmentos = list_create();
 	} else if(modoEjecucion == TPI)
 	{
-		if(inicializarLineaOPaginaOcupadas(framesOcupados,tamPagina)==-1)
+		if(inicializarFramesOcupados()==-1)
 				myPuts(RED "El tamaño de memoria no es multiplo del tamaño de pagina" COLOR_RESET "\n");
 		tablaDePaginasInvertidas = malloc(tamMemoria/tamPagina);
 	} else if(modoEjecucion == SPA)
