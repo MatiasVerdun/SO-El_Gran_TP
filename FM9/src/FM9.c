@@ -21,6 +21,7 @@ enum{ SEG,
 
 int tamMemoria;
 int tamLinea;
+int tamPagina;
 
 int modoEjecucion;
 t_config *configFM9;
@@ -33,22 +34,30 @@ typedef struct SegmentoDeTabla {
 	int ID_GDT;
 } SegmentoDeTabla;
 
+typedef struct filaTPI {
+	int pagina; //en lineas
+	int ID_GDT;
+} filaTPI;
+
 int GsocketDAM;
 bool *lineasOcupadas;
+bool *framesOcupados;
 int GfileID = 0;
 int maxTransfer;
+int paginaGlobal=0;
 
-t_list* tablaDeSegmentos; //TODO create_list() en algun lado
+t_list* tablaDeSegmentos;
+filaTPI* tablaDePaginasInvertidas;
 
 	/// ABRIR ARCHIVO ///
 
-int espacioMaximoLibre(){
+int espacioMaximoLibre(bool* estructura,int tamanio){
 
 	int max = 0;
 	int c = 0;
 
-	for(int i = 0; i < (tamMemoria/tamLinea); i++){
-		if(!lineasOcupadas[i]){
+	for(int i = 0; i < (tamMemoria/tamanio); i++){
+		if(!estructura[i]){
 			c++;
 			if(c > max){
 				max=c;
@@ -63,15 +72,26 @@ int espacioMaximoLibre(){
 	return max;
 }
 
-int primeraLineaLibreDelEspacioMaximo(){
+int  espacioLibre(bool* framesOcupados,int tamPagina){
+	int c = 0;
+
+	for(int i = 0; i < (tamMemoria/tamPagina); i++){
+		if(!framesOcupados[i]){
+				c++;
+		}
+	}
+	return c;
+}
+
+int primeraLineaLibreDelEspacioMaximo(bool* estructura, int tamanio){
 
 	int max = 0;
 	int c = 0;
 	int posMax = -1;
 	int posActual = 0;
 
-	for(int i = 0; i < (tamMemoria/tamLinea); i++){
-		if(!lineasOcupadas[i]){
+	for(int i = 0; i < (tamMemoria/tamanio); i++){
+		if(!estructura[i]){
 			c++;
 			if(c > max){
 				max=c;
@@ -88,26 +108,132 @@ int primeraLineaLibreDelEspacioMaximo(){
 	return posMax;
 }
 
-void abrirArchivoSEG(int miFileID, int miTamArchivo, char* misDatos){
+int agregarFilaTPI(filaTPI* fila){
 
-	int miBase = primeraLineaLibreDelEspacioMaximo();
-
-	SegmentoDeTabla* miSegmento = malloc(sizeof(SegmentoDeTabla));
-
-	miSegmento->fileID = miFileID;
-	miSegmento->base = miBase;
-	miSegmento->limite = miTamArchivo;
-
-	list_add(tablaDeSegmentos, miSegmento);
-
-	free(miSegmento);
-
-	//TODO escritura de datos comenzando en memoriaFM9[miBase * tamLinea (del config)], en un for que vaya avanzando sobre
-	//un vector de split string por cambio de lineas \n de misDatos
+	for(int i = 0; i < (tamMemoria/tamPagina); i++){
+			if(!framesOcupados[i]){
+				framesOcupados[i] = 1;
+				tablaDePaginasInvertidas[i] = fila;
+				return i;
+			}
+	}
+	return -1;
 }
 
-void abrirArchivoTPI(){
+void abrirArchivoSEG(int cantLineas){
+	int idDTB;
+	myPuts(BLUE "Obteniendo script");
+	loading(1);
 
+	int maxEspacioLibre = espacioMaximoLibre(lineasOcupadas, tamLinea);
+
+	if(maxEspacioLibre >= cantLineas){
+		int hayEspacio = 0;
+		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+
+		if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
+				myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
+
+		SegmentoDeTabla *miSegmento = crearSegmento();
+		miSegmento->base = primeraLineaLibreDelEspacioMaximo(lineasOcupadas,tamLinea);
+		miSegmento->limite = cantLineas;
+		miSegmento->ID_GDT = idDTB;
+
+		list_add(tablaDeSegmentos,miSegmento);
+
+		ocuparLineas(miSegmento->base,miSegmento->limite);
+
+		int cantConjuntos;
+		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
+			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
+
+		char* conjuntos = recibirDatosTS(GsocketDAM,ntohl(maxTransfer));
+
+		char **vecStrings = bytesToLineas(conjuntos);
+
+		for(int i = 0;  i < cantLineas; i++){
+			memoriaFM9[miSegmento->base + i] = vecStrings[i];
+		}
+
+		int fileID = miSegmento->fileID;
+		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
+
+	} else {
+		int hayEspacio = 1;
+		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+		myPuts(RED "No hay espacio" COLOR_RESET "\n");
+	}
+
+}
+
+void abrirArchivoTPI(int cantLineas){
+	int idDTB,cantFrames,offsetUltimoFrame;
+	myPuts(BLUE "Obteniendo script");
+	loading(1);
+
+	int maxEspacioLibre = espacioLibre(framesOcupados,tamPagina);
+
+	if(maxEspacioLibre >= cantLineas){
+		int hayEspacio = 0;
+		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+
+		if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
+			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
+
+		cantFrames = (cantLineas*tamLinea)/tamPagina;
+
+		if((cantLineas*tamLinea)%tamPagina != 0){
+			cantFrames++;
+			offsetUltimoFrame = (cantLineas*tamLinea)%tamPagina;
+		}
+
+		int cantConjuntos;
+		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
+			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
+
+		char* conjuntos = recibirDatosTS(GsocketDAM,ntohl(maxTransfer));
+
+		char **vecStrings = bytesToLineas(conjuntos);
+
+		filaTPI* fila = crearTPI(idDTB);
+		int frame = agregarFilaTPI(fila);
+		int dirLogica = fila->pagina * tamPagina;
+
+		if(cantFrames == 1){
+			for(int i = 0;  i < (tamPagina/tamLinea); i++){
+					memoriaFM9[(frame * tamPagina)+i] = vecStrings[i];
+			}
+		}else if(offsetUltimoFrame == 0){
+
+			for(int j = 1;  j < cantFrames; j++){
+				fila = crearTPI(idDTB);
+				frame =agregarFilaTPI(fila);
+				for(int i = 0;  i < (tamPagina/tamLinea); i++){
+						memoriaFM9[(frame * tamPagina)+i] = vecStrings[i];
+				}
+			}
+		}else{
+			for(int j = 1;  j < cantFrames-1; j++){
+				fila = crearTPI(idDTB);
+				frame =agregarFilaTPI(fila);
+				for(int i = 0;  i < (tamPagina/tamLinea); i++){
+					memoriaFM9[(frame * tamPagina)+i] = vecStrings[i];
+				}
+			}
+			fila = crearTPI(idDTB);
+			frame =agregarFilaTPI(fila);
+			for(int i = 0;  i < offsetUltimoFrame; i++){
+				memoriaFM9[(frame * tamPagina)+i] = vecStrings[i];
+			}
+		}
+
+		myEnviarDatosFijos(GsocketDAM,&dirLogica,sizeof(int));
+
+		} else {
+			int hayEspacio = 1;
+			myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+			myPuts(RED "No hay espacio" COLOR_RESET "\n");
+		}
 }
 
 void abrirArchivoSPA(){
@@ -117,10 +243,10 @@ void abrirArchivoSPA(){
 void abrirArchivo(int cantLineas){
 	switch(modoEjecucion){
 	case SEG:
-		recibirScript(cantLineas);
+		abrirArchivoSEG(cantLineas);
 		break;
 	case TPI:
-		abrirArchivoTPI();
+		abrirArchivoTPI(cantLineas);
 		break;
 	case SPA:
 		abrirArchivoSPA();
@@ -374,6 +500,13 @@ SegmentoDeTabla* crearSegmento(){
 
 	return miSegmento;
 }
+filaTPI* crearTPI(int idDTB){
+	filaTPI* fila = malloc(sizeof(filaTPI));
+	fila->pagina = paginaGlobal;
+	fila->ID_GDT = idDTB;
+
+	paginaGlobal++;
+}
 
 	///FUNCIONES DE CONFIG///
 
@@ -394,30 +527,26 @@ void setModoEjecucion(){
 	}
 }
 
-int inicializarLineasOcupadas(){
-	tamMemoria=(int)getConfig("TMM","FM9.txt",1);
-	tamLinea=(int)getConfig("TML","FM9.txt",1);
+int inicializarLineaOPaginaOcupadas(bool* lineaOPagina,int tamLineaoPagina ){
 
-	if((tamMemoria % tamLinea) != 0){
+	if((tamMemoria % tamLineaoPagina) != 0){
 		printf("El tamaño de memoria no es multiplo del tamaño de linea");
 		return -1;
 	}
 
-	lineasOcupadas = malloc(tamMemoria/tamLinea);
+	lineaOPagina = malloc(tamMemoria/tamLineaoPagina);
 
-	for(int i = 0; i < (tamMemoria/tamLinea); i++){
-		lineasOcupadas[i] = 0;
+	for(int i = 0; i < (tamMemoria/tamLineaoPagina); i++){
+		lineaOPagina[i] = 0;
 	}
 
-	/*for(int i = 0; i < cantEntradas; i++){
-		bArray[i] = false;
-	}*/
+
 	return 0;
 }
 
 void inicializarMemoria(){
 
-	int tamMemoria=(int)getConfig("TMM","FM9.txt",1);
+	tamMemoria=(int)getConfig("TMM","FM9.txt",1);
 	memoriaFM9=malloc(tamMemoria);
 	memset(memoriaFM9,'\0',tamMemoria);
 
@@ -488,86 +617,6 @@ int tamSplit(char** split){
 		i++;
 	}
 	return i;
-}
-
-void recibirScript(int cantLineas){
-	int idDTB;
-	myPuts(BLUE "Obteniendo script");
-	loading(1);
-
-	int maxEspacioLibre = espacioMaximoLibre();
-
-	if(maxEspacioLibre >= cantLineas){
-		int hayEspacio = 0;
-		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
-
-		if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
-				myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
-
-		SegmentoDeTabla *miSegmento = crearSegmento();
-		miSegmento->base = primeraLineaLibreDelEspacioMaximo();
-		miSegmento->limite = cantLineas;
-		miSegmento->ID_GDT = idDTB;
-
-		list_add(tablaDeSegmentos,miSegmento);
-
-		ocuparLineas(miSegmento->base,miSegmento->limite);
-
-		int cantConjuntos;
-		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
-			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
-
-		char* conjuntos = recibirDatosTS(GsocketDAM,ntohl(maxTransfer));
-
-		char **vecStrings = bytesToLineas(conjuntos);
-
-		for(int i = 0;  i < cantLineas; i++){
-			memoriaFM9[miSegmento->base + i] = vecStrings[i];
-		}
-
-		/*for(int i = 0; i <= cantConjuntos; i++){
-
-			char *conjARecibir = malloc(maxTransfer+1);
-
-			if(myRecibirDatosFijos(GsocketDAM,conjARecibir,maxTransfer)==1)
-				myPuts(RED "Error al recibir el conjunto nro %d" COLOR_RESET "\n",i);
-
-		    if(contarBarraN(conjARecibir) == 0){
-		        strcat(memoriaFM9[lineaMemoria], conjARecibir);
-
-		    } else {
-
-		        char **vecStrings = string_split(conjARecibir,"\n");
-
-		       int cantElementos = tamSplit(vecStrings);
-
-		        for(int j = 0; j < cantElementos; j++){
-
-		            strcat(memoriaFM9[lineaMemoria + j], vecStrings[j]);
-		        	printf("cantLineas %d",cantLineas);
-		        }
-
-		        lineaMemoria = lineaMemoria + strlen(vecStrings) - 1;
-
-		    }
-		}*/
-
-		int fileID = miSegmento->fileID;
-		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
-
-	} else {
-		int hayEspacio = 1;
-		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
-		myPuts(RED "No hay espacio" COLOR_RESET "\n");
-	}
-	/*//myRecibirDatosFijos(socketDAM,(u_int32_t*)&tamScript,sizeof(u_int32_t)); //Recibo el size
-	//char* buffer= malloc(ntohl(tamScript)+1);
-	//myRecibirDatosFijos(socketDAM,(char*)buffer,ntohl(tamScript));//TODO Hacer que reciba bien los datos (Recibir cuantos datos se van a mandar para luego recibirlos)
-	//memset(buffer+ntohl(tamScript),'\0',1);
-	//myPuts("%s",buffer);
-	//free(buffer);
-	//guardarDatos(buffer,ntohl(tamScript),0);
-	//leerDatos(ntohl(tamScript),0);*/
 }
 
 void gestionarConexionDAM(int *sock){
@@ -749,18 +798,29 @@ int main() {
 	configFM9=config_create(PATHCONFIGFM9);
 
 	mostrarConfig();
+
 	setModoEjecucion();
+
+	tamMemoria=(int)getConfig("TMM","FM9.txt",1);
+	tamLinea=(int)getConfig("TML","FM9.txt",1);
+	tamPagina = (int) getConfig("TMP","FM9.txt",1);
+
 	inicializarMemoria();
-	if(inicializarLineasOcupadas()==-1)
-			myPuts(RED "El tamaño de memoria no es multiplo del tamaño de linea" COLOR_RESET "\n");
+
 
 	if(modoEjecucion == SEG)
 	{
+		if(inicializarLineaOPaginaOcupadas(lineasOcupadas,tamLinea)==-1)
+			myPuts(RED "El tamaño de memoria no es multiplo del tamaño de linea" COLOR_RESET "\n");
 		tablaDeSegmentos = list_create();
 	} else if(modoEjecucion == TPI)
 	{
+		if(inicializarLineaOPaginaOcupadas(framesOcupados,tamPagina)==-1)
+				myPuts(RED "El tamaño de memoria no es multiplo del tamaño de pagina" COLOR_RESET "\n");
+		tablaDePaginasInvertidas = malloc(tamMemoria/tamPagina);
 	} else if(modoEjecucion == SPA)
 	{
+		tamPagina = (int) getConfigR("TMP",1,configFM9);
 	}
 
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
@@ -775,7 +835,3 @@ int main() {
     config_destroy(configFM9);
 	return EXIT_SUCCESS;
 }
-
-
-
-
