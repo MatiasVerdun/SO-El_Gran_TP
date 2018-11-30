@@ -1436,9 +1436,9 @@ void gestionarConexionDAM(int *sock_cliente){
 						agregarArchivoALaTabla(idDTB,miDTB->Escriptorio,fileID);
 
 						if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
-							desbloquearDTB(idDTB);
-						}else{
 							finalizarDTB(idDTB,colaBLOCK->elements);
+						}else{
+							desbloquearDTB(idDTB);
 						}
 					}
 
@@ -1453,6 +1453,13 @@ void gestionarConexionDAM(int *sock_cliente){
 				break;
 
 				case ACC_FLUSH_OK:
+					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+
+					if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
+						finalizarDTB(idDTB,colaBLOCK->elements);
+					}else{
+						desbloquearDTB(idDTB);
+					}
 
 				break;
 

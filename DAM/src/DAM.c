@@ -240,6 +240,7 @@ void operacionAlMDJ(int operacion, int socketCPU){
 	int cantLineas;
 	int hayEspacio;
 	int cantConjuntos;
+	int lineasDelArchivo;
 	char *conjAEnviar;
 
 	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
@@ -258,6 +259,10 @@ void operacionAlMDJ(int operacion, int socketCPU){
 	switch(operacion){
 
 	case OPERACION_CREAR:
+
+		if(myRecibirDatosFijos(socketCPU,&lineasDelArchivo,sizeof(int))==1)
+				myPuts(RED"Error al recibir la cantidad de lineas del archivo"COLOR_RESET"\n");
+
 		respuesta = crearArchivo(pathArchivo,tamanio);
 
 		if(respuesta == 0){
@@ -286,7 +291,10 @@ void operacionFlush(int operacion, int socketCPU){
 	int tamanio;
 	int fileID;
 	int idDTB;
+	int respuesta;
+	int respuestaMDJ;
 	int cantConjuntos;
+	int operacionMDJ;
 	char * pathArchivo = NULL;
 
 	myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int));
@@ -310,7 +318,18 @@ void operacionFlush(int operacion, int socketCPU){
 
 	char* datos = recibirDatosTS(socketGFM9,ntohl(maxTransfer));
 
-	enviarDatosTS(socketGMDJ,ntohl(maxTransfer));
+	operacionMDJ = 3;
+	myEnviarDatosFijos(socketGMDJ,&operacionMDJ,sizeof(int));	//TODO Avisar a TOLE FALTAN SENDS Y RECVS
+
+	enviarDatosTS(socketGMDJ,datos,ntohl(maxTransfer));
+
+	myRecibirDatosFijos(socketGMDJ,&respuestaMDJ,sizeof(int));
+
+	if(respuestaMDJ == 0){
+		enviarAccionASAFA(ACC_FLUSH_OK,idDTB,0,NULL,0);
+	}else{
+		enviarAccionASAFA(ACC_FLUSH_ERROR,idDTB,0,NULL,0);
+	}
 
 }
 
@@ -494,6 +513,8 @@ void gestionarConexionSAFA(int socketSAFA){
 
 	while(1){
 		if(myRecibirDatosFijos(socketGSAFA,&idDTB,sizeof(int))!=1){
+
+			myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
 
 			myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
 
