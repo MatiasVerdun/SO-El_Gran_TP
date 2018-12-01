@@ -443,11 +443,17 @@ void asignarLinea(int socketCPU){
 void flushSEG(int fileID){
 	int base;
 	int limite;
-	char* paqueteEnvio = malloc(tamLinea); // tamLinea * limite
-
+	int tamanio;
+	char* paqueteEnvio;
 
 	base = buscarBasePorfileID(fileID);
 	limite = buscarLimitePorfileID(fileID);
+
+	for(int i = base;i<limite+base;i++){
+		tamanio += strlen(memoriaFM9[i]);
+	}
+
+	paqueteEnvio = malloc(tamanio+1);
 
 	for(int i = base;i<limite+base;i++){
 		strcat(paqueteEnvio,memoriaFM9[i]);
