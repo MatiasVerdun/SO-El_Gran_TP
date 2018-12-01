@@ -14,7 +14,7 @@
 #ifndef CONEXIONES_MYSOCKETS_H_
 #define CONEXIONES_MYSOCKETS_H_
 
-
+char** bytesToLineas(char* input);
 int myEnlazarCliente(int *sock,char* IP_CLIENTE, int PUERTO_CLIENTE);
 int my_EnlazarCliente(int *sock,char* IP_CLIENTE, int PUERTO_CLIENTE,int useHandshake);
 
@@ -30,7 +30,7 @@ int myEnviarDatosFijos(int descriptorSocket, const void* buffer, const unsigned 
 int gestionarDesconexion(int socket,char* nombreProceso);
 
 int contadorLineas(char* texto);
-char** bytesToLineas(char* bytes);
+char** bytesToLineasOld(char* bytes);
 char** bytesToTS(char* bytes,int transferSize);
 int enviarDatosTS(int socket,char* datos,int transferSize);
 char* recibirDatosTS(int socket,int transferSize);

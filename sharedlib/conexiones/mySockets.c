@@ -273,14 +273,15 @@ int contadorLineas(char* texto){
 	return lineas;
 }
 
-char** bytesToLineas(char* bytes){//Covierte los bytes a lineas y los devuelve en un array de strings
+char** bytesToLineasOld(char* bytes){//Covierte los bytes a lineas y los devuelve en un array de strings
 	char** lineas=malloc(strlen(bytes)+1);
 	char** splitLineas=string_split(bytes,"\n");
 	memset(lineas,'\0',strlen(bytes)+1);
+	printf("Ok:%s",splitLineas[0]);
 	for(int i=0;i<contadorLineas(bytes);i++){
 		char* linea;
 		if(splitLineas[i]!=NULL)
-			linea=string_from_format("%s\n",splitLineas[i]);
+			linea=string_from_format("%s",splitLineas[i]);
 		else
 			linea=string_from_format("\n");
 		lineas[i]=linea;
@@ -288,6 +289,21 @@ char** bytesToLineas(char* bytes){//Covierte los bytes a lineas y los devuelve e
 	}
 	liberarSplit(splitLineas);
 	return lineas;
+}
+
+char** bytesToLineas(char* input){
+  char *start, *end;
+  unsigned count = 0;
+  char** lineas=malloc(strlen(input)*(int)contadorLineas(input));
+  memset(lineas,'\0',strlen(input)*(int)contadorLineas(input));
+
+  start = end = (char*) input;
+  while( (end = strchr(start, '\n')) ){
+	  lineas[count]=string_from_format("%.*s",(int)(end - start + 1), start);
+      count++;
+      start = end + 1;
+  }
+  return lineas;
 }
 
 char** bytesToTS(char* bytes,int transferSize){//Divide segun el Transfer size los datos a enviar para poder mandarlos a MDJ o FM9
