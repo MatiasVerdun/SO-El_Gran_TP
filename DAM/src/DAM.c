@@ -263,7 +263,7 @@ void operacionAlMDJ(int operacion, int socketCPU){
 		if(myRecibirDatosFijos(socketCPU,&lineasDelArchivo,sizeof(int))==1)
 				myPuts(RED"Error al recibir la cantidad de lineas del archivo"COLOR_RESET"\n");
 
-		respuesta = crearArchivo(pathArchivo,tamanio);
+		respuesta = crearArchivo(pathArchivo,lineasDelArchivo);
 
 		if(respuesta == 0){
 			enviarAccionASAFA(ACC_CREAR_OK, idDTB, tamanio, pathArchivo,0);
