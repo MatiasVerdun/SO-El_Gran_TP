@@ -294,8 +294,8 @@ char** bytesToLineasOld(char* bytes){//Covierte los bytes a lineas y los devuelv
 char** bytesToLineas(char* input){
   char *start, *end;
   unsigned count = 0;
-  char** lineas=malloc(strlen(input)*(int)contadorLineas(input));
-  memset(lineas,'\0',strlen(input)*(int)contadorLineas(input));
+  char** lineas=malloc((strlen(input)+1)*sizeof(int));
+  memset(lineas,'\0',(strlen(input)+1)*sizeof(int));
 
   start = end = (char*) input;
   while( (end = strchr(start, '\n')) ){
@@ -303,12 +303,13 @@ char** bytesToLineas(char* input){
       count++;
       start = end + 1;
   }
+  lineas[count]=string_from_format("\0");
   return lineas;
 }
 
 char** bytesToTS(char* bytes,int transferSize){//Divide segun el Transfer size los datos a enviar para poder mandarlos a MDJ o FM9
-	char** datosTS=malloc(strlen(bytes)+transferSize);
-	memset(datosTS,'\0',strlen(bytes)+transferSize);
+	char** datosTS=malloc(strlen(bytes)*sizeof(int));
+	memset(datosTS,'\0',strlen(bytes)*sizeof(int));
 	int cantidadElementos=strlen(bytes)/transferSize;
 	if((strlen(bytes)%transferSize)!=0)
 		cantidadElementos++;
