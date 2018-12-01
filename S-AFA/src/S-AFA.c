@@ -1328,7 +1328,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
 					if(miDTB != NULL){
-						myPuts(BLUE "OPERACION DUMMY finalizada correctamente" COLOR_RESET "\n");
+						myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION DUMMY correctamente" COLOR_RESET "\n",idDTB);
 
 						miDTB->Flag_GDTInicializado = 1;
 
@@ -1355,14 +1355,7 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_CREAR_OK:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					if(myRecibirDatosFijos(GsocketDAM,&tamanio,sizeof(int))==1)
-							myPuts(RED"Error al recibir el tamaño del path"COLOR_RESET"\n");
-
-					pathArchivo = malloc(tamanio+1);
-					memset(pathArchivo,'\0',tamanio+1);
-
-					if(myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio)==1)
-						myPuts(RED"Error al recibir el path del Archivo"COLOR_RESET"\n");
+					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION CREAR  correctamente" COLOR_RESET "\n",idDTB);
 
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 					miDTB = list_get(colaBLOCK->elements,indice);
@@ -1380,7 +1373,7 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_CREAR_ERROR:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
+					myPuts(RED"Hubo un error en la ejecucion CREAR se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
 
 					finalizarDTB(idDTB, colaBLOCK->elements);
 
@@ -1389,14 +1382,7 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_BORRAR_OK:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					if(myRecibirDatosFijos(GsocketDAM,&tamanio,sizeof(int))==1)
-						myPuts(RED"Error al recibir el tamaño del path"COLOR_RESET"\n");
-
-					pathArchivo = malloc(tamanio+1);
-					memset(pathArchivo,'\0',tamanio+1);
-
-					if(myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio)==1)
-						myPuts(RED"Error al recibir el path del Archivo"COLOR_RESET"\n");
+					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION BORRAR correctamente" COLOR_RESET "\n",idDTB);
 
 					verificarSiExisteArchivoEnAlgunaTabla(idDTB,pathArchivo);
 
@@ -1416,7 +1402,7 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_BORRAR_ERROR:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
+					myPuts(RED"Hubo un error en la ejecucion BORRAR se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
 
 					finalizarDTB(idDTB, colaBLOCK->elements);
 
@@ -1425,11 +1411,16 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_ABRIR_OK:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
+					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION ABRIR correctamente" COLOR_RESET "\n",idDTB);
+
 					if(myRecibirDatosFijos(GsocketDAM,&tamanio,sizeof(int))==1)
-						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+						myPuts(RED"Error al recibir el tamaño del archivo"COLOR_RESET"\n");
+
+					pathArchivo = malloc(tamanio+1);
+					memset(pathArchivo,'\0',tamanio+1);
 
 					if(myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio)==1)
-						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+						myPuts(RED"Error al recibir el path"COLOR_RESET"\n");
 
 					if(myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int))==1)
 						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
@@ -1451,13 +1442,15 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_ABRIR_ERROR:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
+					myPuts(RED"Hubo un error en la ejecucion ABRIR  se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
 
 					finalizarDTB(idDTB, colaBLOCK->elements);
 				break;
 
 				case ACC_FLUSH_OK:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+
+					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION FLUSH correctamente" COLOR_RESET "\n",idDTB);
 
 					if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
 						finalizarDTB(idDTB,colaBLOCK->elements);
@@ -1470,7 +1463,7 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_FLUSH_ERROR:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
+					myPuts(RED"Hubo un error en la ejecucion FLUSH se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
 
 					finalizarDTB(idDTB, colaBLOCK->elements);
 				break;

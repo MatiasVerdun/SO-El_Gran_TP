@@ -234,7 +234,7 @@ void abrirArchivoSEG(int cantLineas){
 		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
 			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
 
-		char* conjuntos = recibirDatosTS(GsocketDAM,ntohl(maxTransfer));
+		char* conjuntos = recibirDatosTS(GsocketDAM,maxTransfer);
 
 		char **vecStrings = bytesToLineas(conjuntos);
 
@@ -278,7 +278,7 @@ void abrirArchivoTPI(int cantLineas){
 		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
 			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
 
-		char* conjuntos = recibirDatosTS(GsocketDAM,ntohl(maxTransfer));
+		char* conjuntos = recibirDatosTS(GsocketDAM,maxTransfer);
 
 		char **vecStrings = bytesToLineas(conjuntos);
 
@@ -360,17 +360,22 @@ int  asignarLineaSEG(int fileID, int linea, char* datos){
 
 		limite = buscarLimitePorfileID(fileID);
 
-		if(limite-base >= (linea-1)){
+		if(limite >= linea){
 
-			memset(memoriaFM9[base+(linea-1)],'\0',tamLinea+1);
+			int tamMemset = strlen(memoriaFM9[base+(linea-1)]);
+
+			memset(memoriaFM9[base+(linea-1)],'\0',tamMemset+1);
 
 			memoriaFM9[base+(linea-1)] = datos;
 
+			myPuts(GREEN "Operacion Asignar correcta." COLOR_RESET "\n");
 			return 0;
 		}else{
+			myPuts(RED " Fallo de segmento/memoria." COLOR_RESET "\n");
 			return 1;
 		}
 	}else{
+		myPuts(RED "Espacio insuficiente en FM9." COLOR_RESET "\n");
 		return 2;
 	}
 }
@@ -391,8 +396,9 @@ int asignarLineaTPI(int dirLogica,int linea,char*datos){
 
 	memoriaFM9[frame*tamPagina+offset] = datos;
 
-	return 0;
+	myPuts(GREEN "Operacion Asignar correcta." COLOR_RESET "\n");
 
+	return 0;
 }
 
 void asignarLineaSPA(){
@@ -401,12 +407,20 @@ void asignarLineaSPA(){
 
 void asignarLinea(int socketCPU){
 	int fileID,linea,tamanioDatos,respuesta;
-	char* datos = NULL;
+	char* datos;
 
-	myRecibirDatosFijos(socketCPU,&fileID,sizeof(int));
-	myRecibirDatosFijos(socketCPU,&linea,sizeof(int));
-	myRecibirDatosFijos(socketCPU,&tamanioDatos,sizeof(int));
-	myRecibirDatosFijos(socketCPU,datos,tamanioDatos);
+	if(myRecibirDatosFijos(socketCPU,&fileID,sizeof(int))==1)
+		myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+	if(myRecibirDatosFijos(socketCPU,&linea,sizeof(int))==1)
+		myPuts(RED"Error al recibir la linea "COLOR_RESET"\n");
+	if(myRecibirDatosFijos(socketCPU,&tamanioDatos,sizeof(int))==1)
+		myPuts(RED"Error al recibir el tamaño"COLOR_RESET"\n");
+
+	datos = malloc(tamanioDatos+2);
+	memset(datos,'\0',tamanioDatos+2);
+
+	if(myRecibirDatosFijos(socketCPU,datos,tamanioDatos)==1)
+		myPuts(RED"Error al recibir los datos"COLOR_RESET"\n");
 
 	switch(modoEjecucion){
 	case SEG:
@@ -420,7 +434,7 @@ void asignarLinea(int socketCPU){
 		break;
 	}
 
-	myPuts(GREEN "Operacion Asignar correcta." COLOR_RESET "\n");
+
 	myEnviarDatosFijos(socketCPU,&respuesta,sizeof(int));
 }
 
@@ -429,12 +443,13 @@ void asignarLinea(int socketCPU){
 void flushSEG(int fileID){
 	int base;
 	int limite;
-	char* paqueteEnvio=NULL;
+	char* paqueteEnvio = malloc(tamLinea); // tamLinea * limite
+
 
 	base = buscarBasePorfileID(fileID);
 	limite = buscarLimitePorfileID(fileID);
 
-	for(int i = base;i<limite;i++){
+	for(int i = base;i<limite+base;i++){
 		strcat(paqueteEnvio,memoriaFM9[i]);
 	}
 
@@ -465,7 +480,10 @@ void flushSPA(){
 
 void flush(){
 	int fileID;
-	myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int));
+
+	if(myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int))==1)
+		myPuts(RED "Error al recibir el file ID" COLOR_RESET "\n");
+
 	switch(modoEjecucion){
 	case SEG:
 		flushSEG(fileID);

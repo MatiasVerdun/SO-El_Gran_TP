@@ -366,6 +366,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 				myEnviarDatosFijos(socketGFM9,&parametro2,sizeof(int)); //ENVIO LA LINEA
 
 				tamanio = strlen(miSentencia->param3);
+
 				myEnviarDatosFijos(socketGFM9,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO DE LOS DATOS
 				myEnviarDatosFijos(socketGFM9,miSentencia->param3,tamanio); //ENVIO DATOS
 
@@ -401,11 +402,13 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 			fileID = buscarFileID(miDTB->tablaArchivosAbiertos,miSentencia->param1);
 
 			if(fileID != -1){
+
 				estaBloqueado = true;
 				motivoLiberacionCPU = MOT_BLOQUEO;
 				enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
 				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+
 				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
 
 				myEnviarDatosFijos(socketGDAM,&fileID,sizeof(int));			//ENVIO ID
