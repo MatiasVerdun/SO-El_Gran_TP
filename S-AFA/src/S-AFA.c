@@ -1425,15 +1425,19 @@ void gestionarConexionDAM(int *sock_cliente){
 				case ACC_ABRIR_OK:
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
-					if(myRecibirDatosFijos(GsocketDAM,&fileID,tamanio)==1)
+					if(myRecibirDatosFijos(GsocketDAM,&tamanio,sizeof(int))==1)
+						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+
+					if(myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio)==1)
+						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+
+					if(myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int))==1)
 						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
 
 					miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
-					agregarArchivoALaTabla(idDTB,miDTB->Escriptorio,fileID);
-
 					if(miDTB != NULL ){
-						agregarArchivoALaTabla(idDTB,miDTB->Escriptorio,fileID);
+						agregarArchivoALaTabla(idDTB,pathArchivo,fileID);
 
 						if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
 							finalizarDTB(idDTB,colaBLOCK->elements);

@@ -225,6 +225,11 @@ void abrirArchivoSEG(int cantLineas){
 
 		ocuparLineas(miSegmento->base,miSegmento->limite);
 
+		for(int j = 0; j < tamMemoria/tamLinea; j++){
+			printf("%d",lineasOcupadas[j]);
+		}
+		printf("\n");
+
 		int cantConjuntos;
 		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
 			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
@@ -347,6 +352,8 @@ void abrirArchivo(int cantLineas){
 int  asignarLineaSEG(int fileID, int linea, char* datos){
 	int base;
 	int limite;
+
+	strcat(datos,"\n");
 
 	if(strlen(datos) < tamLinea){
 		base  = buscarBasePorfileID(fileID);
@@ -596,7 +603,7 @@ void enviarLinea(int socketCPU, int fileID, int linea){
 		enviarLineaTPI(socketCPU,fileID,linea);
 		break;
 	case SPA:
-		enviarLineaSPA(socketCPU,fileID,linea);
+		//enviarLineaSPA(socketCPU,fileID,linea);
 		break;
 	}
 
