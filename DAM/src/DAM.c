@@ -52,10 +52,12 @@ int  borrarArchivo(char* path){
 
 	u_int32_t respuesta=0;
 	u_int32_t operacion = htonl(6);
+	u_int32_t pathSize=htonl(strlen(path));
 
 	myPuts(BLUE "Borrando '%s' ",path);
 	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&operacion,sizeof(u_int32_t));
-	myEnviarDatosFijos(socketGMDJ,path,50);
+	myEnviarDatosFijos(socketGMDJ,(u_int32_t*)&pathSize,sizeof(u_int32_t));
+	myEnviarDatosFijos(socketGMDJ,path,ntohl(pathSize)+1);
 	loading(1);
 	myRecibirDatosFijos(socketGMDJ,(u_int32_t*)&respuesta,sizeof(u_int32_t));
 
@@ -67,6 +69,7 @@ int  borrarArchivo(char* path){
 
 	return respuesta;
 }
+
 
 int crearArchivo(char* path,u_int32_t size){
 
