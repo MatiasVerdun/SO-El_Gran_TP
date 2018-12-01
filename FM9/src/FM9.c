@@ -698,7 +698,7 @@ void mostrarConfig(){
 	///GESTION DE CONEXIONES///
 
 void ocuparLineas(int base, int num){
-	for(int i=0; i<base+num; i++){
+	for(int i=0; i<num; i++){
 		lineasOcupadas[base+i] = 1;
 	}
 }
