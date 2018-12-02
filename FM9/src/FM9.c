@@ -130,6 +130,18 @@ int  buscarLimitePorfileID(int fileId){
 
 	/// ABRIR ARCHIVO ///
 
+void ocuparLineas(int base, int num){
+	for(int i=0; i<num; i++){
+		lineasOcupadas[base+i] = 1;
+	}
+}
+
+void desocuparLineas(int base, int num){
+	for(int i=0; i<base+num; i++){
+		lineasOcupadas[base+i] = 0;
+	}
+}
+
 int espacioMaximoLibre(bool* estructura,int tamanio){
 
 	int max = 0;
@@ -243,7 +255,6 @@ void abrirArchivoSEG(int cantLineas){
 			memcpy(memoriaFM9+(miSegmento->base + i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
 		}
 		free(conjuntos);
-		//liberarSplit(vecStrings);
 		int fileID = miSegmento->fileID;
 		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
 
@@ -473,7 +484,7 @@ void flushSEG(int fileID){
 	}
 
 	enviarDatosTS(GsocketDAM,paqueteEnvio,maxTransfer);
-
+	free(paqueteEnvio);
 }
 
 void flushTPI(int dirLogica){
@@ -794,18 +805,6 @@ void mostrarConfig(){
 }
 
 	///GESTION DE CONEXIONES///
-
-void ocuparLineas(int base, int num){
-	for(int i=0; i<num; i++){
-		lineasOcupadas[base+i] = 1;
-	}
-}
-
-void desocuparLineas(int base, int num){
-	for(int i=0; i<base+num; i++){
-		lineasOcupadas[base+i] = 0;
-	}
-}
 
 int contarBarraN (char *conj){
 	int c = 0;

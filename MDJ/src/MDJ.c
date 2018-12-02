@@ -31,12 +31,13 @@ void mostrarConfig(){
 ///GESTION DE CONEXIONES///
 void gestionArchivos(int socketDAM,int operacion){
 	u_int32_t respuesta,size,pathSize;
-	char* path;
+	char *path,*pathProvisorio;
 
 	myRecibirDatosFijos(socketDAM,(u_int32_t*)&pathSize,sizeof(u_int32_t));
 	path=malloc(ntohl(pathSize)+1);
-	myRecibirDatosFijos(socketDAM,(char*)path,ntohl(pathSize)+1);
-
+	pathProvisorio=malloc(ntohl(pathSize)+1);
+	myRecibirDatosFijos(socketDAM,(char*)pathProvisorio,ntohl(pathSize)+1);
+	path=string_from_format("Archivos%s",pathProvisorio);
 
 	switch(operacion){
 		case(1)://Validar existencia de archivo
@@ -87,15 +88,16 @@ void gestionArchivos(int socketDAM,int operacion){
 }
 
 void gestionDatos(int socketDAM, int operacion){
-	char* path;
+	char* path,*pathProvisorio;
 	u_int32_t offset,size,respuesta,pathSize,transferSize;
 	offset=size=respuesta=0;
 	myRecibirDatosFijos(socketDAM,(u_int32_t*)&transferSize,sizeof(u_int32_t));
 	myRecibirDatosFijos(socketDAM,(u_int32_t*)&pathSize,sizeof(u_int32_t));
 	//printf("%d\n",ntohl(pathSize));
 	transferSize=ntohl(transferSize);
-	path=malloc(ntohl(pathSize)+1);
-	myRecibirDatosFijos(socketDAM,(char*)path,ntohl(pathSize)+1);
+	pathProvisorio=malloc(ntohl(pathSize)+1);
+	myRecibirDatosFijos(socketDAM,(char*)pathProvisorio,ntohl(pathSize)+1);
+	path=string_from_format("Archivos%s",pathProvisorio);
 	switch(operacion){
 		case(3):
 			printf(BLUE "Validando si existe el archivo '%s'" ,path);
@@ -445,7 +447,7 @@ void consola(){
 		add_history("cat Archivos/scripts/creacion.escriptorio");
 		add_history("getData Archivos/scripts/creacion.escriptorio 25 25");
 		add_history("rmfile equipos/equipo1.txt");
-		add_history("mkfile Archivos/jugadores/Bou.txt 20 20");
+		add_history("mkfile /jugadores/Bou.txt");
 
 		if (linea)
 			add_history(linea);

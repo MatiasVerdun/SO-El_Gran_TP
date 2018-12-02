@@ -664,15 +664,14 @@ void accionSegunPlanificacion(DTB* DTBrecibido, int motivoLiberacionCPU, int ins
 	///ENVIAR Y RECIBIR MENSAJES PARA LA PLANIFICACION///
 
 void enviarQyPlanificacionACPU(int CPU,int remanente){
-	char planificacion[5];
+	char *planificacion=malloc(5);
+	memset(planificacion,'\0',5);
 	int quantum = configModificable.quantum;
 
 	if(strcmp(configModificable.algoPlani,"FIFO")==0){
 		quantum = -1;
 	}
-
-	strcpy(planificacion,configModificable.algoPlani);
-	planificacion[4]='\0';
+	memcpy(planificacion,configModificable.algoPlani,strlen(configModificable.algoPlani));
 
 	myEnviarDatosFijos(CPU,planificacion,5);
 
@@ -1582,8 +1581,7 @@ int main(void)
 				char path[256];
 				split = string_split(linea, " ");
 
-				strcpy(path, "Archivos");
-				strcat(path, split[1]);
+				strcpy(path, split[1]);
 				printf("La ruta del Escriptorio a ejecutar es: %s \n",path);
 				// NuevoDTByPlanificacion(path);
 				NuevoDTByPlanificacion(path);
