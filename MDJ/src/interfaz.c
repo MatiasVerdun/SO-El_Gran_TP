@@ -23,6 +23,7 @@ int crearArchivo(char* pathArchivoFS,u_int32_t filesize){
 	}
 	if(filesize%tamBloque!=0)
 		cantidadBloques++;
+	crearCarpetas(pathArchivoFS);
 	metadataArchivo=string_from_format("TAMANIO=%d\nBLOQUES=[",filesize);
 	if(validarPathArchivoFS(pathArchivoFS)==0){
 		//printf("Cantidad de bloques necesarios %d\n",cantidadBloques);

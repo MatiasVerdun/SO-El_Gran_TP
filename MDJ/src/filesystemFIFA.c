@@ -250,6 +250,26 @@ char* obtenerPathCarpetaArchivoFS(char* pathArchivoFS){
 }
 
 
+void crearCarpetas(char* pathArchivoFS){
+	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char** splitPathFS= string_split(pathArchivoFS,"/");
+	struct stat st = {0};
+	int i=0;
+	char *dirACrear=string_from_format("%s%s",puntoMontaje,splitPathFS[0]);
+	i++;
+	while(splitPathFS[i]!=NULL){
+		printf("%s\n",dirACrear);
+		if (stat(dirACrear, &st) == -1)
+			    mkdir(dirACrear, 0700);
+		string_append_with_format(&dirACrear,"/%s",splitPathFS[i]);
+		i++;
+	}
+	free(puntoMontaje);
+	free(dirACrear);
+	liberarSplit(splitPathFS);
+}
+
+
 char* obtenerDirAnterior(char* path){
 	char **splitPath=string_split(path,"/");
 	char *dirAnterior=string_new();
@@ -288,7 +308,7 @@ int validarPathArchivoFS(char* pathArchivoFS){
 
 int existeCarpetaFS(char* pathCarpetaFS){
 	char* puntoMontaje = string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
-	char* pathABSCarpeta = string_from_format("%s/%s", puntoMontaje,pathCarpetaFS);;
+	char* pathABSCarpeta = string_from_format("%s%s", puntoMontaje,pathCarpetaFS);;
 	struct stat st = {0};
 	if (stat(pathABSCarpeta, &st) == -1){ //Si existe devuelve 0
 		free(puntoMontaje);

@@ -445,6 +445,7 @@ void consola(){
 		add_history("cat Archivos/scripts/creacion.escriptorio");
 		add_history("getData Archivos/scripts/creacion.escriptorio 25 25");
 		add_history("rmfile equipos/equipo1.txt");
+		add_history("mkfile Archivos/jugadores/Bou.txt 20 20");
 
 		if (linea)
 			add_history(linea);

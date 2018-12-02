@@ -33,6 +33,7 @@ size_t tamBloque;
 size_t cantBloques;
 char* dirActual;
 
+void crearCarpetas(char* pathArchivoFS);
 int esArchivoFS(char* pathArchivo);
 char* obtenerDirAnterior(char* path);
 void escribirMetadataArchivo(char* metadata,char* pathArchivoFS);
