@@ -680,8 +680,8 @@ void enviarQyPlanificacionACPU(int CPU,int remanente){
 	}
 
 	myEnviarDatosFijos(CPU,&quantum,sizeof(int));
-
-	}
+	free(planificacion);
+}
 
 DTB* recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 	DTB *miDTBrecibido;

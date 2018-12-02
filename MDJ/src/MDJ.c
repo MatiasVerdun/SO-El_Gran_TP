@@ -34,7 +34,6 @@ void gestionArchivos(int socketDAM,int operacion){
 	char *path,*pathProvisorio;
 
 	myRecibirDatosFijos(socketDAM,(u_int32_t*)&pathSize,sizeof(u_int32_t));
-	path=malloc(ntohl(pathSize)+1);
 	pathProvisorio=malloc(ntohl(pathSize)+1);
 	myRecibirDatosFijos(socketDAM,(char*)pathProvisorio,ntohl(pathSize)+1);
 	path=string_from_format("Archivos%s",pathProvisorio);
@@ -84,6 +83,7 @@ void gestionArchivos(int socketDAM,int operacion){
 			}
 			break;
 	}
+	free(pathProvisorio);
 	free(path);
 }
 
@@ -170,6 +170,7 @@ void gestionDatos(int socketDAM, int operacion){
 			}
 			break;
 	}
+	free(pathProvisorio);
 	free(path);
 }
 
@@ -308,6 +309,7 @@ void listar(char* linea){
     struct dirent *de;  // Pointer for directory entry
 	char* realpath;
 	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	int contadorElementos=0;
 	if(strcmp(linea,"")==0){
 		printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
 		realpath=string_from_format("%s",dirActual);
@@ -334,12 +336,12 @@ void listar(char* linea){
 	while ((de = readdir(dr)) != NULL){
 		if(esArchivo(de->d_name)==0){
 			if(strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0)
-				printf(BOLDMAGENTA "%s " COLOR_RESET, de->d_name);
+				printf(BOLDMAGENTA "%s\n" COLOR_RESET, de->d_name);
 		}
 		else
-			printf(BOLDBLUE "%s " COLOR_RESET, de->d_name);
+			printf(BOLDBLUE "%s\n" COLOR_RESET, de->d_name);
 	}
-	printf("\n");
+
 	closedir(dr);
     free(realpath);
 }

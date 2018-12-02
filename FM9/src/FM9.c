@@ -4,6 +4,8 @@
 #include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include <commons/log.h>
 #include <commons/string.h>
 #include <commons/config.h>
@@ -12,6 +14,7 @@
 #include <conexiones/mySockets.h>
 #include <dtbSerializacion/dtbSerializacion.h>
 #include <sentencias/sentencias.h>
+
 
 #define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9.txt"
 
@@ -254,6 +257,7 @@ void abrirArchivoSEG(int cantLineas){
 		for(int i = 0;  i < cantLineas; i++){
 			memcpy(memoriaFM9+(miSegmento->base + i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
 		}
+		miLiberarSplit(vecStrings,cantLineas);
 		free(conjuntos);
 		int fileID = miSegmento->fileID;
 		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
@@ -386,9 +390,9 @@ int  asignarLineaSEG(int fileID, int linea, char* datos){
 
 		if(limite >= linea){
 
-			int tamMemset = strlen(memoriaFM9+(base+(linea-1))*tamLinea);
+			//int tamMemset = strlen(memoriaFM9+(base+(linea-1))*tamLinea);
 
-			memset(memoriaFM9+(base+(linea-1))*tamLinea,'\0',tamMemset+1); //Capaz que se necesita cambiar
+			//memset(memoriaFM9+(base+(linea-1))*tamLinea,'\0',tamMemset+1); //Capaz que se necesita cambiar->No hace falta ya esta inicializada
 
 			memcpy(memoriaFM9+(base+(linea-1))*tamLinea,datos,strlen(datos));
 
@@ -468,6 +472,7 @@ void flushSEG(int fileID){
 	int base;
 	int limite;
 	int tamanio=0;
+	//int offset=0;
 	char* paqueteEnvio;
 
 	base = buscarBasePorfileID(fileID);
@@ -480,7 +485,9 @@ void flushSEG(int fileID){
 	paqueteEnvio = malloc(tamanio+1);
 	memset(paqueteEnvio,'\0',tamanio+1);
 	for(int i = base;i<limite+base;i++){
+		//memset(paqueteEnvio+offset,(int)memoriaFM9+i*tamLinea,tamLinea);
 		strcat(paqueteEnvio,memoriaFM9+i*tamLinea);
+		//offset+=tamLinea;
 	}
 
 	enviarDatosTS(GsocketDAM,paqueteEnvio,maxTransfer);
@@ -998,6 +1005,22 @@ void pruebaGuardadoDTB(){
 	free(miDTB);
 }
 
+void consola(){
+	char* linea;
+	while(1){
+		linea = readline(">");
+
+		if (linea)
+			add_history(linea);
+
+		if(!strncmp(linea,"exit",4)){
+			free(linea);
+			free(memoriaFM9);
+			break;
+		}
+		free(linea);
+	}
+}
 int main() {
 	system("clear");
 	pthread_t hiloConnectionDAM;
@@ -1042,11 +1065,7 @@ int main() {
     pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
     pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 	//pruebaGuardadoDTB();
-
-    while(1)
-    {
-
-    }
+    consola();
 
     config_destroy(configFM9);
 	return EXIT_SUCCESS;
