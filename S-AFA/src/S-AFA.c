@@ -1552,8 +1552,8 @@ int main(void)
 		if (linea)
 			add_history(linea);
 
-		add_history("ejecutar Archivos/scripts/checkpoint.escriptorio");
-		add_history("finalizar 0");
+		add_history("ejecutar /scripts/complejo.escriptorio");
+		add_history("ejecutar /scripts/simple.escriptorio");
 
 		if(!strncmp(linea,"config",6))
 		{
@@ -1582,10 +1582,11 @@ int main(void)
 				char path[256];
 				split = string_split(linea, " ");
 
-				strcpy(path, split[1]);
+				strcpy(path, "Archivos");
+				strcat(path, split[1]);
 				printf("La ruta del Escriptorio a ejecutar es: %s \n",path);
 				// NuevoDTByPlanificacion(path);
-				 NuevoDTByPlanificacion(path);
+				NuevoDTByPlanificacion(path);
 
 				   free(split[0]);
 				   free(split[1]);

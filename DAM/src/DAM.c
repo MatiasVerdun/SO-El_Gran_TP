@@ -377,42 +377,53 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 		myPuts(RED "Error al recibir el escriptorio"COLOR_RESET"\n");
 
 	char * script = obtenerDatos(pathArchivo,0,0);
-	printf("%s",script);
 
-	myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+	if(strcmp(script,"ERROR")!=0){
+		printf("%s",script);
 
-	cantLineas = contadorLineas(script);
+		myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
 
-	myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
+		cantLineas = contadorLineas(script);
 
-	int hayEspacio=0; // 0 hay 1 no hay espacio
-	if(myRecibirDatosFijos(socketGFM9,&hayEspacio,sizeof(int))==1)
-		myPuts(RED "Error al recibir la confirmacion de espacio disponible "COLOR_RESET"\n ");
+		myEnviarDatosFijos(socketGFM9,&cantLineas,sizeof(int));
 
-	if (hayEspacio == 0){
+		int hayEspacio=0; // 0 hay 1 no hay espacio
+		if(myRecibirDatosFijos(socketGFM9,&hayEspacio,sizeof(int))==1)
+			myPuts(RED "Error al recibir la confirmacion de espacio disponible "COLOR_RESET"\n ");
 
-		myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
+		if (hayEspacio == 0){
 
-		int cantConjuntos = (strlen(script) / maxTransfer);
+			myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
 
-		if(strlen(script) % maxTransfer != 0){
-			cantConjuntos++;
+			int cantConjuntos = (strlen(script) / maxTransfer);
+
+			if(strlen(script) % maxTransfer != 0){
+				cantConjuntos++;
+			}
+
+			myEnviarDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
+
+			enviarDatosTS(socketGFM9,script,maxTransfer);
+
+			int fileID = -1;
+			if(myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int))==1)
+				myPuts(RED "Error al recibir la confirmacion del FM9 (fileID)"COLOR_RESET"\n ");
+
+			if(operacion == OPERACION_DUMMY){
+				int cantSentencias = cantidadSentencias(script,cantLineas);
+				enviarAccionASAFA(ACC_DUMMY_OK,idDTB,fileID,NULL,cantSentencias);
+			} else {
+				enviarAccionASAFA(ACC_ABRIR_OK,idDTB,fileID,pathArchivo,0);
+			}
+		}else{
+			if(operacion == OPERACION_DUMMY){
+				enviarAccionASAFA(ACC_DUMMY_ERROR,idDTB,0,NULL,0);
+			} else {
+				enviarAccionASAFA(ACC_ABRIR_ERROR,idDTB,0,NULL,0);
+			}
 		}
 
-		myEnviarDatosFijos(socketGFM9,&cantConjuntos,sizeof(int));
-
-		enviarDatosTS(socketGFM9,script,maxTransfer);
-
-		int fileID = -1;
-		if(myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int))==1)
-			myPuts(RED "Error al recibir la confirmacion del FM9 (fileID)"COLOR_RESET"\n ");
-
-		if(operacion == OPERACION_DUMMY){
-			int cantSentencias = cantidadSentencias(script,cantLineas);
-			enviarAccionASAFA(ACC_DUMMY_OK,idDTB,fileID,NULL,cantSentencias);
-		} else {
-			enviarAccionASAFA(ACC_ABRIR_OK,idDTB,fileID,pathArchivo,0);
-		}
+		free(script);
 
 	} else {
 		if(operacion == OPERACION_DUMMY){
@@ -420,13 +431,8 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 		} else {
 			enviarAccionASAFA(ACC_ABRIR_ERROR,idDTB,0,NULL,0);
 		}
-
 	}
-
-	free(script);
-
 	free(pathArchivo);
-
 }
 
 	///GESTION DE CONEXIONES///
