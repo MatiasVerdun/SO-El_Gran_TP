@@ -24,7 +24,7 @@
 #define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 //t_config *configSAFA;
 
-
+bool operacionDummyOK = true;
 int IDGlobal = 0;
 int DTBenPCP = 0;
 int estadoSistema = -1; // 0 = Estado Operativo
@@ -575,7 +575,7 @@ void PLP(){
 	while(!queue_is_empty(colaNEW)){
 		actualizarConfig();
 
-		if (DTBenPCP < configModificable.gradoMultiprogramacion){
+		if (DTBenPCP < configModificable.gradoMultiprogramacion && operacionDummyOK){
 			DTB *auxDTB;
 
 			auxDTB = queue_pop(colaNEW);
@@ -1054,6 +1054,8 @@ void operacionDummy(DTB *miDTB){
 		clienteCPU*CPULibre;
 		int ejecucion = EJECUCION_NORMAL;
 
+		operacionDummyOK = false;
+
 		miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
 
 		CPULibre = buscarCPUDisponible();
@@ -1328,6 +1330,8 @@ void gestionarConexionDAM(int *sock_cliente){
 
 					if(miDTB != NULL){
 						myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION DUMMY correctamente" COLOR_RESET "\n",idDTB);
+
+						operacionDummyOK = true;
 
 						miDTB->Flag_GDTInicializado = 1;
 
