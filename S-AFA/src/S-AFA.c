@@ -959,8 +959,8 @@ void liberarRecursosAsignados(DTB *miDTB){
 }
 
 void liberarMemoriaFM9(DTB *miDTB){
-
-	myEnviarDatosFijos(GsocketDAM,&miDTB,sizeof(int));
+	int idDTB = miDTB->ID_GDT;
+	myEnviarDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
 }
 

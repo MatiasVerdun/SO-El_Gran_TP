@@ -441,6 +441,8 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 
 				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));			//ENVIO ID
 
+				myRecibirDatosFijos(socketGFM9,&respuestaFM9,sizeof(int));  //RECIBO RESPUESTA DEL FM9
+
 			}else{
 				codigoError = 40001;										//ERROR: El archivo no se encuentra abierto
 			}
