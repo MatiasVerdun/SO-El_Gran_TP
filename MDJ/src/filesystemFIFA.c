@@ -18,9 +18,16 @@ void escribirMetadataArchivo(char* metadata,char* pathArchivoFS){
 
 void guardarBitmap(){
 	FILE *fBitmap;
-	fBitmap = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "wb");
-	fwrite(bitmap->bitarray,8,1,fBitmap);
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* pathBitmap= string_from_format("%sMetadata/Bitmap.bin",puntoMontaje);
+	int cantBytes=cantBloques/8;
+	if(cantBloques%8!=0)
+		cantBytes++;
+	fBitmap = fopen(pathBitmap, "wb");
+	fwrite(bitmap->bitarray,cantBytes,1,fBitmap);
 	fclose(fBitmap);
+	free(puntoMontaje);
+	free(pathBitmap);
 }
 
 
@@ -35,13 +42,21 @@ int getCantBloquesLibres(){
 
 
 void cargarBitmap(){
-	size_t sizeArchivo=tamArchivo("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin");
+	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* pathBitmap= string_from_format("%sMetadata/Bitmap.bin",puntoMontaje);
+	size_t sizeArchivo=tamArchivo(pathBitmap);
 	char *bitmapDatos=malloc(sizeArchivo);
 	FILE *fBitmap;
-	fBitmap = fopen("/home/utnso/fifa-examples/fifa-checkpoint/Metadata/Bitmap.bin", "r+b");
-	fread(bitmapDatos, 1, 8, fBitmap);
+	int cantBytes=cantBloques/8;
+	if(cantBloques%8!=0)
+		cantBytes++;
+	fBitmap = fopen(pathBitmap, "r+b");
+
+	fread(bitmapDatos, 1, cantBytes, fBitmap);
 	fclose(fBitmap);
 	bitmap = bitarray_create_with_mode(bitmapDatos, cantBloques, MSB_FIRST);
+	free(puntoMontaje);
+	free(pathBitmap);
 	/*for(int i=0;i<(bitmap->size);i++){
 		printf("%d",bitarray_test_bit(bitmap,i));
 	}
