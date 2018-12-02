@@ -7,7 +7,7 @@ typedef struct DT_Block {
 	char Escriptorio[256]; //El valor despues hay que verlo bien cuando nos den un ejemplo de Script
 	int PC;
 	int Flag_GDTInicializado;
-	int totalDeSentenciasAEjecutar; // 1 si 0 no
+	int totalDeSentenciasAEjecutar;
 	t_list *tablaArchivosAbiertos;
 } DTB;
 
