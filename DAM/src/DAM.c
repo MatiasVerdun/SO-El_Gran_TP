@@ -291,6 +291,7 @@ void operacionAlMDJ(int operacion, int socketCPU){
 	break;
 
 	}
+	free(pathArchivo);
 }
 
 void operacionFlush( int socketCPU){
@@ -330,7 +331,8 @@ void operacionFlush( int socketCPU){
 	}else{
 		enviarAccionASAFA(ACC_FLUSH_ERROR,idDTB,0,NULL,0);
 	}
-
+	free(datos);
+	free(pathArchivo);
 }
 
 int tamSplit(char** split){
@@ -344,10 +346,10 @@ int tamSplit(char** split){
 int cantidadSentencias(char *script, int cantLineas){
 	int cantSentencias = 0;
 
-	char** splitLineas=string_split(script,"\n");
+	char** splitLineas=bytesToLineas(script);
 
 	for(int i =0; i < cantLineas; i++){
-		if(splitLineas[i] != NULL)
+		if(splitLineas[i][0] != '\n')
 			cantSentencias ++;
 	}
 
@@ -405,9 +407,8 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 		if(myRecibirDatosFijos(socketGFM9,&fileID,sizeof(int))==1)
 			myPuts(RED "Error al recibir la confirmacion del FM9 (fileID)"COLOR_RESET"\n ");
 
-		int cantSentencias = cantidadSentencias(script,cantLineas);
-
 		if(operacion == OPERACION_DUMMY){
+			int cantSentencias = cantidadSentencias(script,cantLineas);
 			enviarAccionASAFA(ACC_DUMMY_OK,idDTB,fileID,NULL,cantSentencias);
 		} else {
 			enviarAccionASAFA(ACC_ABRIR_OK,idDTB,fileID,pathArchivo,0);

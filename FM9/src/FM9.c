@@ -241,7 +241,8 @@ void abrirArchivoSEG(int cantLineas){
 		for(int i = 0;  i < cantLineas; i++){
 			memoriaFM9[miSegmento->base + i] = vecStrings[i];
 		}
-
+		free(conjuntos);
+		//liberarSplit(vecStrings);
 		int fileID = miSegmento->fileID;
 		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
 
@@ -443,7 +444,7 @@ void asignarLinea(int socketCPU){
 void flushSEG(int fileID){
 	int base;
 	int limite;
-	int tamanio;
+	int tamanio=0;
 	char* paqueteEnvio;
 
 	base = buscarBasePorfileID(fileID);
@@ -454,7 +455,7 @@ void flushSEG(int fileID){
 	}
 
 	paqueteEnvio = malloc(tamanio+1);
-
+	memset(paqueteEnvio,'\0',tamanio+1);
 	for(int i = base;i<limite+base;i++){
 		strcat(paqueteEnvio,memoriaFM9[i]);
 	}
@@ -580,21 +581,16 @@ void cerrarVariosArchivos(){
 	/// ENVIAR LINEA  ///
 
 void enviarLineaSEG(int socketCPU, int fileID, int linea){
-	char* strLinea = malloc(tamLinea+1);
-	memset(strLinea,'\0',tamLinea+1);
-
+	char* strLinea;
 	int base = buscarBasePorfileID(fileID);
 
-	strLinea = memoriaFM9[base+linea];					//TODO Marian no esta convencido
-
-
+	strLinea = memoriaFM9[base+linea];				//TODO Marian no esta convencido
 
 	int tamanio = strlen(strLinea);
 
 	myEnviarDatosFijos(socketCPU,&tamanio,sizeof(int));
 
 	myEnviarDatosFijos(socketCPU,strLinea,tamanio);
-
 }
 
 void enviarLineaTPI(int socketCPU, int dirLogica, int linea){
@@ -688,7 +684,7 @@ int inicializarFramesOcupados(){
 
 void inicializarMemoria(){
 
-	tamMemoria=(int)getConfig("TMM","FM9.txt",1);
+	tamMemoria=(int) getConfigR("TMM",1,configFM9);
 	memoriaFM9=malloc(tamMemoria);
 	memset(memoriaFM9,'\0',tamMemoria);
 
@@ -714,12 +710,15 @@ void mostrarConfig(){
 	displayBoxTitle(50,"CONFIGURACION");
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("Tam. maximo de memoria: %s", (char*)getConfigR("TMM",0,configFM9) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("Tam. linea: %s\0", (char*)getConfigR("TML",0,configFM9) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	free(myText);
 	myText = string_from_format("Tam. de pagina: %s\0", (char*)getConfigR("TMP",0,configFM9) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
@@ -943,9 +942,7 @@ int main() {
 
 	setModoEjecucion();
 
-	tamMemoria=(int)getConfig("TMM","FM9.txt",1);
-	tamLinea=(int)getConfig("TML","FM9.txt",1);
-	tamPagina = (int) getConfig("TMP","FM9.txt",1);
+	tamLinea=(int) getConfigR("TML",1,configFM9);;
 
 	inicializarMemoria();
 

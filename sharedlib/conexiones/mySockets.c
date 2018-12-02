@@ -303,7 +303,8 @@ char** bytesToLineas(char* input){
       count++;
       start = end + 1;
   }
-  lineas[count]=string_from_format("\0");
+  lineas[count]=malloc(2);
+  memset(lineas[count],'\0',2);
   return lineas;
 }
 

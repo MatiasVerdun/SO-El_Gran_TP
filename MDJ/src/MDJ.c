@@ -444,7 +444,7 @@ void consola(){
 		//add_history("cat Archivos/scripts/checkpoint.escriptorio");
 		add_history("cat Archivos/scripts/creacion.escriptorio");
 		add_history("getData Archivos/scripts/creacion.escriptorio 25 25");
-		add_history("rmfile Archivos/scripts/creacion.escriptorio");
+		add_history("rmfile equipos/equipo1.txt");
 
 		if (linea)
 			add_history(linea);
