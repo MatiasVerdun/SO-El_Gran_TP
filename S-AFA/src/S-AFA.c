@@ -575,7 +575,7 @@ void PLP(){
 	while(!queue_is_empty(colaNEW)){
 		actualizarConfig();
 
-		if (DTBenPCP < configModificable.gradoMultiprogramacion && operacionDummyOK){
+		if (DTBenPCP <= configModificable.gradoMultiprogramacion && operacionDummyOK){
 			DTB *auxDTB;
 
 			auxDTB = queue_pop(colaNEW);
@@ -916,8 +916,6 @@ void desbloquearDTB(int idDTB){
 	miDTB = list_remove(colaBLOCK->elements,indice);
 
 	queue_push(colaREADY,miDTB);
-
-	DTBenPCP++;
 
 	PCP();
 
@@ -1340,6 +1338,8 @@ void gestionarConexionDAM(int *sock_cliente){
 						agregarArchivoALaTabla(idDTB,miDTB->Escriptorio,fileID);
 
 						actualizarMetricaNEW(idDTB);
+
+						DTBenPCP++;
 
 						desbloquearDTB(idDTB);
 					}

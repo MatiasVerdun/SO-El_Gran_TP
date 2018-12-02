@@ -17,7 +17,7 @@ DTB* recibirDTB(int socket){
 	DTB *miDTB;
 	int resultRecv;
 	int lenLista;
-	char buffer[1024];
+	char buffer[4096];
 	char strLenLista[4];
 
 	resultRecv = myRecibirDatosFijos(socket,buffer,266);
@@ -70,7 +70,7 @@ char* DTBStruct2String(DTB *miDTB){
 
 	int lenLista= list_size(miDTB->tablaArchivosAbiertos);
 
-	miStringDTB = malloc(265 + (lenLista * (256 + 4)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3) + terminoEjecucion(1)
+	miStringDTB = malloc(266 + (lenLista * (256 + 4)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3) + terminoEjecucion(1)
 
 	sprintf(miStringDTB,"%02d%-256s%2d%1d%02d%03d",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_GDTInicializado,miDTB->totalDeSentenciasAEjecutar,lenLista);
 	//El %03 me dice que puede llegar a tener 999 archivos abiertos
