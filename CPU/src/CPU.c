@@ -61,6 +61,13 @@ void mostrarConfig(){
 
 	///PARSEAR SCRIPTS///
 
+void destruir_operacion(t_parser_operacion op){
+	if(op._raw){
+		string_iterate_lines(op._raw, (void*) free);
+		free(op._raw);
+	}
+}
+
 sentencia* parsear(char* linea){
 	sentencia *laSentencia;
 
@@ -145,6 +152,7 @@ sentencia* parsear(char* linea){
 				printf("No pude interpretar <%s>\n", linea);
 				exit(EXIT_FAILURE);
 		}
+		destruir_operacion(parsed);
 		} else {
 			fprintf(stderr, "La linea <%s> no es valida\n", linea);
 			exit(EXIT_FAILURE);
