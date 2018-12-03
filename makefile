@@ -132,6 +132,6 @@ dtbSerializacion.o:
 parser.o:
 	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/parser/parser.c -o $(DIR)/sharedlib/Release/parser/parser.o
 
-libobjs: archivos.o conexiones.o console.o dtbSerializacion.o parser.o
-		$(MAKE) -C $(DIR)/sharedlib/Release
-
+libobjs: $(MAKE) -C $(DIR)/sharedlib/Release 
+		archivos.o conexiones.o console.o dtbSerializacion.o parser.o
+		
