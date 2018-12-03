@@ -394,6 +394,9 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 				myEnviarDatosFijos(socketGFM9,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO DE LOS DATOS
 				myEnviarDatosFijos(socketGFM9,miSentencia->param3,tamanio); //ENVIO DATOS
 
+				int idDTB = miDTB->ID_GDT;
+				myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
+
 				myRecibirDatosFijos(socketGFM9,&respuestaFM9,sizeof(int));
 
 				if(respuestaFM9 == 1){
@@ -456,6 +459,9 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 				myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int)); 		//ENVIO OPERACION
 
 				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));			//ENVIO ID
+
+				int idDTB = miDTB->ID_GDT;
+				myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
 
 				if(myRecibirDatosFijos(socketGFM9,&respuestaFM9,sizeof(int))==1)  //RECIBO RESPUESTA DEL FM9
 					myPuts(RED"Error al recibir la respuesta del FM9"COLOR_RESET"\n");
@@ -561,6 +567,9 @@ sentencia* buscarSentencia(DTB* miDTB){
 
 	PC  = miDTB->PC;
 	myEnviarDatosFijos(socketGFM9, &PC, sizeof(int));
+
+	int idDTB = miDTB->ID_GDT;
+	myEnviarDatosFijos(socketGFM9, &idDTB, sizeof(int));
 
 	if(myRecibirDatosFijos(socketGFM9,&tamanio,sizeof(int))==1)
 		myPuts(RED"Error al recibir el tamaño de la linea"COLOR_RESET"\n");

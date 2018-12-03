@@ -37,11 +37,28 @@ typedef struct SegmentoDeTabla {
 	int ID_GDT;
 } SegmentoDeTabla;
 
+typedef struct SegmentoDeTablaSPA {
+	int nroSegmento;
+	int contadorPagina;
+	t_list* tablaDePaginas;
+} SegmentoDeTablaSPA;
+
+typedef struct paginaDeTablaSPA {
+	int nroPagina;
+	int nroFrame;
+} paginaDeTabla;
+
 typedef struct filaTPI {
 	int pagina; //en lineas
 	int ID_GDT;
 	int cantPaginas; //Solo en la primera pagina
 } filaTPI;
+
+typedef struct procesoDeTabla{
+	t_list* tablaDeSegmentos;
+	int ID_GDT;
+	int contadorSegmentos;
+} procesoDeTabla ;
 
 int GsocketDAM;
 bool *lineasOcupadas;
@@ -52,9 +69,9 @@ int paginaGlobal=0;
 
 t_list* tablaDeSegmentos;
 filaTPI** tablaDePaginasInvertidas;
+t_list* tablaDeProcesosSPA;
 
 static sem_t semOperacion;
-
 
 /// TEMP ///
 
@@ -86,6 +103,44 @@ SegmentoDeTabla* crearSegmento(){
 
 	return miSegmento;
 }
+
+SegmentoDeTablaSPA* crearSegmentoSPA(int segmento){
+	SegmentoDeTablaSPA* miSegmento;
+
+	miSegmento = malloc(sizeof(SegmentoDeTablaSPA));
+
+	miSegmento->nroSegmento = segmento;
+	miSegmento->contadorPagina = 0;
+	miSegmento->tablaDePaginas = list_create();
+
+	return miSegmento;
+}
+
+paginaDeTabla* crearPaginaDeTabla(int frame, int pagina){
+
+	paginaDeTabla *miPagina;
+
+	miPagina = malloc(sizeof(paginaDeTabla));
+
+	miPagina->nroFrame = frame;
+	miPagina->nroPagina = pagina;
+
+	return miPagina;
+}
+
+procesoDeTabla* crearProcesoDeTabla(int idDTB){
+
+	procesoDeTabla *miProceso;
+
+	miProceso = malloc(sizeof(procesoDeTabla));
+
+	miProceso->ID_GDT = idDTB;
+	miProceso->tablaDeSegmentos = list_create();
+	miProceso->contadorSegmentos = 0;
+
+	return miProceso;
+}
+
 
 void miLiberarSplit(char ** vecStrings,int cantLineas){
 	for(int i = 0; i < cantLineas; i++){
@@ -131,6 +186,56 @@ int  buscarLimitePorfileID(int fileId){
 			return elemento->limite;
 	}
 
+	return -1;
+}
+
+SegmentoDeTablaSPA* buscarSegmento(t_list* tablaSegmentos,int segmento){
+	for(int i = 0; i < list_size(tablaDeProcesosSPA);i++){
+			SegmentoDeTablaSPA* miSegmento  = list_get(tablaSegmentos,i);
+			if(miSegmento->nroSegmento == segmento){
+				return miSegmento;
+			}
+		}
+	return NULL;
+}
+
+int buscarIndiceSegmento(t_list* tablaDeSegmentos,int segmento){
+	for(int i = 0; i < list_size(tablaDeProcesosSPA);i++){
+			SegmentoDeTablaSPA* miSegmento  = list_get(tablaDeSegmentos,i);
+			if(miSegmento->nroSegmento == segmento){
+				return i;
+			}
+		}
+	return -1;
+}
+
+
+bool existeProceso(int idDTB){
+	for(int i = 0; i < list_size(tablaDeProcesosSPA);i++){
+		procesoDeTabla* miProceso  = list_get(tablaDeProcesosSPA,i);
+		if(miProceso->ID_GDT == idDTB){
+			return true;
+		}
+	}
+	return false;
+}
+
+procesoDeTabla* buscarProcesoPorIDDTB(int idDTB){
+	for(int i = 0; i < list_size(tablaDeProcesosSPA);i++){
+		procesoDeTabla* miProceso  = list_get(tablaDeProcesosSPA,i);
+		if(miProceso->ID_GDT == idDTB){
+			return miProceso;
+		}
+	}
+	return NULL;
+}
+
+int buscarFrameLibre(){
+	for(int i =0; i < tamMemoria/tamPagina ; i++ ){
+		if(framesOcupados[i]==0){
+			return i;
+		}
+	}
 	return -1;
 }
 
@@ -359,8 +464,124 @@ void abrirArchivoTPI(int cantLineas){
 		}
 }
 
-void abrirArchivoSPA(){
+void abrirArchivoSPA(int cantLineas){
+	int idDTB,cantFrames,i,j,pagina,segmento,frame,frameActual;
+	int offsetUltimoFrame = 0;
+	paginaDeTabla* paginaActual;
+	myPuts(BLUE "Obteniendo script");
+	loading(1);
 
+	int maxEspacioLibre = espacioLibre(framesOcupados,tamPagina);
+
+	if(maxEspacioLibre >= cantLineas){
+		int hayEspacio = 0;
+		myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+
+		if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
+			myPuts(RED "Error al recibir el id del DTB" COLOR_RESET "\n");
+
+		cantFrames = (cantLineas*tamLinea)/tamPagina;
+
+		if((cantLineas*tamLinea)%tamPagina != 0){
+			cantFrames++;
+			offsetUltimoFrame = ((cantLineas*tamLinea)%tamPagina)/tamLinea;
+		}
+
+		int cantConjuntos;
+		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
+			myPuts(RED "Error al recibir la cantidad de Conjuntos" COLOR_RESET "\n");
+
+		char* conjuntos = recibirDatosTS(GsocketDAM,maxTransfer);
+
+		char **vecStrings = bytesToLineas(conjuntos);
+
+		free(conjuntos);
+
+		procesoDeTabla* proceso;
+		if(!existeProceso(idDTB)){
+			proceso = crearProcesoDeTabla(idDTB);
+		}else{
+			proceso = buscarProcesoPorIDDTB(idDTB);
+		}
+
+		segmento = proceso->contadorSegmentos;
+		SegmentoDeTablaSPA* miSegmento = crearSegmentoSPA(segmento);
+		proceso->contadorSegmentos++;
+
+		list_add(proceso->tablaDeSegmentos, miSegmento);
+
+		paginaDeTabla* miPagina;
+
+		for(int z = 0; z< cantFrames; z ++){
+			frame = buscarFrameLibre();
+			framesOcupados[frame] = 1;
+			pagina = miSegmento->contadorPagina;
+			miPagina = crearPaginaDeTabla(frame,pagina);
+			miSegmento->contadorPagina++;
+			list_add(miSegmento->tablaDePaginas, miPagina);
+		}
+
+		int dirLogica = miSegmento->nroSegmento * 100 * tamPagina;
+
+		if(cantFrames == 1 && offsetUltimoFrame==0){
+				paginaActual = list_get(miSegmento->tablaDePaginas,0);
+				frameActual = paginaActual->nroFrame;
+				for(i = 0;  i < (tamPagina/tamLinea); i++){
+					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
+				}
+			}else if(cantFrames == 1 ){
+				paginaActual = list_get(miSegmento->tablaDePaginas,0);
+				frameActual = paginaActual->nroFrame;
+				for(i = 0;  i < offsetUltimoFrame; i++){
+					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
+				}
+			}	else if(offsetUltimoFrame == 0){
+				paginaActual = list_get(miSegmento->tablaDePaginas,0);
+				frameActual = paginaActual->nroFrame;
+				for(i = 0;  i < tamPagina/tamLinea; i++){
+					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
+				}
+
+				for(j = 1;  j < cantFrames; j++){
+					paginaActual = list_get(miSegmento->tablaDePaginas,j);
+					frameActual = paginaActual->nroFrame;
+					for(i = 0;  i < (tamPagina/tamLinea); i++){
+						memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[j*tamPagina/tamLinea+i],strlen(vecStrings[j*tamPagina/tamLinea+i]));
+					}
+				}
+			}else{
+				paginaActual = list_get(miSegmento->tablaDePaginas,0);
+				frameActual = paginaActual->nroFrame;
+
+				for(i = 0;  i < tamPagina/tamLinea; i++){
+					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
+				}
+
+				for(j = 1;  j < cantFrames-1; j++){
+					paginaActual = list_get(miSegmento->tablaDePaginas,j);
+					frameActual = paginaActual->nroFrame;
+					for(int i = 0;  i < (tamPagina/tamLinea); i++){
+						memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[j*tamPagina/tamLinea+i],strlen(vecStrings[j*tamPagina/tamLinea+i]));
+					}
+				}
+
+				paginaActual = list_get(miSegmento->tablaDePaginas,j);
+				frameActual = paginaActual->nroFrame;
+
+				for( int k  = 0;  k < offsetUltimoFrame; k++){
+					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+k)*tamLinea,vecStrings[(j-1)*tamPagina/tamLinea+i+k],strlen(vecStrings[(j-1)*tamPagina/tamLinea+i+k]));
+				}
+			}
+
+			myEnviarDatosFijos(GsocketDAM,&dirLogica,sizeof(int));
+
+			miLiberarSplit(vecStrings,cantLineas);
+
+			} else {
+				int hayEspacio = 1;
+				myEnviarDatosFijos(GsocketDAM,&hayEspacio,sizeof(int));
+				myPuts(RED "No hay espacio" COLOR_RESET "\n");
+			}
 }
 
 void abrirArchivo(int cantLineas){
@@ -372,7 +593,7 @@ void abrirArchivo(int cantLineas){
 		abrirArchivoTPI(cantLineas);
 		break;
 	case SPA:
-		abrirArchivoSPA();
+		abrirArchivoSPA(cantLineas);
 		break;
 	}
 
@@ -432,12 +653,36 @@ int asignarLineaTPI(int dirLogica,int linea,char*datos){
 	return 0;
 }
 
-void asignarLineaSPA(){
+int asignarLineaSPA(int dirLogica,int linea,char* datos,int idDTB){
+	if(strlen(datos) > tamLinea){
+		return 2;
+	}
 
+	int segmento =(dirLogica + linea -1) / tamPagina / 100;
+
+	int pagina = (dirLogica + linea -1 - (segmento*tamPagina*100)) / tamPagina;
+
+	int offset = (dirLogica + linea -1 - (segmento*tamPagina*100)) % tamPagina;
+
+	procesoDeTabla* proceso = buscarProcesoPorIDDTB(idDTB);
+
+	SegmentoDeTablaSPA* miSegmento = buscarSegmento(proceso->tablaDeSegmentos,segmento);
+
+	paginaDeTabla* miPagina  = list_get(miSegmento->tablaDePaginas,pagina);
+
+	int frame = miPagina->nroFrame;
+
+	memset(memoriaFM9+(frame*tamPagina+offset),'\0',tamLinea+1);
+
+	memcpy(memoriaFM9+(frame*tamPagina+offset),datos,strlen(datos));
+
+	myPuts(GREEN "Operacion Asignar correcta." COLOR_RESET "\n");
+
+	return 0;
 }
 
 void asignarLinea(int socketCPU){
-	int fileID,linea,tamanioDatos,respuesta;
+	int fileID,linea,tamanioDatos,respuesta,idDTB;
 	char* datos;
 
 	if(myRecibirDatosFijos(socketCPU,&fileID,sizeof(int))==1)
@@ -446,6 +691,8 @@ void asignarLinea(int socketCPU){
 		myPuts(RED"Error al recibir la linea "COLOR_RESET"\n");
 	if(myRecibirDatosFijos(socketCPU,&tamanioDatos,sizeof(int))==1)
 		myPuts(RED"Error al recibir el tamaño"COLOR_RESET"\n");
+	if(myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int))==1)
+		myPuts(RED"Error al recibir el IDDTB "COLOR_RESET"\n");
 
 	datos = malloc(tamanioDatos+2);
 	memset(datos,'\0',tamanioDatos+2);
@@ -461,7 +708,7 @@ void asignarLinea(int socketCPU){
 		respuesta = asignarLineaTPI(fileID,linea,datos);
 		break;
 	case SPA:
-		asignarLineaSPA();
+		respuesta = asignarLineaSPA(fileID,linea,datos,idDTB);
 		break;
 	}
 
@@ -534,15 +781,59 @@ void flushTPI(int dirLogica){
 	free(paqueteEnvio);
 }
 
-void flushSPA(){
+void flushSPA(int dirLogica,int idDTB){
+	char* paqueteEnvio;
+	int tamanio=0;
+	int cantFrames;
+	int frameActual;
+	paginaDeTabla* paginaActual;
+
+	int segmento =dirLogica  / tamPagina / 100;
+
+	procesoDeTabla* proceso = buscarProcesoPorIDDTB(idDTB);
+
+	SegmentoDeTablaSPA* miSegmento = buscarSegmento(proceso->tablaDeSegmentos,segmento);
+
+	paginaActual = list_get(miSegmento->tablaDePaginas,0);
+	frameActual = paginaActual->nroFrame;
+
+
+	for(int i = 0;i<tamPagina/tamLinea;i++){
+		tamanio += strlen(memoriaFM9+(frameActual*tamPagina+i*tamLinea));
+	}
+
+	for(int i = 1;i<cantFrames;i++){
+		paginaActual = list_get(miSegmento->tablaDePaginas,i);
+		frameActual = paginaActual->nroFrame;
+		for(int j = 0;j<tamPagina/tamLinea;j++){
+			tamanio += strlen(memoriaFM9+(frameActual*tamPagina+j*tamLinea));
+		}
+	}
+
+	paqueteEnvio = malloc(tamanio+1);
+	memset(paqueteEnvio,'\0',tamanio+1);
+
+	for(int i = 0 ; i < list_size(miSegmento->tablaDePaginas) ;i++){
+		paginaActual = list_get(miSegmento->tablaDePaginas,i);
+		frameActual = paginaActual->nroFrame;
+		for(int j = 0;j<tamPagina/tamLinea;j++){
+			strcat(paqueteEnvio,memoriaFM9+(frameActual*tamPagina+j*tamLinea));
+		}
+	}
+
+	enviarDatosTS(GsocketDAM,paqueteEnvio,maxTransfer);
+	free(paqueteEnvio);
 
 }
 
 void flush(){
-	int fileID;
+	int fileID,idDTB;
 
 	if(myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int))==1)
 		myPuts(RED "Error al recibir el file ID" COLOR_RESET "\n");
+
+	if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
+			myPuts(RED "Error al recibir el ID dtb" COLOR_RESET "\n");
 
 	switch(modoEjecucion){
 	case SEG:
@@ -552,7 +843,7 @@ void flush(){
 		flushTPI(fileID);
 		break;
 	case SPA:
-		flushSPA();
+		flushSPA(fileID,idDTB);
 		break;
 	}
 
@@ -598,11 +889,31 @@ void cerrarArchivoTPI(int dirLogica){
 
 }
 
-void cerrarArchivoSPA(){
+void cerrarArchivoSPA(int dirLogica, int idDTB){
+	int frame;
+	paginaDeTabla* miPagina;
+
+	int segmento = dirLogica / tamPagina / 100;
+
+	procesoDeTabla* proceso = buscarProcesoPorIDDTB(idDTB);
+
+	SegmentoDeTablaSPA* miSegmento = buscarSegmento(proceso->tablaDeSegmentos,segmento);
+
+	int indice = buscarIndiceSegmento(proceso->tablaDeSegmentos,segmento);
+
+	for(int i = 0 ; i < list_size(miSegmento->tablaDePaginas) ;i++){
+		miPagina = list_get(miSegmento->tablaDePaginas,i);
+		frame = miPagina->nroFrame;
+		framesOcupados[frame]=0;			//Desocupa el frame
+		memset(memoriaFM9+(frame*tamPagina),'\0',tamPagina);
+	}
+
+	list_destroy_and_destroy_elements(miSegmento->tablaDePaginas,(void*)free);
+	list_remove_and_destroy_element(proceso->tablaDeSegmentos,indice,(void*)free);
 
 }
 
-void cerrarArchivo(int fileID){
+void cerrarArchivo(int fileID,int idDTB){
 
 	switch(modoEjecucion){
 	case SEG:
@@ -612,7 +923,7 @@ void cerrarArchivo(int fileID){
 		cerrarArchivoTPI(fileID);
 		break;
 	case SPA:
-		cerrarArchivoSPA();
+		cerrarArchivoSPA(fileID,idDTB);
 		break;
 	}
 }
@@ -624,7 +935,7 @@ void cerrarVariosArchivosSEG(int idDTB){
 
 		if(segmento->ID_GDT == idDTB){
 
-			cerrarArchivo(segmento->fileID);
+			cerrarArchivo(segmento->fileID,idDTB);
 
 		}
 	}
@@ -637,9 +948,21 @@ void cerrarVariosArchivosTPI(int idDTB){
 
 		if(fila->ID_GDT == idDTB && fila->cantPaginas > 0){
 
-			cerrarArchivo(fila->pagina*tamPagina);
+			cerrarArchivo(fila->pagina*tamPagina,idDTB);
 
 		}
+	}
+}
+
+void cerrarVariosArchivosSPA(int idDTB){
+	SegmentoDeTablaSPA* segmento;
+	procesoDeTabla* proceso = buscarProcesoPorIDDTB(idDTB);
+
+	for(int i = 0; i < list_size(proceso->tablaDeSegmentos);i++){
+		segmento = list_get(proceso->tablaDeSegmentos,i);
+
+		cerrarArchivo(segmento->nroSegmento*100*tamPagina,idDTB);
+
 	}
 }
 
@@ -656,7 +979,7 @@ void cerrarVariosArchivos(){
 		cerrarVariosArchivosTPI(idDTB);
 		break;
 	case SPA:
-		//cerrarArchivoSPA();
+		cerrarVariosArchivosSPA(idDTB);
 		break;
 	}
 	myPuts(GREEN "Se cerraron correctamente todos los archivos del DTB NRO: %d" COLOR_RESET "\n",idDTB);
@@ -702,7 +1025,36 @@ void enviarLineaTPI(int socketCPU, int dirLogica, int linea){
 	free(strLinea);
 }
 
-void enviarLinea(int socketCPU, int fileID, int linea){
+void enviarLineaSPA(int socketCPU, int dirLogica, int linea,int idDTB){
+	char* strLinea = malloc(tamLinea+1);
+	memset(strLinea,'\0',tamLinea+1);
+
+	int segmento =(dirLogica + linea) / tamPagina / 100;
+
+	int pagina = (dirLogica + linea - (segmento*tamPagina*100)) / tamPagina;
+
+	int offset = (dirLogica + linea - (segmento*tamPagina*100)) % tamPagina;
+
+	procesoDeTabla* proceso = buscarProcesoPorIDDTB(idDTB);
+
+	SegmentoDeTablaSPA* miSegmento = buscarSegmento(proceso->tablaDeSegmentos,segmento);
+
+	paginaDeTabla* miPagina  = list_get(miSegmento->tablaDePaginas,pagina);
+
+	int frame = miPagina->nroFrame;
+
+	memcpy(strLinea,memoriaFM9+((frame * tamPagina)/tamLinea + offset)*tamLinea,strlen(memoriaFM9+((frame * tamPagina)/tamLinea + offset)*tamLinea));	//TODO Marian no esta convencido
+
+	int tamanio = strlen(strLinea);
+
+	myEnviarDatosFijos(socketCPU,&tamanio,sizeof(int));
+
+	myEnviarDatosFijos(socketCPU,strLinea,tamanio);
+
+	free(strLinea);
+}
+
+void enviarLinea(int socketCPU, int fileID, int linea,int idDTB){
 
 	switch(modoEjecucion){
 	case SEG:
@@ -712,7 +1064,7 @@ void enviarLinea(int socketCPU, int fileID, int linea){
 		enviarLineaTPI(socketCPU,fileID,linea);
 		break;
 	case SPA:
-		//enviarLineaSPA(socketCPU,fileID,linea);
+		enviarLineaSPA(socketCPU,fileID,linea,idDTB);
 		break;
 	}
 
@@ -912,7 +1264,7 @@ void gestionarConexionDAM(int *sock){
 
 void gestionarConexionCPU(int *sock){
 	int socketCPU = *(int*)sock;
-	int operacion,fileID,linea,respuesta;
+	int operacion,fileID,linea,respuesta,idDTB;
 
 	while(1){
 		if(myRecibirDatosFijos(socketCPU,&operacion,sizeof(int))!=1){
@@ -928,7 +1280,10 @@ void gestionarConexionCPU(int *sock){
 					if(myRecibirDatosFijos(socketCPU,&fileID,sizeof(int))==1)
 						myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
 
-					cerrarArchivo(fileID);
+					if(myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int))==1)
+						myPuts(RED"Error al recibir el id dtb"COLOR_RESET"\n");
+
+					cerrarArchivo(fileID,idDTB);
 
 					myPuts(GREEN "OPERACION CLOSE finalizada correctamente" COLOR_RESET "\n");
 
@@ -943,7 +1298,10 @@ void gestionarConexionCPU(int *sock){
 					if(myRecibirDatosFijos(socketCPU,&linea,sizeof(int))==1)
 						myPuts(RED"Error al recibir el numero de la linea"COLOR_RESET"\n");
 
-					enviarLinea(socketCPU,fileID,linea);
+					if(myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int))==1)
+						myPuts(RED"Error al recibir el id dtb"COLOR_RESET"\n");
+
+					enviarLinea(socketCPU,fileID,linea,idDTB);
 				break;
 
 			//sem_post(&semOperacion);
@@ -1125,7 +1483,11 @@ int main() {
 		}
 	} else if(modoEjecucion == SPA)
 	{
+		tamPagina = (int) getConfigR("TMP",1,configFM9);
 		myPuts(BLUE "--------- El Modo de Ejecucion es SEGMENTACION PAGINADA --------- " COLOR_RESET "\n");
+		if(inicializarFramesOcupados()==-1)
+				myPuts(RED "El tamaño de memoria no es multiplo del tamaño de pagina" COLOR_RESET "\n");
+		tablaDeProcesosSPA = list_create();
 		tamPagina = (int) getConfigR("TMP",1,configFM9);
 	}
 

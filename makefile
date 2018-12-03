@@ -28,7 +28,7 @@ CFLAGS := -std=c11 $(HEADERS)
 
 # All
 
-all: clean libobjs CPU DAM FM9 MDJ S-AFA
+all: libobjs CPU DAM FM9 MDJ S-AFA
 
 
 
@@ -115,13 +115,6 @@ lib:
 	$(MAKE) -C $(DIR)/commons_lib/so-commons-library
 	$(MAKE) install -C $(DIR)/commons_lib/so-commons-library
 
-# -------------------------------------------------------------------------------------------------------------------------------------
-
-# Clean
-
-clean:
-	rm -f CPU DAM FM9 MDJ S-AFA *.o
-
 #-------------------------------------------------------------------------------------------------------------------------------------
 
 archivos.o:
@@ -139,6 +132,6 @@ dtbSerializacion.o:
 parser.o:
 	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/parser/parser.c -o $(DIR)/sharedlib/Release/parser/parser.o
 
-libobjs: archivos.o conexiones.o console.o dtbSerializacion.o parser.o
-		$(MAKE) -C $(DIR)/sharedlib/Release
-
+libobjs: $(MAKE) -C $(DIR)/sharedlib/Release 
+		archivos.o conexiones.o console.o dtbSerializacion.o parser.o
+		
