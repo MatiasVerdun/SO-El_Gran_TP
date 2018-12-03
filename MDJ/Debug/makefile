@@ -26,7 +26,7 @@ endif
 all: MDJ
 
 dependents:
-	-cd /home/utnso/tp-2018-2c-smlc/sharedlib/Debug && $(MAKE) clean all
+	-cd /home/utnso/tp-2018-2c-smlc/sharedlib/Debug && $(MAKE) all
 
 # Tool invocations
 MDJ: $(OBJS) $(USER_OBJS) /home/utnso/tp-2018-2c-smlc/sharedlib/Debug/libsharedlib.so

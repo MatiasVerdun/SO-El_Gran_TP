@@ -8,7 +8,13 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
--include src/subdir.mk
+-include parser/subdir.mk
+-include dtbSerializacion/subdir.mk
+-include console/subdir.mk
+-include conexiones/subdir.mk
+-include commons/collections/subdir.mk
+-include commons/subdir.mk
+-include archivos/subdir.mk
 -include subdir.mk
 -include objects.mk
 
@@ -23,25 +29,21 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: DAM
-
-dependents:
-	-cd /home/utnso/tp-2018-2c-smlc/sharedlib/Debug && $(MAKE) all
+all: libsharedlib.so
 
 # Tool invocations
-DAM: $(OBJS) $(USER_OBJS) /home/utnso/tp-2018-2c-smlc/sharedlib/Debug/libsharedlib.so
+libsharedlib.so: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc -L"/home/utnso/tp-2018-2c-smlc/sharedlib/Debug" -o "DAM" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc -shared -o "libsharedlib.so" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(EXECUTABLES)$(OBJS)$(C_DEPS) DAM
+	-$(RM) $(LIBRARIES)$(OBJS)$(C_DEPS) libsharedlib.so
 	-@echo ' '
 
 .PHONY: all clean dependents
-/home/utnso/tp-2018-2c-smlc/sharedlib/Debug/libsharedlib.so:
 
 -include ../makefile.targets
