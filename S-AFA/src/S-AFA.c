@@ -67,6 +67,7 @@ typedef struct metrica {
 typedef struct DTBPrioridadVRR{
 	DTB* unDTB;
 	int remanente;
+	int bloqueado; // 1 si o 0 no
 } DTBPrioridadVRR;
 
 typedef struct clienteCPU {
@@ -197,6 +198,7 @@ DTBPrioridadVRR *crearDTBVRR(DTB* miDTB, int sobra){
 
 	miDTBVRR->unDTB = miDTB;
 	miDTBVRR->remanente = sobra;
+	miDTBVRR->bloqueado = 1;
 
 	return miDTBVRR;
 }
@@ -406,6 +408,35 @@ void copiarDatosDTB(DTB *miDTB,DTB *DTBrecibido){
 	miDTB->totalDeSentenciasAEjecutar = DTBrecibido->totalDeSentenciasAEjecutar;
 }
 
+bool hayPrioridad(){
+	for (int indice = 0;indice < queue_size(colaVRR);indice++){
+		DTBPrioridadVRR *miDTB = list_get(colaVRR->elements,indice);
+		if(miDTB->bloqueado==0)
+			return true;
+	}
+	return false;
+}
+
+DTBPrioridadVRR* elegirVRRDesbloqueado(){
+	for (int indice = 0;indice < queue_size(colaVRR);indice++){
+			DTBPrioridadVRR *miDTBVRR= list_get(colaVRR->elements,indice);
+			if(miDTBVRR->bloqueado==0){
+				return miDTBVRR;
+			}
+		}
+	return NULL;
+}
+
+DTBPrioridadVRR* buscarDTBVRRPorID(int idDTB){
+	for (int indice = 0;indice < queue_size(colaVRR);indice++){
+			DTBPrioridadVRR *miDTBVRR= list_get(colaVRR->elements,indice);
+			if(miDTBVRR->unDTB->ID_GDT==idDTB){
+					return miDTBVRR;
+			}
+	}
+	return NULL;
+}
+
 	///RECURSOS///
 int buscarIndicePorRecurso(char* recursoABuscar){
 	for (int indice = 0;indice < list_size(listaRecursos);indice++){
@@ -601,9 +632,10 @@ void NuevoDTByPlanificacion(char *rutaScript){
 
 	///ACCION SEGUN PLANIFICACION ///
 
-void accionSegunPlanificacion(DTB* DTBrecibido, int motivoLiberacionCPU, int instruccionesRealizadas){
+void accionSegunPlanificacion(int socketCPU,DTB* DTBrecibido, int motivoLiberacionCPU, int instruccionesRealizadas){
 	int indice;
 	int sobra;
+	int motError;
 
 	indice=buscarIndicePorIdGDT(colaEXEC->elements,DTBrecibido->ID_GDT);
 	DTB *miDTB = list_remove(colaEXEC->elements, indice);
@@ -626,10 +658,10 @@ void accionSegunPlanificacion(DTB* DTBrecibido, int motivoLiberacionCPU, int ins
 			queue_push(colaBLOCK,miDTB);
 		}
 
-		sobra = configModificable.quantum - instruccionesRealizadas;
-
 		if(strcmp(configModificable.algoPlani,"VRR") == 0){
-			if(sobra > 0){
+			sobra = configModificable.quantum - instruccionesRealizadas;
+
+			if(sobra > 0 && miDTB->Flag_GDTInicializado == 1){
 				DTBPrioridadVRR * miDTBVRR;
 				miDTBVRR = crearDTBVRR(miDTB,sobra);
 				queue_push(colaVRR,miDTBVRR);
@@ -651,7 +683,23 @@ void accionSegunPlanificacion(DTB* DTBrecibido, int motivoLiberacionCPU, int ins
 	case MOT_ERROR:
 		queue_push(colaEXEC,miDTB);
 
-		myPuts(RED"Hubo un error en la ejecucion se aborto el  DTB NRO: %d "COLOR_RESET"\n",miDTB->ID_GDT);
+		myRecibirDatosFijos(socketCPU,&motError,sizeof(int));
+
+		switch(motError){
+		case 20001:
+			myPuts(RED"Hubo un error en la operacion ASIGNAR (el archivo no se encuentra abierto) se aborto el  DTB NRO: %d "COLOR_RESET"\n",miDTB->ID_GDT);
+		break;
+		case 20002:
+			myPuts(RED"Hubo un error en la operacion ASIGNAR (fallo segmento/memoria) se aborto el  DTB NRO: %d "COLOR_RESET"\n",miDTB->ID_GDT);
+		break;
+		case 20003:
+			myPuts(RED"Hubo un error en la operacion ASIGNAR (espacio insuficiente FM9) se aborto el  DTB NRO: %d "COLOR_RESET"\n",miDTB->ID_GDT);
+		break;
+		case 40001:
+			myPuts(RED"Hubo un error en la operacion CLOSE (el archivo no se encuentra abierto) se aborto el  DTB NRO: %d "COLOR_RESET"\n",miDTB->ID_GDT);
+		break;
+
+		}
 
 		finalizarDTB(miDTB->ID_GDT,colaEXEC->elements);
 
@@ -715,7 +763,7 @@ DTB* recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 
 		}
 	}else{
-		accionSegunPlanificacion(miDTBrecibido,motivoLiberacionCPU,instruccionesRealizadas);
+		accionSegunPlanificacion(socketCPU,miDTBrecibido,motivoLiberacionCPU,instruccionesRealizadas);
 	}
 	return miDTBrecibido;
 }
@@ -835,16 +883,19 @@ DTB * elegirProximoAEjecutarSegunPlanificacion(int socketCPU, int remanente){
 		miDTB = queue_pop(colaREADY);
 
 	}else if(strcmp(configModificable.algoPlani,"VRR")==0){
-		if(!queue_is_empty(colaVRR)){
+		if(!queue_is_empty(colaVRR) && hayPrioridad()){
 			DTBPrioridadVRR *DTBVRR;
-			DTBVRR = queue_pop(colaVRR);
+
+			DTBVRR = elegirVRRDesbloqueado();
 
 			remanente= DTBVRR->remanente;
+
 			miDTB = DTBVRR->unDTB;
-			//myEnviarDatosFijos(socketCPU, &remanente, sizeof(int));
+
+			free(DTBVRR);
 		}else{
-			//myEnviarDatosFijos(socketCPU,0, sizeof(int)); //Remanente
 			remanente = 0;
+
 			miDTB = queue_pop(colaREADY);
 		}
 	}
@@ -855,7 +906,7 @@ void PCP(){
 
 	/*Este desbloqueo se efectuará indicando al DTB_Dummy en su contenido un flag de inicialización en
 		0, el ID del DTB a “pasar” a “READY” y el path del script Escriptorio a cargar a memoria.*/
-	while(hayCPUDisponible() && (!queue_is_empty(colaREADY) || !queue_is_empty(colaVRR) ) ) {
+	while(hayCPUDisponible() && (!queue_is_empty(colaREADY) || hayPrioridad() ) ) {
 		char* strDTB;
 		int remanenteVRR=-1;
 		int motivo;
@@ -913,6 +964,7 @@ void desbloquearDTB(int idDTB){
 	int indice;
 
 	indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
+
 	miDTB = list_remove(colaBLOCK->elements,indice);
 
 	queue_push(colaREADY,miDTB);
@@ -980,7 +1032,7 @@ void finalizarDTB(int idDTB, t_list* miLista){
 
 		liberarMemoriaFM9(miDTB);
 
-		list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
+		//list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
 
 		free(miDTB);
 
@@ -1146,13 +1198,10 @@ void operacionDummy(DTB *miDTB){
 
 	///TABLA DE ARCHIVOS ABIERTOS///
 
-void agregarArchivoALaTabla(int idDTB, char * pathArchivo, int fileID){
+void agregarArchivoALaTabla(DTB* miDTB, char * pathArchivo, int fileID){
 	datosArchivo* archivo;
-	DTB* miDTB = NULL;
 
 	archivo = crearDatosArchivos(pathArchivo,fileID);
-
-	miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
 	list_add(miDTB->tablaArchivosAbiertos, archivo);
 
@@ -1299,6 +1348,7 @@ void gestionarConexionDAM(int *sock_cliente){
 	int fileID = -1;
 	char* pathArchivo = NULL ;
 	DTB* miDTB = NULL;
+	DTBPrioridadVRR* miDTBVRR = NULL;
 
 	while(1){
 
@@ -1335,7 +1385,7 @@ void gestionarConexionDAM(int *sock_cliente){
 
 						miDTB->totalDeSentenciasAEjecutar = cantSentencias;
 
-						agregarArchivoALaTabla(idDTB,miDTB->Escriptorio,fileID);
+						agregarArchivoALaTabla(miDTB,miDTB->Escriptorio,fileID);
 
 						actualizarMetricaNEW(idDTB);
 
@@ -1363,12 +1413,22 @@ void gestionarConexionDAM(int *sock_cliente){
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 					miDTB = list_get(colaBLOCK->elements,indice);
 
-					if(miDTB!= NULL && miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
-						myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
+					if(miDTB != NULL ){
 
-						finalizarDTB(idDTB, colaBLOCK->elements);
-					}else{
-						desbloquearDTB(idDTB);
+						if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
+							myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
+
+							finalizarDTB(idDTB,colaBLOCK->elements);
+						}else{
+							desbloquearDTB(idDTB);
+						}
+
+					}else if(strcmp(configModificable.algoPlani,"VRR") == 0){
+						miDTBVRR = buscarDTBVRRPorID(idDTB);
+
+						miDTBVRR->bloqueado = 0;
+
+						PCP();
 					}
 
 				break;
@@ -1392,12 +1452,19 @@ void gestionarConexionDAM(int *sock_cliente){
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 					miDTB = list_get(colaBLOCK->elements,indice);
 
-					if(miDTB != NULL && miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
-						myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
+					if(miDTB != NULL ){
+						if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
+							myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
+							finalizarDTB(idDTB,colaBLOCK->elements);
+						}else{
+							desbloquearDTB(idDTB);
+						}
+					}else if(strcmp(configModificable.algoPlani,"VRR") == 0){
+						miDTBVRR = buscarDTBVRRPorID(idDTB);
 
-						finalizarDTB(idDTB, colaBLOCK->elements);
-					}else{
-						desbloquearDTB(idDTB);
+						miDTBVRR->bloqueado = 0;
+
+						PCP();
 					}
 
 				break;
@@ -1431,13 +1498,24 @@ void gestionarConexionDAM(int *sock_cliente){
 					miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
 					if(miDTB != NULL ){
-						agregarArchivoALaTabla(idDTB,pathArchivo,fileID);
+						agregarArchivoALaTabla(miDTB,pathArchivo,fileID);
 
 						if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
+							myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
 							finalizarDTB(idDTB,colaBLOCK->elements);
 						}else{
 							desbloquearDTB(idDTB);
 						}
+
+					}else if(strcmp(configModificable.algoPlani,"VRR") == 0){
+
+						miDTBVRR = buscarDTBVRRPorID(idDTB);
+
+						agregarArchivoALaTabla(miDTBVRR->unDTB,pathArchivo,fileID);
+
+						miDTBVRR->bloqueado = 0;
+
+						PCP();
 					}
 
 				break;
@@ -1455,12 +1533,23 @@ void gestionarConexionDAM(int *sock_cliente){
 
 					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION FLUSH correctamente" COLOR_RESET "\n",idDTB);
 
-					if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
-						finalizarDTB(idDTB,colaBLOCK->elements);
-					}else{
-						desbloquearDTB(idDTB);
-					}
+					if(miDTB != NULL ){
 
+						if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
+							myPuts(BOLDGREEN"El DTB NRO: %d finalizo su ejecucion"COLOR_RESET"\n",miDTB->ID_GDT);
+
+							finalizarDTB(idDTB,colaBLOCK->elements);
+						}else{
+							desbloquearDTB(idDTB);
+						}
+
+					}else if(strcmp(configModificable.algoPlani,"VRR") == 0){
+						miDTBVRR = buscarDTBVRRPorID(idDTB);
+
+						miDTBVRR->bloqueado = 0;
+
+						PCP();
+					}
 				break;
 
 				case ACC_FLUSH_ERROR:
@@ -1555,8 +1644,11 @@ int main(void)
 		if (linea)
 			add_history(linea);
 
+		add_history("ejecutar /scripts/io_bound.escriptorio");
+		add_history("ejecutar /scripts/cpu.escriptorio");
 		add_history("ejecutar /scripts/complejo.escriptorio");
 		add_history("ejecutar /scripts/simple.escriptorio");
+
 
 		if(!strncmp(linea,"config",6))
 		{

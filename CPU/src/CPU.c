@@ -264,6 +264,10 @@ void enviarMotivoyDatos(DTB* miDTB, int motivo, int instrucciones, char *recurso
 			myEnviarDatosFijos(socketSAFA,&tiempo,sizeof(int));
 		}
 
+		if(motivo == MOT_ERROR){
+			myEnviarDatosFijos(socketSAFA,&codigoError,sizeof(int));
+		}
+
 		free(strDTB);
 	}
 
