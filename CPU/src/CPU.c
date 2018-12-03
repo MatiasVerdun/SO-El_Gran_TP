@@ -168,17 +168,17 @@ sentencia* parsear(char* linea){
 
 
 	/// VALIDACIONES PLANIFICACION///
-bool hayQuantum(int inst){
+bool hayQuantum(){
 
 	if(strcmp(tipoPlanificacion,"VRR")==0 ){
 		if(remanente > 0){
-			return inst < remanente;
+			return instruccionesEjecutadas < remanente;
 		}else{
-			return inst < quantum;
+			return instruccionesEjecutadas < quantum;
 		}
 	}
 
-	return inst < quantum || quantum < 0;
+	return instruccionesEjecutadas < quantum || quantum < 0;
 }
 
 bool terminoElDTB(DTB *miDTB){
@@ -581,7 +581,7 @@ sentencia* buscarSentencia(DTB* miDTB){
 void ejecutarInstruccion(DTB* miDTB){
 	sentencia *miSentencia;
 
-	while(hayQuantum(instruccionesEjecutadas) && !terminoElDTB(miDTB)  && !hayError() && !DTBBloqueado()){
+	while(hayQuantum() && !terminoElDTB(miDTB)  && !hayError() && !DTBBloqueado()){
 
 		miSentencia = buscarSentencia(miDTB);
 
@@ -600,7 +600,7 @@ void ejecutarInstruccion(DTB* miDTB){
 
 		motivoLiberacionCPU = MOT_FINALIZO;
 
-	}else if(instruccionesEjecutadas == quantum){
+	}else if(!hayQuantum()){
 
 		motivoLiberacionCPU = MOT_QUANTUM;
 

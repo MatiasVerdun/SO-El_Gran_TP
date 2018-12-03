@@ -419,7 +419,7 @@ bool hayPrioridad(){
 		for (int indice = 0;indice < queue_size(colaVRR);indice++){
 			miDTB = list_get(colaVRR->elements,indice);
 			estado = miDTB->bloqueado;
-			if(estado ==0)
+			if(estado == 0)
 				return true;
 		}
 	}
@@ -430,11 +430,11 @@ bool hayPrioridad(){
 DTBPrioridadVRR* elegirVRRDesbloqueado(){
 	DTBPrioridadVRR *miDTBVRR;
 	for (int indice = 0;indice < queue_size(colaVRR);indice++){
-			miDTBVRR= list_get(colaVRR->elements,indice);
-			if(miDTBVRR->bloqueado==0){
-				return miDTBVRR;
-			}
+		miDTBVRR= list_get(colaVRR->elements,indice);
+		if(miDTBVRR->bloqueado==0){
+			return miDTBVRR = list_remove(colaVRR->elements,indice);
 		}
+	}
 	return NULL;
 }
 
@@ -674,10 +674,12 @@ void accionSegunPlanificacion(int socketCPU,DTB* DTBrecibido, int motivoLiberaci
 			sobra = configModificable.quantum - instruccionesRealizadas;
 
 			if(sobra > 0 && miDTB->Flag_GDTInicializado == 1){
+
 				DTBPrioridadVRR * miDTBVRR;
 				miDTBVRR = crearDTBVRR(miDTB,sobra);
 				queue_push(colaVRR,miDTBVRR);
 			}else{
+
 				queue_push(colaBLOCK,miDTB);
 			}
 		}
@@ -887,7 +889,7 @@ void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 	free(recurso);
 }
 
-DTB * elegirProximoAEjecutarSegunPlanificacion(int socketCPU, int remanente){
+DTB * elegirProximoAEjecutarSegunPlanificacion(int socketCPU, int *remanente){
 
 	DTB* miDTB;
 	if(strcmp(configModificable.algoPlani,"FIFO")==0|| strcmp(configModificable.algoPlani,"RR")==0){
@@ -900,13 +902,13 @@ DTB * elegirProximoAEjecutarSegunPlanificacion(int socketCPU, int remanente){
 
 			DTBVRR = elegirVRRDesbloqueado();
 
-			remanente= DTBVRR->remanente;
+			*remanente= DTBVRR->remanente;
 
 			miDTB = DTBVRR->unDTB;
 
 			//free(DTBVRR); Aca no
 		}else{
-			remanente = 0;
+			*remanente = 0;
 
 			miDTB = queue_pop(colaREADY);
 		}
@@ -933,7 +935,7 @@ void PCP(){
 		actualizarConfig();
 
 		DTB * miDTB;
-		miDTB = elegirProximoAEjecutarSegunPlanificacion(socketCPU,(int)&remanenteVRR);
+		miDTB = elegirProximoAEjecutarSegunPlanificacion(socketCPU,&remanenteVRR);
 
 		myEnviarDatosFijos(socketCPU, &ejecucion, sizeof(int));		//ENVIAR EJECUCION NORMAL
 
@@ -1511,6 +1513,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
 					if(miDTB != NULL ){
+
 						agregarArchivoALaTabla(miDTB,pathArchivo,fileID);
 
 						if(miDTB->totalDeSentenciasAEjecutar == miDTB->PC){
