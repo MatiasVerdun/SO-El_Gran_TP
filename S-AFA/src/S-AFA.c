@@ -407,9 +407,12 @@ void copiarDatosDTB(DTB *miDTB,DTB *DTBrecibido){
 
 	miDTB->totalDeSentenciasAEjecutar = DTBrecibido->totalDeSentenciasAEjecutar;
 
-	list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos, (void*)free);
+	//list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos, (void*)free);
 
-	miDTB->tablaArchivosAbiertos = DTBrecibido->tablaArchivosAbiertos;
+	list_clean_and_destroy_elements(miDTB->tablaArchivosAbiertos, (void*)free);
+
+	list_add_all(miDTB->tablaArchivosAbiertos, DTBrecibido->tablaArchivosAbiertos);
+	//miDTB->tablaArchivosAbiertos = DTBrecibido->tablaArchivosAbiertos;
 }
 
 bool hayPrioridad(){
