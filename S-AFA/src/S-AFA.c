@@ -96,7 +96,7 @@ t_list *listaCPU;
 t_list *listaProcesosAFinalizar;
 t_list *listaRecursos;
 
-static sem_t semCPU;
+static sem_t semAcceso;
 static sem_t semDAM;
 static bool conectionDAM = false;
 
@@ -626,6 +626,8 @@ void PLP(){
 
 			auxDTB = queue_pop(colaNEW);
 
+			//sem_wait(&semAcceso);
+
 			operacionDummy(auxDTB);
 		}
 	}
@@ -1145,6 +1147,8 @@ void operacionDummy(DTB *miDTB){
 		int motivo;
 		myRecibirDatosFijos(socketCPU,&motivo,sizeof(int));
 
+		//sem_post(&semAcceso);
+
 		DTB* DTBrecibido = recibirDTBeInstrucciones(CPULibre->socketCPU,motivo);
 
 		free(strDTB);
@@ -1271,7 +1275,7 @@ void verificarSiExisteArchivoEnAlgunaTabla(int idDTB,char *pathArchivo){
 	///FUNCIONES DE INICIALIZACION///
 
 void inicializarSemaforos(){
-	sem_init(&semCPU,0,0);
+	sem_init(&semAcceso,0,1);
 	sem_init(&semDAM,0,0);
 }
 
@@ -1649,6 +1653,7 @@ int main(void)
 
 	//configSAFA=config_create(PATHCONFIGSAFA);
 
+	inicializarSemaforos();
 	creacionDeColas();
 	creacionDeListas();
 	cargarConfig();
@@ -1664,7 +1669,7 @@ int main(void)
 			add_history(linea);
 
 		add_history("ejecutar /scripts/io_bound.escriptorio");
-		add_history("ejecutar /scripts/cpu.escriptorio");
+		add_history("ejecutar /scripts/cpu_bound.escriptorio");
 		add_history("ejecutar /scripts/complejo.escriptorio");
 		add_history("ejecutar /scripts/simple.escriptorio");
 

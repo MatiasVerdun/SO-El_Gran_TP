@@ -811,6 +811,37 @@ void mostrarConfig(){
     free(myText);
 }
 
+	///DUMP///
+
+SegmentoDeTabla* buscarSegmentoPorIdDTB(int miID){
+	for(int i = 0 ; i < list_size(tablaDeSegmentos); i++){
+
+		SegmentoDeTabla * elemento;
+
+		elemento = list_get(tablaDeSegmentos,i);
+
+		if(elemento->ID_GDT == miID)
+			return elemento;
+	}
+	return NULL;
+}
+
+void dump(int id){
+	if(modoEjecucion == SEG)
+		{
+			SegmentoDeTabla *miSegmento;
+			miSegmento = buscarSegmentoPorIdDTB(id);
+
+			myPuts("Los datos administrativos para el DTB %d almacenados en la Tabla de Segmentos son los siguientes \n FileID: %d Base: %d Limite: %d \n",miSegmento->ID_GDT, miSegmento->fileID, miSegmento->base,miSegmento->limite);
+		} else if(modoEjecucion == TPI)
+		{
+
+		} else if(modoEjecucion == SPA)
+		{
+
+		}
+}
+
 	///GESTION DE CONEXIONES///
 
 int contarBarraN (char *conj){
@@ -1013,6 +1044,26 @@ void consola(){
 		if (linea)
 			add_history(linea);
 
+		if(!strncmp(linea,"dump ",5)){
+			char** split;
+			char strID[3];
+			int id;
+			split = string_split(linea, " ");
+
+			strcpy(strID, split[1]);
+			strID[2] = '\0';
+			id = atoi(strID);
+			printf("Operacion dump para el DTB %d \n",id);
+
+			dump(id);
+
+			free(split[0]);
+			free(split[1]);
+			free(split);
+			free(linea);
+			break;
+		}
+
 		if(!strncmp(linea,"exit",4)){
 			free(linea);
 			free(memoriaFM9);
@@ -1021,6 +1072,7 @@ void consola(){
 		free(linea);
 	}
 }
+
 int main() {
 	system("clear");
 	pthread_t hiloConnectionDAM;
