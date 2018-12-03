@@ -28,7 +28,7 @@ CFLAGS := -std=c11 $(HEADERS)
 
 # All
 
-all: clean libobjs CPU DAM FM9 MDJ S-AFA
+all: libobjs CPU DAM FM9 MDJ S-AFA
 
 
 
@@ -114,13 +114,6 @@ libclean:
 lib:
 	$(MAKE) -C $(DIR)/commons_lib/so-commons-library
 	$(MAKE) install -C $(DIR)/commons_lib/so-commons-library
-
-# -------------------------------------------------------------------------------------------------------------------------------------
-
-# Clean
-
-clean:
-	rm -f CPU DAM FM9 MDJ S-AFA *.o
 
 #-------------------------------------------------------------------------------------------------------------------------------------
 
