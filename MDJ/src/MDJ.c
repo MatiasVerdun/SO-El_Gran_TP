@@ -495,6 +495,24 @@ void consola(){
 		if(!strncmp(linea,"bm",2)){
 			mostrarBitmap();
 		}
+		if(!strncmp(linea,"md5 ",4)){
+			char** split;
+			char path[256];
+			char temp[263];
+			split = string_split(linea, " ");
+
+			strcpy(path, split[1]);
+			//strcpy(path, "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt");
+
+			strcpy(temp, "md5sum ");
+			strcat(temp,path);
+			system(temp);
+
+			free(split[0]);
+			free(split[1]);
+			free(split);
+			break;
+		}
 		if(!strncmp(linea,"getData",7)){
 			char* datos;
 			char **split;
