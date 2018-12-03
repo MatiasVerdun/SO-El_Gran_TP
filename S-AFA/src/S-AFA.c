@@ -406,6 +406,10 @@ void copiarDatosDTB(DTB *miDTB,DTB *DTBrecibido){
 	miDTB->PC = DTBrecibido->PC;
 
 	miDTB->totalDeSentenciasAEjecutar = DTBrecibido->totalDeSentenciasAEjecutar;
+
+	list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos, (void*)free);
+
+	miDTB->tablaArchivosAbiertos = DTBrecibido->tablaArchivosAbiertos;
 }
 
 bool hayPrioridad(){
@@ -900,7 +904,7 @@ DTB * elegirProximoAEjecutarSegunPlanificacion(int socketCPU, int remanente){
 
 			miDTB = DTBVRR->unDTB;
 
-			free(DTBVRR);
+			//free(DTBVRR); Aca no
 		}else{
 			remanente = 0;
 
@@ -960,7 +964,8 @@ void PCP(){
 		free(strDTB);
 
 		DTB *DTBrecibido=recibirDTBeInstrucciones(socketCPU,motivo);
-		list_destroy_and_destroy_elements(DTBrecibido->tablaArchivosAbiertos, (void*)free);
+
+		//list_destroy_and_destroy_elements(DTBrecibido->tablaArchivosAbiertos, (void*)free);
 
 		free(DTBrecibido);
 	}
