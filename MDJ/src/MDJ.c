@@ -11,6 +11,14 @@
 #include "filesystemFIFA.h"
 #include "interfaz.h"
 
+
+static sem_t semDAM;
+
+
+void inicializarSemaforos(){
+	sem_init(&semDAM,0,1);
+}
+
 ///FUNCIONES DE CONFIG///
 
 void mostrarConfig(){
@@ -182,7 +190,7 @@ void gestionarConexionDAM(int sock)
 	while(1){
 
 		if(myRecibirDatosFijos(socketDAM,(u_int32_t*)&buffer,sizeof(u_int32_t))==0){
-
+			sem_wait(&semDAM);
 			usleep((int)getConfigR("RETARDO",1,configMDJ));
 			operacion=ntohl(buffer);
 
@@ -206,6 +214,7 @@ void gestionarConexionDAM(int sock)
 					gestionArchivos(socketDAM,6);
 					break;
 			}
+			sem_post(&semDAM);
 		}else{
 			myPuts(RED "Se desconecto el proceso DAM" COLOR_RESET "\n");
 			break;
@@ -535,6 +544,7 @@ int main(void) {
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
 	configMDJ=config_create(PATHCONFIGMDJ);
 	pthread_create(&hiloConnectionDAM,NULL,(void*)&connectionDAM,NULL);
+	inicializarSemaforos();
 	crearMetadata();
 	cargarFS();
 	consola();

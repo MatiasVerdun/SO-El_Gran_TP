@@ -53,6 +53,9 @@ int paginaGlobal=0;
 t_list* tablaDeSegmentos;
 filaTPI** tablaDePaginasInvertidas;
 
+static sem_t semOperacion;
+
+
 /// TEMP ///
 
 void guardarDatos(void* datos,int size,int base){
@@ -390,9 +393,9 @@ int  asignarLineaSEG(int fileID, int linea, char* datos){
 
 		if(limite >= linea){
 
-			//int tamMemset = strlen(memoriaFM9+(base+(linea-1))*tamLinea);
+			int tamMemset = strlen(memoriaFM9+(base+(linea-1))*tamLinea);
 
-			//memset(memoriaFM9+(base+(linea-1))*tamLinea,'\0',tamMemset+1); //Capaz que se necesita cambiar->No hace falta ya esta inicializada
+			memset(memoriaFM9+(base+(linea-1))*tamLinea,'\0',tamMemset+1); //Capaz que se necesita cambiar
 
 			memcpy(memoriaFM9+(base+(linea-1))*tamLinea,datos,strlen(datos));
 
@@ -562,9 +565,9 @@ void cerrarArchivoSEG(int fileID){
 	int base = buscarBasePorfileID(fileID);
 	int limite = buscarLimitePorfileID(fileID);
 
-	desocuparLineas(base,limite-base);
+	desocuparLineas(base,limite);
 
-	for(int i = base; i < limite ;i++){
+	for(int i = base; i < base+limite ;i++){
 		memset(memoriaFM9+i*tamLinea,'\0',tamLinea);
 	}
 
@@ -874,6 +877,9 @@ void gestionarConexionDAM(int *sock){
 
 	while(1){
 		if(myRecibirDatosFijos(GsocketDAM,&operacion,sizeof(int))!=1){
+
+			//sem_wait(&semOperacion);
+
 			switch(operacion){
 				case(OPERACION_DUMMY):
 						if(myRecibirDatosFijos(GsocketDAM,&cantLineas,sizeof(int))==1)
@@ -893,6 +899,8 @@ void gestionarConexionDAM(int *sock){
 
 					cerrarVariosArchivos();
 				break;
+
+			//sem_post(&semOperacion);
 			}
 		}else{
 			myPuts(RED "Se desconecto el proceso DAM" COLOR_RESET "\n");
@@ -908,6 +916,9 @@ void gestionarConexionCPU(int *sock){
 
 	while(1){
 		if(myRecibirDatosFijos(socketCPU,&operacion,sizeof(int))!=1){
+
+			//sem_wait(&semOperacion);
+
 			switch(operacion){
 				case (OPERACION_ASIGNAR):
 					asignarLinea(socketCPU);
@@ -934,6 +945,9 @@ void gestionarConexionCPU(int *sock){
 
 					enviarLinea(socketCPU,fileID,linea);
 				break;
+
+			//sem_post(&semOperacion);
+
 			}
 		}else{
 			myPuts(RED "Se desconecto el proceso CPU" COLOR_RESET "\n");
@@ -1088,6 +1102,7 @@ int main() {
 
 	inicializarMemoria();
 
+	//sem_init(&semOperacion,0,1);
 
 	if(modoEjecucion == SEG)
 	{

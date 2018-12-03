@@ -27,7 +27,12 @@ t_config *configDAM;
 	char IP_ESCUCHA[15];
 	int PUERTO_ESCUCHA;
 } thDatos;*/
-	///INTERFAZ CON MDJ///
+
+
+static sem_t semOperacion;
+
+
+///INTERFAZ CON MDJ///
 
 void validarArchivo(char* path){
 
@@ -452,8 +457,10 @@ void gestionarConexionCPU(int *sock_cliente){
 
 	while(1){
 		result = myRecibirDatosFijos(socketCPU,&operacion,sizeof(int));
-
 		if(result != 1 ){
+
+		sem_wait(&semOperacion);
+
 			switch(operacion){
 
 			case OPERACION_DUMMY:
@@ -486,6 +493,7 @@ void gestionarConexionCPU(int *sock_cliente){
 
 			break;
 			}
+		sem_post(&semOperacion);
 		}else{
 
 			avisarDesconexionCPU(socketCPU);
@@ -494,6 +502,7 @@ void gestionarConexionCPU(int *sock_cliente){
 
 			break;
 		}
+
 	}
 }
 
@@ -506,11 +515,13 @@ void gestionarConexionSAFA(int socketSAFA){
 
 	while(1){
 		if(myRecibirDatosFijos(socketGSAFA,&idDTB,sizeof(int))!=1){
+			sem_wait(&semOperacion);
 
 			myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
 
 			myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
 
+			sem_post(&semOperacion);
 		}else{
 			myPuts(RED "Se desconecto el proceso S-AFA"COLOR_RESET"\n ");
 
@@ -637,6 +648,7 @@ int main() {
 
 	configDAM=config_create(PATHCONFIGDAM);
 
+	sem_init(&semOperacion,0,1);
 
     pthread_create(&hiloConnectionSAFA,NULL,(void*)&connectionSAFA,NULL);
     pthread_create(&hiloConnectionMDJ,NULL,(void*)&connectionMDJ,NULL);
