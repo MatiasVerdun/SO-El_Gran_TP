@@ -16,7 +16,8 @@
 #include <sentencias/sentencias.h>
 
 
-#define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9.txt"
+#define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9Completa.txt"
+//#define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9.txt"
 
 enum{ SEG,
 	  TPI,
@@ -1091,10 +1092,10 @@ void setModoEjecucion(){
 
 int inicializarLineasOcupadas( ){
 
-	if((tamMemoria % tamLinea) != 0){
+	/*if((tamMemoria % tamLinea) != 0){
 		printf("El tamaño de memoria no es multiplo del tamaño de linea");
 		return -1;
-	}
+	}*/
 
 	lineasOcupadas = malloc(tamMemoria/tamLinea);
 

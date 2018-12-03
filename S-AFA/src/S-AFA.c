@@ -21,7 +21,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
+#define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFACompleta.txt"
+//#define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
+
+
 //t_config *configSAFA;
 
 bool operacionDummyOK = true;
@@ -1683,6 +1686,10 @@ int main(void)
 		if (linea)
 			add_history(linea);
 
+		add_history("ejecutar /scripts/la_12.escriptorio");
+		add_history("ejecutar /scripts/los_borrachos.escriptorio");
+		add_history("ejecutar /scripts/inter.escriptorio");
+		add_history("ejecutar /scripts/bloqueo.escriptorio");
 		add_history("ejecutar /scripts/io_bound.escriptorio");
 		add_history("ejecutar /scripts/cpu_bound.escriptorio");
 		add_history("ejecutar /scripts/complejo.escriptorio");

@@ -6,7 +6,7 @@ DIR := ${CURDIR}
 H_SRCS=$(shell find . -iname "*.h" | tr '\n' ' ')
 
 HEADERS := -I"/usr/include" -I"$(DIR)/sharedlib" -I"$(DIR)/CPU" -I"$(DIR)/DAM" -I"$(DIR)/FM9" -I"$(DIR)/MDJ" -I"$(DIR)/S-AFA"         
-LIBPATH := -L"$(DIR)/sharedlib"
+LIBPATH := -L"$(DIR)/sharedlib/Release"
 LIBS := -lcommons -lpthread -lreadline -lsharedlib
 
 CC := gcc -w -g
@@ -118,20 +118,20 @@ lib:
 #-------------------------------------------------------------------------------------------------------------------------------------
 
 archivos.o:
-	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/archivos/archivos.c -o $(DIR)/sharedlib/Release/archivos/archivos.o
+	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/archivos/archivos.c -o $(DIR)/sharedlib/Release/archivos.o
 
-conexiones.o:
-	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/conexiones/mySockets.c -o $(DIR)/sharedlib/Release/conexiones/mySockets.o
+mySockets.o:
+	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/conexiones/mySockets.c -o $(DIR)/sharedlib/Release/mySockets.o
 
-console.o:
-	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/console/myConsole.c -o $(DIR)/sharedlib/Release/console/myConsole.o
+myConsole.o:
+	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/console/myConsole.c -o $(DIR)/sharedlib/Release/myConsole.o
 
 dtbSerializacion.o:
-	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/dtbSerializacion/dtbSerializacion.c -o $(DIR)/sharedlib/Release/dtbSerializacion/dtbSerializacion.o
+	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/dtbSerializacion/dtbSerializacion.c -o $(DIR)/sharedlib/Release/dtbSerializacion.o
 
 parser.o:
-	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/parser/parser.c -o $(DIR)/sharedlib/Release/parser/parser.o
+	$(CC) -c $(CFLAGS) $(DIR)/sharedlib/parser/parser.c -o $(DIR)/sharedlib/Release/parser.o
 
-libobjs: $(MAKE) -C $(DIR)/sharedlib/Release 
-		archivos.o conexiones.o console.o dtbSerializacion.o parser.o
+libobjs: archivos.o mySockets.o myConsole.o dtbSerializacion.o parser.o
+		$(MAKE) -C $(DIR)/sharedlib/Release 
 		
