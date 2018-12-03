@@ -327,6 +327,8 @@ void operacionFlush( int socketCPU){
 
 	myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));
 
+	myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
+
 	char* datos = recibirDatosTS(socketGFM9,maxTransfer);
 
 	respuestaMDJ = guardarDatos(pathArchivo,0,0,datos);
