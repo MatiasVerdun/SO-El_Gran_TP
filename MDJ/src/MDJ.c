@@ -320,8 +320,7 @@ void listarDirectorioIndice(char* linea,struct tablaDirectory *t_directorios){
 void listar(char* linea){
     struct dirent *de;  // Pointer for directory entry
 	char* realpath;
-	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
-	int contadorElementos=0;
+	char* puntoMontaje=string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	if(strcmp(linea,"")==0){
 		printf(BOLDCYAN "fifafs:~/mnt/%s" COLOR_RESET "\n",dirActual+strlen(puntoMontaje));
 		realpath=string_from_format("%s",dirActual);
@@ -353,8 +352,10 @@ void listar(char* linea){
 		else
 			printf(BOLDBLUE "%s\n" COLOR_RESET, de->d_name);
 	}
+	printf(BOLDWHITE ".." COLOR_RESET "\n");
 
 	closedir(dr);
+	free(puntoMontaje);
     free(realpath);
 }
 
@@ -405,7 +406,7 @@ void cat(char* linea){
 	char *pathArchivoFIFAFS,*archivo;
 	char **split;
 	split=(char**)string_split(linea," ");
-	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	char* puntoMontaje=string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	if(esRutaFS(split[1])==0){
 		pathArchivoFIFAFS=string_from_format("%s",split[1]);
 	}else{
@@ -425,6 +426,7 @@ void cat(char* linea){
 		free(archivo);
 	}
 	free(pathArchivoFIFAFS);
+	free(puntoMontaje);
 	liberarSplit(split);
 
 }
@@ -451,9 +453,114 @@ void leerArchivoBitmap(){
 	printf("\n");
 }
 
+void mkfile(char* linea){
+	char *pathArchivoFIFAFS;
+	char **split;
+	split=(char**)string_split(linea," ");
+	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	if(esRutaFS(split[1])==0){
+		pathArchivoFIFAFS=string_from_format("%s",split[1]);
+	}else{
+		pathArchivoFIFAFS=string_from_format("%s%s",dirActual+strlen(puntoMontaje),split[1]);
+	}
+	//printf("%s\n",pathArchivoFIFAFS);
+	crearArchivo(pathArchivoFIFAFS,atoi(split[2]));
+
+	free(pathArchivoFIFAFS);
+	liberarSplit(split);
+}
+
+void rmfile(char* linea){
+	char *pathArchivoFIFAFS;
+	char **split;
+	split=(char**)string_split(linea," ");
+	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	if(esRutaFS(split[1])==0){
+		pathArchivoFIFAFS=string_from_format("%s",split[1]);
+	}else{
+		pathArchivoFIFAFS=string_from_format("%s%s",dirActual+strlen(puntoMontaje),split[1]);
+	}
+	borrarArchivo(pathArchivoFIFAFS);
+
+	free(pathArchivoFIFAFS);
+	liberarSplit(split);
+}
+
+void getdata(char* linea){
+	char *pathArchivoFIFAFS,*datos;
+	char **split;
+	split=(char**)string_split(linea," ");
+	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	if(esRutaFS(split[1])==0){
+		pathArchivoFIFAFS=string_from_format("%s",split[1]);
+	}else{
+		pathArchivoFIFAFS=string_from_format("%s%s",dirActual+strlen(puntoMontaje),split[1]);
+	}
+	datos=obtenerDatos(pathArchivoFIFAFS,atoi(split[2]),atoi(split[3]));
+	printf("%s\n",datos);
+	liberarSplit(split);
+	free(pathArchivoFIFAFS);
+	free(datos);
+}
+
+void setbloque(char* linea){
+	char **split;
+	split = (char**)string_split(linea," ");
+	int indice = atoi(split[1]);
+	setBloqueOcupado(indice);
+	liberarSplit(split);
+}
+
+void clearbloque(char* linea){
+	char **split;
+	split = (char**)string_split(linea," ");
+	int indice = atoi(split[1]);
+	setBloqueLibre(indice);
+	liberarSplit(split);
+}
+
+void finalizarMDJ(){
+	free(bitmap->bitarray);
+	free(bitmap);
+	free(dirActual);
+}
+
+void md5(char* linea){
+	char** split;
+	char* temp;
+	char* pathArchivoFIFAFS;
+	split=(char**)string_split(linea," ");
+	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
+	if(esRutaFS(split[1])==0){
+		pathArchivoFIFAFS=string_from_format("%s",split[1]);
+	}else{
+		pathArchivoFIFAFS=string_from_format("%s%s",dirActual,split[1]);
+	}
+
+	temp=string_from_format("md5sum %s",pathArchivoFIFAFS);
+	system(temp);
+
+	free(temp);
+	free(pathArchivoFIFAFS);
+	free(puntoMontaje);
+	liberarSplit(split);
+}
+
+void copydata(char* linea){
+	char** split=string_split(linea," ");
+	char* datos=obtenerArchivoFS(split[1]);
+	if(strcmp(datos,"ERROR")==0)
+		printf("El archivo especificado no existe\n");
+	int tamDatos=obtenerTamArchivoFS(split[1]);
+	printf("%d\n",tamDatos);
+	crearArchivo(split[2],tamDatos);
+	guardarDatos(split[2],0,tamDatos,datos);
+	liberarSplit(split);
+	free(datos);
+}
+
 void consola(){
 	char* linea;
-	tableDirectory t_directorios[100];
 	while(1){
 		linea = readline(">");
 		add_history("mkfile Archivos/scripts/creacion.escriptorio 50");
@@ -466,7 +573,7 @@ void consola(){
 		if (linea)
 			add_history(linea);
 
-		if(!strncmp(linea,"config",6))
+		if(!strncmp(linea,"config ",7))
 		{
 			mostrarConfig();
 		}
@@ -476,80 +583,42 @@ void consola(){
 		if(!strncmp(linea,"fs",2)){
 			cargarFS();
 		}
-		if(!strncmp(linea,"cat",2)){
+		if(!strncmp(linea,"cat ",3)){
 			cat(linea);
 		}
-		if(!strncmp(linea,"cd",2)){
+		if(!strncmp(linea,"cd ",3)){
 			cd(linea);
 		}
-		if(!strncmp(linea,"mkfile",6)){
-			char** split=string_split(linea," ");
-			crearArchivo(split[1],atoi(split[2]));
-			liberarSplit(split);
+		if(!strncmp(linea,"mkfile ",7)){
+			mkfile(linea);
 		}
-		if(!strncmp(linea,"rmfile",6)){
-			char** split=string_split(linea," ");
-			borrarArchivo(split[1]);
-			liberarSplit(split);
+		if(!strncmp(linea,"rmfile ",7)){
+			rmfile(linea);
 		}
-		if(!strncmp(linea,"bm",2)){
+		if(!strncmp(linea,"bitmap",2)){
 			mostrarBitmap();
 		}
 		if(!strncmp(linea,"md5 ",4)){
-			char** split;
-			char path[256];
-			char temp[263];
-			split = string_split(linea, " ");
-
-			strcpy(path, split[1]);
-			//strcpy(path, "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt");
-
-			strcpy(temp, "md5sum ");
-			strcat(temp,path);
-			system(temp);
-
-			free(split[0]);
-			free(split[1]);
-			free(split);
-			break;
+			md5(linea);
 		}
-		if(!strncmp(linea,"getData",7)){
-			char* datos;
-			char **split;
-			split=(char**)string_split(linea," ");
-			datos=obtenerDatos(split[1],atoi(split[2]),atoi(split[3]));
-			printf("%s\n",datos);
-			liberarSplit(split);
-			free(datos);
+		if(!strncmp(linea,"getdata ",8)){
+			getdata(linea);
 		}
-		if(!strncmp(linea,"save",4)){
-			char** split=string_split(linea," ");
-			char* datos=obtenerArchivoFS("Archivos/scripts/checkpoint.escriptorio");
-			int tamDatos=obtenerTamArchivoFS("Archivos/scripts/checkpoint.escriptorio");
-			guardarDatos(split[1],0,tamDatos,datos);
-			liberarSplit(split);
-			free(datos);
+		if(!strncmp(linea,"copy ",5)){
+			copydata(linea);
 		}
-		if(!strncmp(linea,"set",3)){
-			char **split;
-			split=(char**)string_split(linea," ");
-			int indice= atoi(split[1]);
-			setBloqueOcupado(indice);
-			liberarSplit(split);
-
+		if(!strncmp(linea,"setbloque ",10)){
+			setbloque(linea);
 		}
-		if(!strncmp(linea,"clear",4)){
-			char **split;
-			split=(char**)string_split(linea," ");
-			int indice= atoi(split[1]);
-			setBloqueLibre(indice);
-			liberarSplit(split);
+		if(!strncmp(linea,"clearbloque ",12)){
+			clearbloque(linea);
+		}
+		if(!strncmp(linea,"pwd",3)){
+			printf("%s\n",dirActual);
 		}
 		if(!strncmp(linea,"exit",4)){
-			free(bitmap->bitarray);
-			free(bitmap);
 			free(linea);
-			free(dirActual);
+			finalizarMDJ();
 			break;
 		}
 		free(linea);

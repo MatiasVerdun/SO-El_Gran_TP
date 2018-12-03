@@ -49,8 +49,7 @@ int crearArchivo(char* pathArchivoFS,u_int32_t filesize){
 				memset(datosVacios,'\0',tamBloque+1);
 				memset(datosVacios,'\n',tamBloque);
 				escribirBloque(proximoBloqueLibre,datosVacios);
-				if(!j==(cantidadBloques-1))
-					string_append(&metadataArchivo,",");
+				string_append(&metadataArchivo,",");
 				free(datosVacios);
 			}
 			free(proximoBloqueLibre);
@@ -143,7 +142,7 @@ char* obtenerDatos(char* pathArchivoFS,int offset,int size){
 				}else{
 					char* datosAux = leerBloqueDesdeHasta(bloquesArchivo[i],0,size);
 					string_append(&datos,datosAux);
-					printf("size %d",size);
+					//printf("size %d",size);
 					size=0;
 					free(datosAux);
 				}
@@ -172,7 +171,7 @@ char* obtenerDatos(char* pathArchivoFS,int offset,int size){
 }
 
 int guardarDatos(char* pathArchivoFS,int offset, int size,char* buffer){
-	if(validarPathArchivoFS(pathArchivoFS)==0){
+	if(existeArchivoFS(pathArchivoFS)==0){
 		char** bloquesArchivo=obtenerBloquesArchivoFS(pathArchivoFS);
 		char* datosAux=malloc(tamBloque+1);//Datos a escribir
 		int tamArchivo = obtenerTamArchivoFS(pathArchivoFS);
@@ -231,7 +230,7 @@ int guardarDatos(char* pathArchivoFS,int offset, int size,char* buffer){
 		liberarSplit(bloquesArchivo);
 		return 0;
 	}
-
+	printf("Archivo inexistente no se pudieron guardar los datos");
 	return -1;
 }
 

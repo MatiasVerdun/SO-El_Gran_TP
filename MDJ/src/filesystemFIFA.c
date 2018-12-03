@@ -86,8 +86,10 @@ int getNBloqueLibre(){
 
 
 void mostrarBitmap(){
-
 	for(int i=0;i<(bitmap->size);i++){
+		if(i%64==0 && i!=0){
+			printf("\n");
+		}
 		printf("%d",bitarray_test_bit(bitmap,i));
 	}
 	printf("\n");
@@ -116,7 +118,7 @@ void cargarFS(){
 	if (stat(puntoMontaje, &st) == -1) {//TODO Crear nuevo punto de montaje
 		printf("La carpeta %s no existe\n",puntoMontaje);
 	}else{
-		dirActual=string_from_format("%s",puntoMontaje);
+		dirActual=string_from_format("%sArchivos/",puntoMontaje);
 		metadata=string_from_format("%sMetadata/Metadata.bin", puntoMontaje);
 		configFS=config_create(metadata);
 		tamBloque=(int)getConfigR("TAMANIO_BLOQUES",1,configFS);
@@ -134,7 +136,7 @@ void cargarFS(){
 
 char* leerBloqueDesdeHasta(char* nroBloque,int offset,int size){
 	char* contenidoBloque=malloc(size+1);
-	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	memset(contenidoBloque,'\0',size+1);
 	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
 	leerArchivoDesdeHasta(pathBloque,contenidoBloque,offset,size);
@@ -147,7 +149,7 @@ char* leerBloqueDesdeHasta(char* nroBloque,int offset,int size){
 
 char* leerBloque(char* nroBloque){
 	char* contenidoBloque=malloc(tamBloque+1);
-	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	memset(contenidoBloque,'\0',tamBloque+1);
 	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
 	leerArchivoDesdeHasta(pathBloque,contenidoBloque,0,tamBloque);
@@ -159,7 +161,7 @@ char* leerBloque(char* nroBloque){
 
 
 void escribirBloque(char* nroBloque,char* datos){
-	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
 	escribirArchivo(pathBloque,datos);
 	setBloqueOcupado(atoi(nroBloque));
@@ -179,7 +181,7 @@ void escribirBloqueDesde(char* nroBloque,int inicio,char* datos){
 
 
 void limpiarBloque(char* nroBloque){
-	char* puntoMontaje= string_from_format((char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	char* pathBloque=string_from_format("%sBloques/%s.bin", puntoMontaje,nroBloque);
 	limpiarArchivo(pathBloque);
 	setBloqueLibre(atoi(nroBloque));
@@ -208,7 +210,7 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 
 	char* puntoMontaje= string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
 	//u_int32_t tamArchivo;
-	u_int32_t cantBloquesArchivo,i=0;
+	u_int32_t i=0;
 	char** bloques;
 
 	if (stat(puntoMontaje, &st) == -1) {
@@ -222,7 +224,6 @@ char* obtenerArchivoFS(char* pathFSArchivo){ //pathFSArchivo-> Path del archivo 
 			configFS=config_create(pathABSarchivo);
 			//tamArchivo=(int)getConfigR("TAMANIO",1,configFS);
 			bloques=config_get_array_value(configFS, "BLOQUES");
-			cantBloquesArchivo=array_length(bloques);
 			char *archivo=string_new();
 
 			//printf("Tamanio : %d\n", tamArchivo);
@@ -273,7 +274,7 @@ void crearCarpetas(char* pathArchivoFS){
 	char *dirACrear=string_from_format("%s%s",puntoMontaje,splitPathFS[0]);
 	i++;
 	while(splitPathFS[i]!=NULL){
-		printf("%s\n",dirACrear);
+		//printf("%s\n",dirACrear);
 		if (stat(dirACrear, &st) == -1)
 			    mkdir(dirACrear, 0700);
 		string_append_with_format(&dirACrear,"/%s",splitPathFS[i]);
@@ -813,6 +814,8 @@ int array_length(void* array){
 		return -1;
 }
 
+char* convertirAPathFS(char* path){
 
+}
 
 
