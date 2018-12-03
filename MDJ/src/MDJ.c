@@ -23,9 +23,10 @@ void mostrarConfig(){
 	myText = string_from_format("Punto de montaje: %s \0", (char*)getConfigR("PUNTO_MONTAJE",0,configMDJ) );
 	displayBoxBody(50,myText);
 	displayBoxClose(50);
+	myText = string_from_format("Retardo: %s \0", (char*)getConfigR("RETARDO",0,configMDJ) );
+	displayBoxBody(50,myText);
+	displayBoxClose(50);
     free(myText);
-
-
 }
 
 ///GESTION DE CONEXIONES///
@@ -181,6 +182,8 @@ void gestionarConexionDAM(int sock)
 	while(1){
 
 		if(myRecibirDatosFijos(socketDAM,(u_int32_t*)&buffer,sizeof(u_int32_t))==0){
+
+			usleep((int)getConfigR("RETARDO",1,configMDJ));
 			operacion=ntohl(buffer);
 
 			switch(operacion){
