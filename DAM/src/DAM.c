@@ -225,7 +225,7 @@ void enviarAccionASAFA(int accion, int idDTB,int fileID,char* pathArchivo,int ca
 	myEnviarDatosFijos(socketGSAFA,&accion,sizeof(int));
 	myEnviarDatosFijos(socketGSAFA,&idDTB,sizeof(int));
 
-	if(accion == ACC_ABRIR_OK || accion == ACC_BORRAR_OK ){ // ACC_BORRAR_OK tiene que ser ACC_CLOSE_OK
+	if(accion == ACC_ABRIR_OK ){
 		int tamanio = strlen(pathArchivo);
 		myEnviarDatosFijos(socketGSAFA,&tamanio,sizeof(int));
 		myEnviarDatosFijos(socketGSAFA,pathArchivo,tamanio);

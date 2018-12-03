@@ -329,6 +329,16 @@ int buscarFileID(t_list *listaArchivos,char* pathArchivo){
 	return -1;
 }
 
+void cerrarArchivo(t_list *listaArchivos,char* pathArchivo){
+	for (int indice = 0;indice < list_size(listaArchivos);indice++){
+		datosArchivo *miArchivo;
+		miArchivo = list_get(listaArchivos,indice);
+		if(strcmp(miArchivo->pathArchivo,pathArchivo) == 0){
+			list_remove_and_destroy_element(listaArchivos,indice,(void*)free);
+		}
+	}
+}
+
 void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjecutadas){
 	int fileID;
 	int parametro2;
@@ -356,6 +366,8 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
 
 				myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
+			}else{
+				myPuts(GREEN"El archivo '%s' ya esta abierto "COLOR_RESET"\n",miSentencia->param1);
 			}
 
 		break;
@@ -445,7 +457,10 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 
 				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));			//ENVIO ID
 
-				myRecibirDatosFijos(socketGFM9,&respuestaFM9,sizeof(int));  //RECIBO RESPUESTA DEL FM9
+				if(myRecibirDatosFijos(socketGFM9,&respuestaFM9,sizeof(int))==1)  //RECIBO RESPUESTA DEL FM9
+					myPuts(RED"Error al recibir la respuesta del FM9"COLOR_RESET"\n");
+
+				cerrarArchivo(miDTB->tablaArchivosAbiertos,miSentencia->param1);
 
 			}else{
 				codigoError = 40001;										//ERROR: El archivo no se encuentra abierto

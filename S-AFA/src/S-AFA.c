@@ -409,17 +409,24 @@ void copiarDatosDTB(DTB *miDTB,DTB *DTBrecibido){
 }
 
 bool hayPrioridad(){
-	for (int indice = 0;indice < queue_size(colaVRR);indice++){
-		DTBPrioridadVRR *miDTB = list_get(colaVRR->elements,indice);
-		if(miDTB->bloqueado==0)
-			return true;
+	int estado;
+	DTBPrioridadVRR *miDTB;
+	if(!queue_is_empty(colaVRR)){
+		for (int indice = 0;indice < queue_size(colaVRR);indice++){
+			miDTB = list_get(colaVRR->elements,indice);
+			estado = miDTB->bloqueado;
+			if(estado ==0)
+				return true;
+		}
 	}
 	return false;
+
 }
 
 DTBPrioridadVRR* elegirVRRDesbloqueado(){
+	DTBPrioridadVRR *miDTBVRR;
 	for (int indice = 0;indice < queue_size(colaVRR);indice++){
-			DTBPrioridadVRR *miDTBVRR= list_get(colaVRR->elements,indice);
+			miDTBVRR= list_get(colaVRR->elements,indice);
 			if(miDTBVRR->bloqueado==0){
 				return miDTBVRR;
 			}
@@ -428,8 +435,9 @@ DTBPrioridadVRR* elegirVRRDesbloqueado(){
 }
 
 DTBPrioridadVRR* buscarDTBVRRPorID(int idDTB){
+	DTBPrioridadVRR *miDTBVRR;
 	for (int indice = 0;indice < queue_size(colaVRR);indice++){
-			DTBPrioridadVRR *miDTBVRR= list_get(colaVRR->elements,indice);
+			miDTBVRR= list_get(colaVRR->elements,indice);
 			if(miDTBVRR->unDTB->ID_GDT==idDTB){
 					return miDTBVRR;
 			}
