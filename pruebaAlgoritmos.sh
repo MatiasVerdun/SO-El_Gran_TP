@@ -1,12 +1,12 @@
 bash clean.sh
 cd Config/Pruebas
-cp CPUAlgoritmos ../CPU.txt
+cp CPUAlgoritmos.txt ../CPU.txt
 cd Pruebas
-cp S-AFAAlgoritmos ../S-AFA.txt
+cp S-AFAAlgoritmos.txt ../S-AFA.txt
 cd Pruebas
-cp DAMAlgoritmos ../DAM.txt
+cp DAMAlgoritmos.txt ../DAM.txt
 cd Pruebas
-cp MDJAlgoritmos ../MDJ.txt
+cp MDJAlgoritmos.txt ../MDJ.txt
 cd Pruebas
-cp FM9Algoritmos ../FM9.txt
+cp FM9Algoritmos.txt ../FM9.txt
 cd ../..
