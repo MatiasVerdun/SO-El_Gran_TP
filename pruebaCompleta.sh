@@ -1,12 +1,12 @@
 bash clean.sh
 cd Config/Pruebas
-cp CPUCompleta ../CPU.txt
+cp CPUCompleta.txt ../CPU.txt
 cd Pruebas
-cp S-AFACompleta ../S-AFA.txt
+cp S-AFACompleta.txt ../S-AFA.txt
 cd Pruebas
-cp DAMCompleta ../DAM.txt
+cp DAMCompleta.txt ../DAM.txt
 cd Pruebas
-cp MDJCompleta ../MDJ.txt
+cp MDJCompleta.txt ../MDJ.txt
 cd Pruebas
-cp FM9Completa ../FM9.txt
+cp FM9Completa.txt ../FM9.txt
 cd ../..
