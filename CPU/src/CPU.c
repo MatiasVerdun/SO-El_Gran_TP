@@ -15,8 +15,8 @@
 #include <sentencias/sentencias.h>
 #include <parser/parser.h>
 
-#define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPUCompleta.txt"
-//#define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt"
+//#define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPUCompleta.txt"
+#define PATHCONFIGCPU "/home/utnso/tp-2018-2c-smlc/Config/CPU.txt"
 
 t_config *configCPU;
 

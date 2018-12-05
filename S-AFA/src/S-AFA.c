@@ -21,8 +21,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFACompleta.txt"
-//#define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
+//#define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFACompleta.txt"
+#define PATHCONFIGSAFA "/home/utnso/tp-2018-2c-smlc/Config/S-AFA.txt"
 
 
 //t_config *configSAFA;

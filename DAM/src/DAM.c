@@ -18,8 +18,8 @@ u_int32_t socketGSAFA;
 
 int maxTransfer;
 
-#define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAMCompleta.txt"
-//#define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAM.txt"
+//#define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAMCompleta.txt"
+#define PATHCONFIGDAM "/home/utnso/tp-2018-2c-smlc/Config/DAM.txt"
 
 t_config *configDAM;
 

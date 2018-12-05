@@ -17,8 +17,8 @@
 #include <dirent.h>
 
 #define PATHD "/home/utnso/tp-2018-2c-smlc/MDJ/Metadata/directorios.dat"
-#define PATHCONFIGMDJ "/home/utnso/tp-2018-2c-smlc/Config/MDJCompleta.txt"
-//#define PATHCONFIGMDJ "/home/utnso/tp-2018-2c-smlc/Config/MDJ.txt"
+//#define PATHCONFIGMDJ "/home/utnso/tp-2018-2c-smlc/Config/MDJCompleta.txt"
+#define PATHCONFIGMDJ "/home/utnso/tp-2018-2c-smlc/Config/MDJ.txt"
 #define tamDirectorio 256
 #define tamMaxDirectorios tamDirectorio*100
 

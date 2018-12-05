@@ -16,8 +16,8 @@
 #include <sentencias/sentencias.h>
 
 
-#define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9Completa.txt"
-//#define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9.txt"
+//#define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9Completa.txt"
+#define PATHCONFIGFM9 "/home/utnso/tp-2018-2c-smlc/Config/FM9.txt"
 
 enum{ SEG,
 	  TPI,
