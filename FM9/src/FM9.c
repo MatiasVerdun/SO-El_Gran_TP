@@ -150,6 +150,28 @@ void miLiberarSplit(char ** vecStrings,int cantLineas){
 	free(vecStrings);
 }
 
+void mostrarLineasOcupadas(){
+
+	for(int j = 0; j < tamMemoria/tamLinea; j++){
+
+		printf("%d",lineasOcupadas[j]);
+	}
+
+	printf("\n");
+
+}
+
+void mostrarFramesOcupados(){
+
+	for(int j = 0; j < tamMemoria/tamPagina; j++){
+
+		printf("%d",framesOcupados[j]);
+	}
+
+	printf("\n");
+
+}
+
 /// BUSCAR///
 
 int buscarFramePorPagina(int pagina){
@@ -249,7 +271,7 @@ void ocuparLineas(int base, int num){
 }
 
 void desocuparLineas(int base, int num){
-	for(int i=0; i<base+num; i++){
+	for(int i=0; i<num; i++){
 		lineasOcupadas[base+i] = 0;
 	}
 }
@@ -350,10 +372,7 @@ void abrirArchivoSEG(int cantLineas){
 
 		ocuparLineas(miSegmento->base,miSegmento->limite);
 
-		for(int j = 0; j < tamMemoria/tamLinea; j++){
-			printf("%d",lineasOcupadas[j]);
-		}
-		printf("\n");
+		mostrarLineasOcupadas();
 
 		int cantConjuntos;
 		if(myRecibirDatosFijos(GsocketDAM,&cantConjuntos,sizeof(int))==1)
@@ -453,6 +472,8 @@ void abrirArchivoTPI(int cantLineas){
 				memcpy(memoriaFM9+(((frame * tamPagina)/tamLinea)+k)*tamLinea,vecStrings[(j-1)*tamPagina/tamLinea+i+k],strlen(vecStrings[(j-1)*tamPagina/tamLinea+i+k]));
 			}
 		}
+
+		mostrarFramesOcupados();
 
 		myEnviarDatosFijos(GsocketDAM,&dirLogica,sizeof(int));
 
@@ -975,14 +996,17 @@ void cerrarVariosArchivos(){
 	switch(modoEjecucion){
 	case SEG:
 		cerrarVariosArchivosSEG(idDTB);
+		mostrarLineasOcupadas();
 		break;
 	case TPI:
 		cerrarVariosArchivosTPI(idDTB);
+		mostrarFramesOcupados();
 		break;
 	case SPA:
 		cerrarVariosArchivosSPA(idDTB);
 		break;
 	}
+
 	myPuts(GREEN "Se cerraron correctamente todos los archivos del DTB NRO: %d" COLOR_RESET "\n",idDTB);
 
 }

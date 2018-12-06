@@ -106,7 +106,7 @@ static bool conectionDAM = false;
 	///PROTOTIPOS///
 void verificarSiSePuedeLiberarUnRecurso(recurso *miRecurso);
 void finalizarDTB(bool post,int idDTB, t_list* miLista);
-void operacionDummy(DTB *miDTB);
+void operacionDummy();
 int buscarIndiceListaDeMetricas(t_list* miLista, int idDTB);
 
 	///FUNCIONES DE CONFIG///
@@ -570,7 +570,7 @@ void actualizarMetricaDiego(int idDTB){
 	laMetrica->sentenciasEjecutadasQueFueronAlDiego += 1;
 }
 
-void actualizarMetricaSentenciasEjecutadas(int idDTB){
+void actualizarMetricaSentenciasEjecutadas(int idDTB, int instrucciones){
 
 	bool esMetricaDelDTB(metrica *metricaAux){
 		return metricaAux->ID_DTB == idDTB;
@@ -579,7 +579,7 @@ void actualizarMetricaSentenciasEjecutadas(int idDTB){
 	metrica *laMetrica;
 	laMetrica = list_find(listaMetricas, (void*) esMetricaDelDTB);
 
-	laMetrica->sentenciasEjecutadas  += 1;
+	laMetrica->sentenciasEjecutadas  += instrucciones;
 }
 
 void mostrarMetricasDTB(int idDTB){
@@ -627,23 +627,23 @@ void PLP(){
 		actualizarConfig();
 
 		if (DTBenPCP <= configModificable.gradoMultiprogramacion && operacionDummyOK){
-			DTB *auxDTB;
 
-			auxDTB = queue_pop(colaNEW);
-
-			operacionDummy(auxDTB);
+			operacionDummy();
 		}
 	}
 }
 
 void NuevoDTByPlanificacion(char *rutaScript){
-	DTB *elDTB;
+	DTB *miDTB;
 	metrica *laMetrica;
 
-	elDTB = crearDTB(rutaScript);
-	queue_push(colaNEW,elDTB);
+	miDTB = crearDTB(rutaScript);
 
-	laMetrica = crearMetricasParaDTB(elDTB->ID_GDT);
+	queue_push(colaNEW,miDTB);
+
+	myPuts(BLUE "El DTB NRO  %d esta en la cola NEW" COLOR_RESET "\n",miDTB->ID_GDT);
+
+	laMetrica = crearMetricasParaDTB(miDTB->ID_GDT);
 	list_add(listaMetricas,laMetrica);
 
 	PLP();
@@ -666,10 +666,13 @@ void accionSegunPlanificacion(int socketCPU,DTB* DTBrecibido, int motivoLiberaci
 
 	case MOT_QUANTUM:
 		queue_push(colaREADY,miDTB);
+
+		myPuts(BLUE "El DTB NRO  %d esta en la cola READY" COLOR_RESET "\n",miDTB->ID_GDT);
+
 	break;
 
 	case MOT_BLOQUEO:
-		//printf("SE BLOQUEO EL DTB NRO : %d \n", DTBrecibido->ID_GDT);
+
 		if(miDTB->Flag_GDTInicializado == 1){		//Los DUMMY no cuentan para las metricas
 			cantDeSentenciasQueUsaronADiego += 1; // Todas las sentencias que se bloquearon usaron al DAM y solo se puede hacer de a una por vez
 			actualizarMetricaDiego(miDTB->ID_GDT);
@@ -677,6 +680,8 @@ void accionSegunPlanificacion(int socketCPU,DTB* DTBrecibido, int motivoLiberaci
 
 		if(strcmp(configModificable.algoPlani,"FIFO")==0 || strcmp(configModificable.algoPlani,"RR")==0){
 			queue_push(colaBLOCK,miDTB);
+
+			myPuts(BLUE "El DTB NRO  %d esta en la cola BLOCK" COLOR_RESET "\n",miDTB->ID_GDT);
 		}
 
 		if(strcmp(configModificable.algoPlani,"VRR") == 0){
@@ -686,10 +691,15 @@ void accionSegunPlanificacion(int socketCPU,DTB* DTBrecibido, int motivoLiberaci
 
 				DTBPrioridadVRR * miDTBVRR;
 				miDTBVRR = crearDTBVRR(miDTB,sobra);
+
 				queue_push(colaVRR,miDTBVRR);
+				myPuts(BLUE "El DTB NRO  %d esta en la cola DE PRIORIDAD VRR" COLOR_RESET "\n",miDTB->ID_GDT);
+
 			}else{
 
 				queue_push(colaBLOCK,miDTB);
+
+				myPuts(BLUE "El DTB NRO  %d esta en la cola BLOCK" COLOR_RESET "\n",miDTB->ID_GDT);
 			}
 		}
 	break;
@@ -765,7 +775,7 @@ DTB* recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 
 	if(miDTBrecibido->Flag_GDTInicializado ==1){
 		myRecibirDatosFijos(socketCPU,&tiempoCPU,sizeof(int));
-		actualizarMetricaSentenciasEjecutadas(miDTBrecibido->ID_GDT);
+		actualizarMetricaSentenciasEjecutadas(miDTBrecibido->ID_GDT,instruccionesRealizadas);
 		tiempoCPUs  = tiempoCPUs + tiempoCPU;
 		cantHistoricaDeSentencias += instruccionesRealizadas;
 	}
@@ -803,7 +813,7 @@ void asignarRecurso(int socketCPU, recurso *miRecurso, int idDTB){
 	}else{
 		list_add(miRecurso->DTBBloqueados,(int*)idDTB);
 		resultado = 0;
-		myPuts(MAGENTA"No se pudo asignar el recurso '%s' se bloqueo el DTB %d, avisando a CPU "COLOR_RESET"\n",miRecurso->recurso,idDTB);
+		myPuts(MAGENTA"No se pudo asignar el recurso '%s' se bloqueara el DTB %d, avisando a CPU "COLOR_RESET"\n",miRecurso->recurso,idDTB);
 		myEnviarDatosFijos(socketCPU,&resultado,sizeof(int)); // BloquearDTB
 	}
 
@@ -849,12 +859,17 @@ void ejecutarAccionWaitSignal(int accion, int socketCPU,DTB *miDTB){
 
 				myPuts(GREEN"Se creo el recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
 
+				miRecurso->semaforo -= 1;
+
 				continuarEjecucion = 1;
 				myEnviarDatosFijos(socketCPU,&continuarEjecucion,sizeof(int)); // OK
 			}else{
 				miRecurso = list_get(listaRecursos,indiceRecurso);
+
 				myPuts(GREEN"Se hizo WAIT del recurso '%s' , enviando confirmacion"COLOR_RESET"\n",miRecurso->recurso);
+
 				miRecurso->semaforo -= 1;
+
 				asignarRecurso(socketCPU,miRecurso,miDTB->ID_GDT);
 			}
 		}else{
@@ -982,17 +997,20 @@ void PCP(){
 }
 
 	///FINALIZAR  Y DESBLOQUEAR DTB///
+
 void desbloquearDTB(int idDTB){
 	DTB * miDTB;
 	int indice;
 
 	sem_post(&semDAM);
-	//printf("SE DESBLOQUEO EL DTB NRO : %d \n",idDTB);
+
 	indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 
 	miDTB = list_remove(colaBLOCK->elements,indice);
 
 	queue_push(colaREADY,miDTB);
+
+	myPuts(BLUE "El DTB NRO  %d esta en la cola READY" COLOR_RESET "\n",idDTB);
 
 	PCP();
 
@@ -1003,9 +1021,11 @@ void verificarSiSePuedeLiberarUnRecurso(recurso *miRecurso){
 
 		if(!list_is_empty(miRecurso->DTBBloqueados)){
 
-			int idDTBaDesbloquear = (int)list_get(miRecurso->DTBBloqueados,0); //Lo saca de la cola de Bloqueados y lo pone en la de Wait/Asignado
+			int idDTBaDesbloquear = (int)list_remove(miRecurso->DTBBloqueados,0); //Lo saca de la cola de Bloqueados y lo pone en la de Wait/Asignado
 			list_add(miRecurso->DTBWait, (int*)idDTBaDesbloquear);
 			miRecurso->semaforo -= 1;
+
+			myPuts(MAGENTA "El DTB NRO  %d se desbloqueara porque le hicieron SIGNAL a '%s'" COLOR_RESET "\n",idDTBaDesbloquear,miRecurso->recurso);
 
 			desbloquearDTB(idDTBaDesbloquear);
 
@@ -1126,13 +1146,21 @@ void finalizarPorConsola(int idDTB){
 
 	///OPERACION DUMMY///
 
-void operacionDummy(DTB *miDTB){
+void operacionDummy(){
 	if(hayCPUDisponible() ) {
 		operacionDummyOK = false;
 
 		char* strDTB;
 		clienteCPU*CPULibre;
+		DTB* miDTB;
 		int ejecucion = EJECUCION_NORMAL;
+
+
+		miDTB = queue_pop(colaNEW);
+
+		queue_push(colaEXEC,miDTB);
+
+		myPuts(BLUE "El DTB NRO  %d esta en la cola EXEC" COLOR_RESET "\n",miDTB->ID_GDT);
 
 		miDTB->Flag_GDTInicializado = 0; //"Lo transforma en dummy"
 
@@ -1146,8 +1174,6 @@ void operacionDummy(DTB *miDTB){
 		myEnviarDatosFijos(socketCPU,&ejecucion,sizeof(int));
 
 		enviarQyPlanificacionACPU(socketCPU,0);
-
-		queue_push(colaEXEC,miDTB);
 
 		strDTB = DTBStruct2String (miDTB);
 		myEnviarDatosFijos(CPULibre->socketCPU, strDTB, strlen(strDTB));
@@ -1433,6 +1459,7 @@ void gestionarConexionDAM(int *sock_cliente){
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
 					myPuts(RED"Hubo un error en la operacion DUMMY se aborto el  DTB NRO: %d "COLOR_RESET"\n",idDTB);
+					myPuts(">");
 
 					finalizarDTB(true,idDTB, colaBLOCK->elements);
 
@@ -1675,6 +1702,7 @@ int main(void)
 	creacionDeColas();
 	creacionDeListas();
 	cargarConfig();
+	mostrarConfig();
 
 	pthread_create(&hiloConnectionDAM,NULL,(void*) &connectionDAM,NULL);
 	pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
@@ -1686,18 +1714,25 @@ int main(void)
 		if (linea)
 			add_history(linea);
 
-		add_history("ejecutar /scripts/la_12.escriptorio");
+
+		add_history("ejecutar /scripts/llena_memoria.escriptorio");
+
 		add_history("ejecutar /scripts/los_borrachos.escriptorio");
-		add_history("ejecutar /scripts/inter.escriptorio");
+		add_history("ejecutar /scripts/la_12.escriptorio");
+
 		add_history("ejecutar /scripts/bloqueo.escriptorio");
+		add_history("ejecutar /scripts/inter.escriptorio");
+
 		add_history("ejecutar /scripts/io_bound.escriptorio");
 		add_history("ejecutar /scripts/cpu_bound.escriptorio");
+
 		add_history("ejecutar /scripts/complejo.escriptorio");
 		add_history("ejecutar /scripts/simple.escriptorio");
 
 
 		if(!strncmp(linea,"config",6))
 		{
+			actualizarConfig();
 			mostrarConfig();
 		}
 
