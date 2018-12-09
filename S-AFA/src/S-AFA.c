@@ -114,25 +114,35 @@ int buscarIndiceListaDeMetricas(t_list* miLista, int idDTB);
 void mostrarConfig(){
 
 	char* myText = string_from_format("DAM -> IP: %s - Puerto: %d \0", configModificable.IP_ESCUCHA,configModificable.PUERTO_DAM);
-		displayBoxTitle(50,"CONFIGURACION");
-		displayBoxBody(50,myText);
-		displayBoxClose(50);
-		myText = string_from_format("CPU -> IP: %s - Puerto: %d \0", configModificable.IP_ESCUCHA,configModificable.PUERTO_CPU);
-		displayBoxBody(50,myText);
-		displayBoxClose(50);
-		myText = string_from_format("Algoritmo: %s \0", configModificable.algoPlani);
-		displayBoxBody(50,myText);
-		displayBoxClose(50);
-		myText = string_from_format("Grado de multiprogramacion: %d \0", configModificable.gradoMultiprogramacion);
-		displayBoxBody(50,myText);
-		displayBoxClose(50);
-		myText = string_from_format("Quantum: %d \0", configModificable.quantum);
-		displayBoxBody(50,myText);
-		displayBoxClose(50);
-		myText = string_from_format("Retardo: %d \0" COLOR_RESET , configModificable.retardoPlani);
-		displayBoxBody(50,myText);
-		displayBoxClose(50);
-	    free(myText);
+	displayBoxTitle(50,"CONFIGURACION");
+	displayBoxBody(50,myText);
+	displayBoxClose(50);
+	free(myText);
+
+	myText = string_from_format("CPU -> IP: %s - Puerto: %d \0", configModificable.IP_ESCUCHA,configModificable.PUERTO_CPU);
+	displayBoxBody(50,myText);
+	displayBoxClose(50);
+	free(myText);
+
+	myText = string_from_format("Algoritmo: %s \0", configModificable.algoPlani);
+	displayBoxBody(50,myText);
+	displayBoxClose(50);
+	free(myText);
+
+	myText = string_from_format("Grado de multiprogramacion: %d \0", configModificable.gradoMultiprogramacion);
+	displayBoxBody(50,myText);
+	displayBoxClose(50);
+	free(myText);
+
+	myText = string_from_format("Quantum: %d \0", configModificable.quantum);
+	displayBoxBody(50,myText);
+	displayBoxClose(50);
+	free(myText);
+
+	myText = string_from_format("Retardo: %d \0" COLOR_RESET , configModificable.retardoPlani);
+	displayBoxBody(50,myText);
+	displayBoxClose(50);
+	free(myText);
 }
 
 void actualizarConfig(){
@@ -161,15 +171,17 @@ void cargarConfig(){
 
 	//FUNCIONES PARA LA LISTAS/COLAS
 	///CREAR STRUCTS///
-static void dtb_destroy(DTB* self){
-	printf("Me libere\n");
-	list_destroy(self->tablaArchivosAbiertos);
-	free(self);
+void dtb_destroy(DTB* miDTB){
+
+	list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void *)free);
+
+	free(miDTB);
+
 }
 
 DTB* crearDTB(char *rutaMiScript){
-	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
-	miDTB = malloc(sizeof(DTB));
+	DTB *miDTB = NULL; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
+	miDTB = malloc(sizeof(*miDTB));
 
 	miDTB->ID_GDT = IDGlobal;
 	strcpy(miDTB->Escriptorio,rutaMiScript);
@@ -763,7 +775,7 @@ void enviarQyPlanificacionACPU(int CPU,int remanente){
 	free(planificacion);
 }
 
-DTB* recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
+void  recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 	DTB *miDTBrecibido;
 	clienteCPU *miCPU;
 	int instruccionesRealizadas;
@@ -797,7 +809,12 @@ DTB* recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 	}else{
 		accionSegunPlanificacion(socketCPU,miDTBrecibido,motivoLiberacionCPU,instruccionesRealizadas);
 	}
-	return miDTBrecibido;
+
+
+	list_destroy_and_destroy_elements(miDTBrecibido->tablaArchivosAbiertos,(void*)free);
+
+	free(miDTBrecibido);
+
 }
 
 	///PLANIFICACION CORTO PLAZO///
@@ -988,11 +1005,9 @@ void PCP(){
 
 		free(strDTB);
 
-		DTB *DTBrecibido=recibirDTBeInstrucciones(socketCPU,motivo);
+		recibirDTBeInstrucciones(socketCPU,motivo);
 
-		//list_destroy_and_destroy_elements(DTBrecibido->tablaArchivosAbiertos, (void*)free);
 
-		free(DTBrecibido);
 	}
 }
 
@@ -1080,7 +1095,7 @@ void finalizarDTB(bool post,int idDTB, t_list* miLista){
 
 		liberarMemoriaFM9(miDTB);
 
-		//list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
+		list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
 
 		free(miDTB);
 
@@ -1183,11 +1198,10 @@ void operacionDummy(){
 
 		//sem_post(&semAcceso);
 
-		DTB* DTBrecibido = recibirDTBeInstrucciones(CPULibre->socketCPU,motivo);
+		recibirDTBeInstrucciones(CPULibre->socketCPU,motivo);
 
 		free(strDTB);
-		list_destroy_and_destroy_elements(DTBrecibido->tablaArchivosAbiertos, (void*)free);
-		free(DTBrecibido);
+
 
 		PCP();
 	}
@@ -1965,5 +1979,6 @@ int main(void)
 
 		free(linea);
 	}
+
 	return EXIT_SUCCESS;
 }
