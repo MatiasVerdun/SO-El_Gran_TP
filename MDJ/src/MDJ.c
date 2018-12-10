@@ -526,23 +526,34 @@ void finalizarMDJ(){
 }
 
 void md5(char* linea){
-	char** split;
-	char* temp;
-	char* pathArchivoFIFAFS;
+	char *pathArchivoFIFAFS,*archivo,*temp,*pathTemp;
+	char **split;
 	split=(char**)string_split(linea," ");
-	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
-	/*if(esRutaFS(split[1])==0){
-		pathArchivoFIFAFS=string_from_format("%s",split[1]);
+
+	char* puntoMontaje=string_from_format("%s",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	if(esRutaFS(split[1])==0){
+		pathArchivoFIFAFS=string_from_format("Archivos/%s",split[1]);
 	}else{
-		pathArchivoFIFAFS=string_from_format("%s%s",dirActual,split[1]);
-	}*/
+		pathArchivoFIFAFS=string_from_format("%s%s",dirActual+strlen(puntoMontaje),split[1]);
+	}
+	if(esArchivoFS(pathArchivoFIFAFS)==1){
+		free(pathArchivoFIFAFS);
+		liberarSplit(split);
+		printf("El archivo a leer no es un archivo del FIFAFS\n");
+		return;
+	}
+	archivo=obtenerArchivoFS(pathArchivoFIFAFS);
+	if(strcmp(archivo,"ERROR")==0){
+		printf("El archivo especificado no existe\n");
+	}
 
-
-	pathArchivoFIFAFS=string_from_format("%s%s",dirActual,split[1]);
-
-	temp=string_from_format("md5sum %s",pathArchivoFIFAFS);
+	pathTemp=string_from_format("%smd5.tmp",(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ));
+	escribirArchivo(pathTemp,archivo);
+	temp=string_from_format("md5sum %s",pathTemp);
 	system(temp);
 
+	free(archivo);
+	free(pathTemp);
 	free(temp);
 	free(pathArchivoFIFAFS);
 	free(puntoMontaje);
@@ -640,6 +651,6 @@ int main(void) {
 	cargarFS();
 	consola();
 	config_destroy(configMDJ);
-	return EXIT_SUCCESS;
+	return 0;
 
 }
