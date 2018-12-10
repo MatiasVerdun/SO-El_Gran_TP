@@ -1,3 +1,6 @@
+cd ..
+git clone https://github.com/sisoputnfrba/fifa-examples
+cd tp-2018-2c-smlc
 cd sharedlib/Debug
 make clean
 make all
