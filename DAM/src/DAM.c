@@ -279,8 +279,10 @@ void operacionAlMDJ(int operacion, int socketCPU){
 		respuesta = crearArchivo(pathArchivo,lineasDelArchivo);
 
 		if(respuesta == 0){
+			myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION CREAR correctamente, avisando a SAFA" COLOR_RESET "\n",idDTB);
 			enviarAccionASAFA(ACC_CREAR_OK, idDTB,0, pathArchivo,0);
 		}else{
+			myPuts(RED "La OPERACION CREAR fallo, avisando a SAFA" COLOR_RESET "\n");
 			enviarAccionASAFA(ACC_CREAR_ERROR, idDTB,0, pathArchivo,0);
 		}
 
@@ -290,8 +292,10 @@ void operacionAlMDJ(int operacion, int socketCPU){
 		respuesta = borrarArchivo(pathArchivo);
 
 		if(respuesta == 0){
+			myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION BORRAR correctamente, avisando a SAFA" COLOR_RESET "\n",idDTB);
 			enviarAccionASAFA(ACC_BORRAR_OK, idDTB,0, pathArchivo,0);
 		}else{
+			myPuts(RED "La OPERACION BORRAR fallo, avisando a SAFA" COLOR_RESET "\n");
 			enviarAccionASAFA(ACC_BORRAR_ERROR, idDTB,0, pathArchivo,0);
 		}
 
@@ -336,8 +340,10 @@ void operacionFlush( int socketCPU){
 	respuestaMDJ = guardarDatos(pathArchivo,0,0,datos);
 
 	if(respuestaMDJ == 0){
+		myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION FLUSH correctamente, avisando a SAFA" COLOR_RESET "\n",idDTB);
 		enviarAccionASAFA(ACC_FLUSH_OK,idDTB,0,NULL,0);
 	}else{
+		myPuts(RED "La OPERACION FLUSH fallo, avisando a SAFA" COLOR_RESET "\n");
 		enviarAccionASAFA(ACC_FLUSH_ERROR,idDTB,0,NULL,0);
 	}
 	free(datos);
@@ -420,14 +426,18 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 
 			if(operacion == OPERACION_DUMMY){
 				int cantSentencias = cantidadSentencias(script,cantLineas);
+				myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION DUMMY correctamente, avisando a SAFA" COLOR_RESET "\n",idDTB);
 				enviarAccionASAFA(ACC_DUMMY_OK,idDTB,fileID,NULL,cantSentencias);
 			} else {
+				myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION ABRIR correctamente, avisando a SAFA" COLOR_RESET "\n",idDTB);
 				enviarAccionASAFA(ACC_ABRIR_OK,idDTB,fileID,pathArchivo,0);
 			}
 		}else{
 			if(operacion == OPERACION_DUMMY){
+				myPuts(RED "La OPERACION DUMMY fallo, avisando a SAFA" COLOR_RESET "\n");
 				enviarAccionASAFA(ACC_DUMMY_ERROR,idDTB,0,NULL,0);
 			} else {
+				myPuts(RED "La OPERACION ABRIR fallo, avisando a SAFA" COLOR_RESET "\n");
 				enviarAccionASAFA(ACC_ABRIR_ERROR,idDTB,0,NULL,0);
 			}
 		}
@@ -436,8 +446,10 @@ void operacionDummyOAbrir(int operacion, int socketCPU){
 
 	} else {
 		if(operacion == OPERACION_DUMMY){
+			myPuts(RED "La OPERACION DUMMY fallo, avisando a SAFA" COLOR_RESET "\n");
 			enviarAccionASAFA(ACC_DUMMY_ERROR,idDTB,0,NULL,0);
 		} else {
+			myPuts(RED "La OPERACION ABRIR fallo, avisando a SAFA" COLOR_RESET "\n");
 			enviarAccionASAFA(ACC_ABRIR_ERROR,idDTB,0,NULL,0);
 		}
 	}

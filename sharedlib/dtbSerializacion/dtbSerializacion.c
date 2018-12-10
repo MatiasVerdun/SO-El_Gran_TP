@@ -32,7 +32,7 @@ DTB* recibirDTB(int socket){
 	lenLista = atoi(strLenLista);
 	//printf("Len Lista: %d\n", lenLista);
 	if (lenLista != 0){
-		resultRecv = myRecibirDatosFijos(socket,buffer + 266,lenLista * (256 + 4 ));
+		resultRecv = myRecibirDatosFijos(socket,buffer + 266,lenLista * (256 + 6 ));
 		if (resultRecv!=0)
 		{
 			myPuts("Se deconecto el S-AFA!!!\n");
@@ -70,7 +70,7 @@ char* DTBStruct2String(DTB *miDTB){
 
 	int lenLista= list_size(miDTB->tablaArchivosAbiertos);
 
-	miStringDTB = malloc(266 + (lenLista * (256 + 4)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3) + terminoEjecucion(1)
+	miStringDTB = malloc(266 + (lenLista * (256 + 6)) + 1); // 264 = idGDT(2) + rutaScript(256) + PC(2) + estadoGDT(1) + lenLista(3) + terminoEjecucion(1)
 
 	sprintf(miStringDTB,"%02d%-256s%2d%1d%02d%03d",miDTB->ID_GDT,miDTB->Escriptorio,miDTB->PC,miDTB->Flag_GDTInicializado,miDTB->totalDeSentenciasAEjecutar,lenLista);
 	//El %03 me dice que puede llegar a tener 999 archivos abiertos
@@ -80,7 +80,7 @@ char* DTBStruct2String(DTB *miDTB){
 
 		misDatos = list_get(miDTB->tablaArchivosAbiertos,indice);
 		char* pathArchivo=string_from_format("%256s",misDatos->pathArchivo);
-		char* fileID=string_from_format("%4d",misDatos->fileID);
+		char* fileID=string_from_format("%6d",misDatos->fileID);
 
 		strcat(miStringDTB,pathArchivo);
 		strcat(miStringDTB,fileID);
@@ -89,7 +89,7 @@ char* DTBStruct2String(DTB *miDTB){
 		free(fileID);
 
 	}
-	miStringDTB[266 + (lenLista * (256 + 4))]='\0';
+	miStringDTB[266 + (lenLista * (256 + 6))]='\0';
 
 	return miStringDTB;
 }
@@ -170,8 +170,8 @@ DTB* DTBString2Struct (char *miStringDTB){
 			memset(fileID,'\0',10);
 			misDatos = malloc(sizeof(datosArchivo));
 
-			strncpy(path,nInicioLista + ((256 + 4) * indice),256);
-			strncpy(fileID,nInicioLista + ((256 + 4) * indice) + 256, 4);
+			strncpy(path,nInicioLista + ((256 + 6) * indice),256);
+			strncpy(fileID,nInicioLista + ((256 + 6) * indice) + 256, 6);
 			id = atoi(fileID);
 
 			myTrim(&(misDatos->pathArchivo),&path);

@@ -213,7 +213,7 @@ int  buscarLimitePorfileID(int fileId){
 }
 
 SegmentoDeTablaSPA* buscarSegmento(t_list* tablaSegmentos,int segmento){
-	for(int i = 0; i < list_size(tablaDeProcesosSPA);i++){
+	for(int i = 0; i < list_size(tablaSegmentos);i++){
 			SegmentoDeTablaSPA* miSegmento  = list_get(tablaSegmentos,i);
 			if(miSegmento->nroSegmento == segmento){
 				return miSegmento;
@@ -251,6 +251,16 @@ procesoDeTabla* buscarProcesoPorIDDTB(int idDTB){
 		}
 	}
 	return NULL;
+}
+
+procesoDeTabla* buscarIndiceProceso(int idDTB){
+	for(int i = 0; i < list_size(tablaDeProcesosSPA);i++){
+		procesoDeTabla* miProceso  = list_get(tablaDeProcesosSPA,i);
+		if(miProceso->ID_GDT == idDTB){
+			return i;
+		}
+	}
+	return -1;
 }
 
 int buscarFrameLibre(){
@@ -531,6 +541,7 @@ void abrirArchivoSPA(int cantLineas){
 		procesoDeTabla* proceso;
 		if(!existeProceso(idDTB)){
 			proceso = crearProcesoDeTabla(idDTB);
+			list_add(tablaDeProcesosSPA,proceso);
 		}else{
 			proceso = buscarProcesoPorIDDTB(idDTB);
 		}
@@ -541,7 +552,7 @@ void abrirArchivoSPA(int cantLineas){
 
 		list_add(proceso->tablaDeSegmentos, miSegmento);
 
-		myPuts(MAGENTA"Se le asigno el SEGMENTO: %d  al DTB NRO: %d"COLOR_RESET"\n", miSegmento->nroSegmento);
+		myPuts(MAGENTA"Se le asigno el SEGMENTO: %d  al DTB NRO: %d"COLOR_RESET"\n", miSegmento->nroSegmento,idDTB);
 
 		paginaDeTabla* miPagina;
 
@@ -560,7 +571,7 @@ void abrirArchivoSPA(int cantLineas){
 				paginaActual = list_get(miSegmento->tablaDePaginas,0);
 				frameActual = paginaActual->nroFrame;
 
-				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual->nroPagina);
 
 				for(i = 0;  i < (tamPagina/tamLinea); i++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
@@ -569,7 +580,7 @@ void abrirArchivoSPA(int cantLineas){
 				paginaActual = list_get(miSegmento->tablaDePaginas,0);
 				frameActual = paginaActual->nroFrame;
 
-				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual->nroPagina);
 
 				for(i = 0;  i < offsetUltimoFrame; i++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
@@ -578,7 +589,7 @@ void abrirArchivoSPA(int cantLineas){
 				paginaActual = list_get(miSegmento->tablaDePaginas,0);
 				frameActual = paginaActual->nroFrame;
 
-				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual->nroPagina);
 
 				for(i = 0;  i < tamPagina/tamLinea; i++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
@@ -588,7 +599,7 @@ void abrirArchivoSPA(int cantLineas){
 					paginaActual = list_get(miSegmento->tablaDePaginas,j);
 					frameActual = paginaActual->nroFrame;
 
-					myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+					myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual->nroPagina);
 
 					for(i = 0;  i < (tamPagina/tamLinea); i++){
 						memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[j*tamPagina/tamLinea+i],strlen(vecStrings[j*tamPagina/tamLinea+i]));
@@ -598,7 +609,7 @@ void abrirArchivoSPA(int cantLineas){
 				paginaActual = list_get(miSegmento->tablaDePaginas,0);
 				frameActual = paginaActual->nroFrame;
 
-				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual->nroPagina);
 
 				for(i = 0;  i < tamPagina/tamLinea; i++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
@@ -608,7 +619,7 @@ void abrirArchivoSPA(int cantLineas){
 					paginaActual = list_get(miSegmento->tablaDePaginas,j);
 					frameActual = paginaActual->nroFrame;
 
-					myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+					myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual->nroPagina);
 
 					for(int i = 0;  i < (tamPagina/tamLinea); i++){
 						memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[j*tamPagina/tamLinea+i],strlen(vecStrings[j*tamPagina/tamLinea+i]));
@@ -618,12 +629,14 @@ void abrirArchivoSPA(int cantLineas){
 				paginaActual = list_get(miSegmento->tablaDePaginas,j);
 				frameActual = paginaActual->nroFrame;
 
-				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual->nroPagina);
 
 				for( int k  = 0;  k < offsetUltimoFrame; k++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+k)*tamLinea,vecStrings[(j-1)*tamPagina/tamLinea+i+k],strlen(vecStrings[(j-1)*tamPagina/tamLinea+i+k]));
 				}
 			}
+
+			mostrarFramesOcupados();
 
 			myEnviarDatosFijos(GsocketDAM,&dirLogica,sizeof(int));
 
@@ -726,7 +739,7 @@ int asignarLineaSPA(int dirLogica,int linea,char* datos,int idDTB){
 
 	memset(memoriaFM9+(frame*tamPagina+offset),'\0',tamLinea+1);
 
-	memcpy(memoriaFM9+(frame*tamPagina+offset),datos,strlen(datos));
+	memcpy(memoriaFM9+(frame*tamPagina),datos,strlen(datos));
 
 	myPuts(GREEN "Operacion Asignar correcta." COLOR_RESET "\n");
 
@@ -739,18 +752,21 @@ void asignarLinea(int socketCPU){
 
 	if(myRecibirDatosFijos(socketCPU,&fileID,sizeof(int))==1)
 		myPuts(RED"Error al recibir el fileID"COLOR_RESET"\n");
+
 	if(myRecibirDatosFijos(socketCPU,&linea,sizeof(int))==1)
 		myPuts(RED"Error al recibir la linea "COLOR_RESET"\n");
+
 	if(myRecibirDatosFijos(socketCPU,&tamanioDatos,sizeof(int))==1)
 		myPuts(RED"Error al recibir el tamaño"COLOR_RESET"\n");
-	if(myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int))==1)
-		myPuts(RED"Error al recibir el IDDTB "COLOR_RESET"\n");
 
 	datos = malloc(tamanioDatos+2);
 	memset(datos,'\0',tamanioDatos+2);
 
 	if(myRecibirDatosFijos(socketCPU,datos,tamanioDatos)==1)
 		myPuts(RED"Error al recibir los datos"COLOR_RESET"\n");
+
+	if(myRecibirDatosFijos(socketCPU,&idDTB,sizeof(int))==1)
+		myPuts(RED"Error al recibir el IDDTB "COLOR_RESET"\n");
 
 	switch(modoEjecucion){
 	case SEG:
@@ -836,7 +852,6 @@ void flushTPI(int dirLogica){
 void flushSPA(int dirLogica,int idDTB){
 	char* paqueteEnvio;
 	int tamanio=0;
-	int cantFrames;
 	int frameActual;
 	paginaDeTabla* paginaActual;
 
@@ -854,7 +869,7 @@ void flushSPA(int dirLogica,int idDTB){
 		tamanio += strlen(memoriaFM9+(frameActual*tamPagina+i*tamLinea));
 	}
 
-	for(int i = 1;i<cantFrames;i++){
+	for(int i = 1;i<list_size(miSegmento->tablaDePaginas);i++){
 		paginaActual = list_get(miSegmento->tablaDePaginas,i);
 		frameActual = paginaActual->nroFrame;
 		for(int j = 0;j<tamPagina/tamLinea;j++){
@@ -914,6 +929,7 @@ void cerrarArchivoSEG(int fileID){
 		memset(memoriaFM9+i*tamLinea,'\0',tamLinea);
 	}
 
+
 	for(int i = 0; i < list_size(tablaDeSegmentos);i++){
 		SegmentoDeTabla* segmento = list_get(tablaDeSegmentos,i);
 		if(segmento->fileID == fileID){
@@ -960,6 +976,7 @@ void cerrarArchivoSPA(int dirLogica, int idDTB){
 		memset(memoriaFM9+(frame*tamPagina),'\0',tamPagina);
 	}
 
+
 	list_destroy_and_destroy_elements(miSegmento->tablaDePaginas,(void*)free);
 	list_remove_and_destroy_element(proceso->tablaDeSegmentos,indice,(void*)free);
 
@@ -982,15 +999,15 @@ void cerrarArchivo(int fileID,int idDTB){
 
 void cerrarVariosArchivosSEG(int idDTB){
 
-	for(int i = 0; i < list_size(tablaDeSegmentos);i++){
+	for(int i = list_size(tablaDeSegmentos)-1 ; i >= 0 ;i--){
 		SegmentoDeTabla* segmento = list_get(tablaDeSegmentos,i);
 
 		if(segmento->ID_GDT == idDTB){
 
 			cerrarArchivo(segmento->fileID,idDTB);
-
 		}
 	}
+
 }
 
 void cerrarVariosArchivosTPI(int idDTB){
@@ -1010,12 +1027,16 @@ void cerrarVariosArchivosSPA(int idDTB){
 	SegmentoDeTablaSPA* segmento;
 	procesoDeTabla* proceso = buscarProcesoPorIDDTB(idDTB);
 
-	for(int i = 0; i < list_size(proceso->tablaDeSegmentos);i++){
+	for(int i = list_size(proceso->tablaDeSegmentos)-1 ; i >= 0 ;i--){
 		segmento = list_get(proceso->tablaDeSegmentos,i);
 
 		cerrarArchivo(segmento->nroSegmento*100*tamPagina,idDTB);
 
 	}
+
+	int indice = buscarIndiceProceso(idDTB);
+	list_remove_and_destroy_element(tablaDeProcesosSPA,indice,(void *) free);
+
 }
 
 void cerrarVariosArchivos(){
@@ -1034,6 +1055,7 @@ void cerrarVariosArchivos(){
 		break;
 	case SPA:
 		cerrarVariosArchivosSPA(idDTB);
+		mostrarFramesOcupados();
 		break;
 	}
 
@@ -1094,19 +1116,23 @@ void enviarLineaSPA(int socketCPU, int dirLogica, int linea,int idDTB){
 
 	SegmentoDeTablaSPA* miSegmento = buscarSegmento(proceso->tablaDeSegmentos,segmento);
 
-	paginaDeTabla* miPagina  = list_get(miSegmento->tablaDePaginas,pagina);
+	if(miSegmento!=NULL){
+		paginaDeTabla* miPagina  = list_get(miSegmento->tablaDePaginas,pagina);
 
-	int frame = miPagina->nroFrame;
+		int frame = miPagina->nroFrame;
 
-	memcpy(strLinea,memoriaFM9+((frame * tamPagina)/tamLinea + offset)*tamLinea,strlen(memoriaFM9+((frame * tamPagina)/tamLinea + offset)*tamLinea));	//TODO Marian no esta convencido
+		memcpy(strLinea,memoriaFM9+((frame * tamPagina)/tamLinea + offset)*tamLinea,strlen(memoriaFM9+((frame * tamPagina)/tamLinea + offset)*tamLinea));	//TODO Marian no esta convencido
 
-	int tamanio = strlen(strLinea);
+		int tamanio = strlen(strLinea);
 
-	myEnviarDatosFijos(socketCPU,&tamanio,sizeof(int));
+		myEnviarDatosFijos(socketCPU,&tamanio,sizeof(int));
 
-	myEnviarDatosFijos(socketCPU,strLinea,tamanio);
+		myEnviarDatosFijos(socketCPU,strLinea,tamanio);
 
-	free(strLinea);
+		free(strLinea);
+	}else{
+		myPuts(RED"Error al buscar el segmento"COLOR_RESET"\n");
+	}
 }
 
 void enviarLinea(int socketCPU, int fileID, int linea,int idDTB){

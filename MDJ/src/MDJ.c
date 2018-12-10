@@ -531,11 +531,14 @@ void md5(char* linea){
 	char* pathArchivoFIFAFS;
 	split=(char**)string_split(linea," ");
 	char* puntoMontaje=(char*)getConfigR("PUNTO_MONTAJE",0,configMDJ);
-	if(esRutaFS(split[1])==0){
+	/*if(esRutaFS(split[1])==0){
 		pathArchivoFIFAFS=string_from_format("%s",split[1]);
 	}else{
 		pathArchivoFIFAFS=string_from_format("%s%s",dirActual,split[1]);
-	}
+	}*/
+
+
+	pathArchivoFIFAFS=string_from_format("%s%s",dirActual,split[1]);
 
 	temp=string_from_format("md5sum %s",pathArchivoFIFAFS);
 	system(temp);
@@ -569,6 +572,7 @@ void consola(){
 		add_history("getData Archivos/scripts/creacion.escriptorio 25 25");
 		add_history("rmfile equipos/equipo1.txt");
 		add_history("mkfile /jugadores/Bou.txt");
+		add_history("md5 /equipos/Rafaela");
 
 		if (linea)
 			add_history(linea);
@@ -595,7 +599,7 @@ void consola(){
 		if(!strncmp(linea,"rmfile ",7)){
 			rmfile(linea);
 		}
-		if(!strncmp(linea,"bitmap",2)){
+		if(!strncmp(linea,"bitmap",7)){
 			mostrarBitmap();
 		}
 		if(!strncmp(linea,"md5 ",4)){

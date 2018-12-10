@@ -34,6 +34,7 @@ int estadoSistema = -1; // 0 = Estado Operativo
 int cantHistoricaDeSentencias = 0;
 int cantDeSentenciasQueUsaronADiego = 0;
 int cantDeSentenciasHastaExit;
+int cantDTB;
 int GsocketDAM;
 
 int tiempoCPUs;
@@ -64,7 +65,7 @@ typedef struct metrica {
 	int sentenciasEjecutadas;
 	int sentenciasEjecutadasEnNEW;
 	int sentenciasEjecutadasHastaEXIT;
-	int sentenciasEjecutadasQueFueronAlDiego;
+	//int sentenciasEjecutadasQueFueronAlDiego;
 } metrica;
 
 typedef struct DTBPrioridadVRR{
@@ -99,7 +100,7 @@ t_list *listaCPU;
 t_list *listaProcesosAFinalizar;
 t_list *listaRecursos;
 
-static sem_t semDummy;
+static sem_t semPlani;
 static sem_t semDAM;
 static bool conectionDAM = false;
 
@@ -201,7 +202,7 @@ metrica* crearMetricasParaDTB(int IDDTB){
 	miMetrica->sentenciasEjecutadas = 0;
 	miMetrica->sentenciasEjecutadasEnNEW = cantHistoricaDeSentencias;
 	miMetrica->sentenciasEjecutadasHastaEXIT= cantHistoricaDeSentencias;
-	miMetrica->sentenciasEjecutadasQueFueronAlDiego = 0;
+	//miMetrica->sentenciasEjecutadasQueFueronAlDiego = 0;
 
 	return miMetrica;
 }
@@ -466,6 +467,17 @@ DTBPrioridadVRR* buscarDTBVRRPorID(int idDTB){
 	return NULL;
 }
 
+int buscarIndiceDTBVRR(int idDTB){
+	DTBPrioridadVRR *miDTBVRR;
+	for (int indice = 0;indice < queue_size(colaVRR);indice++){
+			miDTBVRR= list_get(colaVRR->elements,indice);
+			if(miDTBVRR->unDTB->ID_GDT==idDTB){
+					return indice;
+			}
+	}
+	return -1;
+}
+
 	///RECURSOS///
 int buscarIndicePorRecurso(char* recursoABuscar){
 	for (int indice = 0;indice < list_size(listaRecursos);indice++){
@@ -543,6 +555,7 @@ metrica* buscarMetrica(int idDTB){
 	return laMetrica;
 }
 
+
 metrica* actualizarMetricaEXIT(int idDTB){
 
 	int indice  = buscarIndiceListaDeMetricas(listaMetricas,idDTB);
@@ -568,6 +581,7 @@ void actualizarMetricaNEW(int idDTB){
 	laMetrica->sentenciasEjecutadasEnNEW = cantHistoricaDeSentencias - 	laMetrica->sentenciasEjecutadasEnNEW;
 }
 
+/*
 void actualizarMetricaDiego(int idDTB){
 
 	bool esMetricaDelDTB(metrica *metricaAux){
@@ -578,7 +592,7 @@ void actualizarMetricaDiego(int idDTB){
 	laMetrica = list_find(listaMetricas, (void*) esMetricaDelDTB);
 
 	laMetrica->sentenciasEjecutadasQueFueronAlDiego += 1;
-}
+}*/
 
 void actualizarMetricaSentenciasEjecutadas(int idDTB, int instrucciones){
 
@@ -594,18 +608,17 @@ void actualizarMetricaSentenciasEjecutadas(int idDTB, int instrucciones){
 
 void mostrarMetricasDTB(int idDTB){
 	metrica *laMetrica;
-	int porcentaje;
+
 	if(esIDDTBValido(idDTB)!=-1){
 
 		laMetrica = buscarMetrica(idDTB);
 
-		porcentaje = ( laMetrica->sentenciasEjecutadasQueFueronAlDiego * 100) / laMetrica->sentenciasEjecutadas;
 
 		myPuts(BLUE "Las Metricas del DTB %d son :"COLOR_RESET"\n", idDTB);
 		myPuts(MAGENTA "Cant. de sentencias ejecutadas que esperó un DTB en la cola NEW: %d"COLOR_RESET"\n",laMetrica->sentenciasEjecutadasEnNEW);
-		myPuts(MAGENTA "Porcentaje de las sentencias ejecutadas promedio que fueron a “El Diego”:  %f %%"COLOR_RESET"\n",porcentaje);
+
 	}else{
-		myPuts(RED "El ID: %d no es vaido"COLOR_RESET"\n", idDTB);
+		myPuts(RED "El ID: %d no es valido"COLOR_RESET"\n", idDTB);
 	}
 }
 
@@ -614,16 +627,19 @@ void mostrarMetricasSistema(){
 	float promedioEXIT;
 	float tiempoPromedio;
 	float tiempoSAFA;
+	float porcentaje;
 
-	promedioEXIT  = cantDeSentenciasHastaExit/cantHistoricaDeSentencias;
-	promedioDiego = cantDeSentenciasQueUsaronADiego/cantHistoricaDeSentencias;
+	promedioEXIT  = cantDeSentenciasHastaExit/(float)cantDTB;
+	promedioDiego = cantDeSentenciasQueUsaronADiego/(float)cantDTB;
 	tiempoSAFAF = time(NULL);
 	tiempoSAFA = tiempoSAFAF-tiempoSAFAI;
 	tiempoPromedio = tiempoCPUs / tiempoSAFA;
+	porcentaje = ( cantDeSentenciasQueUsaronADiego * 100) /(float)cantHistoricaDeSentencias;
 
 	myPuts(BLUE "Las Metricas del Sistema son :" COLOR_RESET"\n");
 	myPuts(MAGENTA "Cant.de sentencias ejecutadas prom. del sistema que usaron a El Diego:  %f"COLOR_RESET"\n",promedioDiego);
 	myPuts(MAGENTA "Cant. de sentencias ejecutadas prom. del sistema para que un DTB termine en la cola EXIT:  %f "COLOR_RESET"\n",promedioEXIT);
+	myPuts(MAGENTA "Porcentaje de las sentencias ejecutadas promedio que fueron a “El Diego”:  %f %%"COLOR_RESET"\n",porcentaje);
 	myPuts(MAGENTA "Tiempo de Respuesta promedio del Sistema %f "COLOR_RESET"\n",tiempoPromedio);
 }
 
@@ -656,6 +672,8 @@ void NuevoDTByPlanificacion(char *rutaScript){
 	laMetrica = crearMetricasParaDTB(miDTB->ID_GDT);
 	list_add(listaMetricas,laMetrica);
 
+	cantDTB ++;
+
 	PLP();
 }
 
@@ -684,8 +702,8 @@ void accionSegunPlanificacion(int socketCPU,DTB* DTBrecibido, int motivoLiberaci
 	case MOT_BLOQUEO:
 
 		if(miDTB->Flag_GDTInicializado == 1){		//Los DUMMY no cuentan para las metricas
-			cantDeSentenciasQueUsaronADiego += 1; // Todas las sentencias que se bloquearon usaron al DAM y solo se puede hacer de a una por vez
-			actualizarMetricaDiego(miDTB->ID_GDT);
+			cantDeSentenciasQueUsaronADiego ++; // Todas las sentencias que se bloquearon usaron al DAM y solo se puede hacer de a una por vez
+			//actualizarMetricaDiego(miDTB->ID_GDT);
 		}
 
 		if(strcmp(configModificable.algoPlani,"FIFO")==0 || strcmp(configModificable.algoPlani,"RR")==0){
@@ -979,7 +997,7 @@ void PCP(){
 
 		enviarQyPlanificacionACPU(socketCPU,remanenteVRR);			//ENVIAR PLANIFICACION Y QUANTUM Y RETARDO SI CORRESPONDE
 
-		usleep((int)configModificable.retardoPlani); 				//RETARDO DE PLANIFICACION
+		sleep((int)configModificable.retardoPlani/(float)1000); 				//RETARDO DE PLANIFICACION
 
 		CPULibre->idDTB = miDTB->ID_GDT;
 
@@ -1025,7 +1043,7 @@ void desbloquearDTB(int idDTB){
 
 	myPuts(BLUE "El DTB NRO  %d esta en la cola READY" COLOR_RESET "\n",idDTB);
 
-	PCP();
+	sem_post(&semPlani);
 
 }
 
@@ -1083,7 +1101,14 @@ void finalizarDTB(bool post,int idDTB, t_list* miLista){
 	if(indice == -1){
 		indice = buscarIndicePorIdGDT(miLista,idDTB);
 
-		miDTB = list_remove(miLista, indice);
+		if(indice == -1){
+			indice = buscarIndiceDTBVRR(idDTB);
+			DTBPrioridadVRR* DTBVRR = list_remove(colaVRR->elements,indice);
+			miDTB = DTBVRR->unDTB;
+		}else{
+			miDTB = list_remove(miLista, indice);
+		}
+
 
 		miMetrica = actualizarMetricaEXIT(miDTB->ID_GDT);
 
@@ -1200,8 +1225,8 @@ void operacionDummy(){
 
 		free(strDTB);
 
+		sem_post(&semPlani);
 
-		PCP();
 	}
 }
 
@@ -1311,7 +1336,7 @@ void verificarSiExisteArchivoEnAlgunaTabla(int idDTB,char *pathArchivo){
 	///FUNCIONES DE INICIALIZACION///
 
 void inicializarSemaforos(){
-	sem_init(&semDummy,0,1);
+	sem_init(&semPlani,0,0);
 	sem_init(&semDAM,0,1);
 }
 
@@ -1424,6 +1449,7 @@ void gestionarConexionDAM(int *sock_cliente){
 
 					desconectarCPU(socketCPUDesconectada);
 
+
 				break;
 
 				case ACC_DUMMY_OK:
@@ -1490,7 +1516,9 @@ void gestionarConexionDAM(int *sock_cliente){
 
 						miDTBVRR->bloqueado = 0;
 
-						PCP();
+						sem_post(&semDAM);
+
+						sem_post(&semPlani);
 					}
 
 				break;
@@ -1528,7 +1556,7 @@ void gestionarConexionDAM(int *sock_cliente){
 
 						sem_post(&semDAM);
 
-						PCP();
+						sem_post(&semPlani);
 					}
 
 				break;
@@ -1543,7 +1571,8 @@ void gestionarConexionDAM(int *sock_cliente){
 				break;
 
 				case ACC_ABRIR_OK:
-					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+					if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
+						myPuts(RED"Error al recibir el id del DTB "COLOR_RESET"\n");
 
 					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION ABRIR correctamente" COLOR_RESET "\n",idDTB);
 
@@ -1582,7 +1611,7 @@ void gestionarConexionDAM(int *sock_cliente){
 
 						sem_post(&semDAM);
 
-						PCP();
+						sem_post(&semPlani);
 					}
 
 				break;
@@ -1599,6 +1628,8 @@ void gestionarConexionDAM(int *sock_cliente){
 					myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
 					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION FLUSH correctamente" COLOR_RESET "\n",idDTB);
+
+					miDTB = buscarDTBPorID(colaBLOCK,idDTB);
 
 					if(miDTB != NULL ){
 
@@ -1617,7 +1648,7 @@ void gestionarConexionDAM(int *sock_cliente){
 
 						sem_post(&semDAM);
 
-						PCP();
+						sem_post(&semPlani);
 					}
 				break;
 
@@ -1639,6 +1670,19 @@ void gestionarConexionDAM(int *sock_cliente){
 			exit(1);
 		}
 	}
+
+}
+
+void planificacion(){
+
+	while(1){
+
+		sem_wait(&semPlani);
+
+		PCP();
+
+	}
+
 
 }
 
@@ -1696,7 +1740,7 @@ int main(void)
 	char *linea;
 	pthread_t hiloConnectionCPU; //Nombre de Hilo a crear
 	pthread_t hiloConnectionDAM; //Nombre de Hilo a crear
-	//pthread_t hiloNotifyConfig; //Nombre de Hilo a crear
+	pthread_t hiloPlanificacion; //Nombre de Hilo a crear
 
 	//configSAFA=config_create(PATHCONFIGSAFA);
 
@@ -1708,7 +1752,7 @@ int main(void)
 
 	pthread_create(&hiloConnectionDAM,NULL,(void*) &connectionDAM,NULL);
 	pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
-	//pthread_create(&hiloNotifyConfig,NULL,(void*)&notifyConfig,NULL);
+	pthread_create(&hiloPlanificacion,NULL,(void*)&planificacion,NULL);
 
 	while (1) {
 		linea = readline(">");
@@ -1716,6 +1760,8 @@ int main(void)
 		if (linea)
 			add_history(linea);
 
+		add_history("ejecutar /scripts/crear_basura.escriptorio");
+		add_history("ejecutar /scripts/borrar_complejo.escriptorio");
 
 		add_history("ejecutar /scripts/llena_memoria.escriptorio");
 

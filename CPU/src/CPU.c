@@ -349,7 +349,7 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 	int respuestaFM9;
 	int idDTB = miDTB->ID_GDT;
 
-	usleep((int)getConfigR("RETARDO",1,configCPU)); //CONCENTRAR
+	sleep((int)getConfigR("RETARDO",1,configCPU)/(float)1000); //CONCENTRAR
 
 	switch(operacion){
 
