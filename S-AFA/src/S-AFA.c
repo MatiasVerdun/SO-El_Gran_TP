@@ -171,17 +171,15 @@ void cargarConfig(){
 
 	//FUNCIONES PARA LA LISTAS/COLAS
 	///CREAR STRUCTS///
-void dtb_destroy(DTB* miDTB){
-
-	list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void *)free);
+static void dtb_destroy(DTB* miDTB){
+	free(miDTB->tablaArchivosAbiertos);
 
 	free(miDTB);
-
 }
 
 DTB* crearDTB(char *rutaMiScript){
-	DTB *miDTB = NULL; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
-	miDTB = malloc(sizeof(*miDTB));
+	DTB *miDTB; //Sin free por que sino cuando lo meto en la cola pierdo el elemento
+	miDTB = malloc(sizeof(DTB));
 
 	miDTB->ID_GDT = IDGlobal;
 	strcpy(miDTB->Escriptorio,rutaMiScript);
@@ -775,7 +773,7 @@ void enviarQyPlanificacionACPU(int CPU,int remanente){
 	free(planificacion);
 }
 
-void  recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
+void recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 	DTB *miDTBrecibido;
 	clienteCPU *miCPU;
 	int instruccionesRealizadas;
@@ -810,10 +808,10 @@ void  recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 		accionSegunPlanificacion(socketCPU,miDTBrecibido,motivoLiberacionCPU,instruccionesRealizadas);
 	}
 
-
-	list_destroy_and_destroy_elements(miDTBrecibido->tablaArchivosAbiertos,(void*)free);
+	free(miDTBrecibido->tablaArchivosAbiertos);
 
 	free(miDTBrecibido);
+
 
 }
 
@@ -1095,7 +1093,7 @@ void finalizarDTB(bool post,int idDTB, t_list* miLista){
 
 		liberarMemoriaFM9(miDTB);
 
-		list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
+		free(miDTB->tablaArchivosAbiertos);
 
 		free(miDTB);
 
@@ -1209,35 +1207,27 @@ void operacionDummy(){
 
 /*MONITOR DE MODIFICACION DE CONFIG*/
 /*void notifyConfig(){
-
 #define EVENT_SIZE  ( sizeof (struct inotify_event) + 16 )
 #define BUF_LEN     ( 1024 * EVENT_SIZE )
-
 	char buffer[BUF_LEN];
 	int file_descriptor = inotify_init();
 	if (file_descriptor < 0) {
 		perror("inotify_init");
 	}
-
 	int watch_descriptor = inotify_add_watch(file_descriptor, "../../Config", IN_MODIFY | IN_CREATE | IN_DELETE);
-
 	while (1){
 			int length = read(file_descriptor, buffer, BUF_LEN);
 			if (length < 0) {
 				perror("read");
 			}
-
 			int offset = 0;
-
 			// Luego del read buffer es un array de n posiciones donde cada posición contiene
 			// un eventos ( inotify_event ) junto con el nombre de este.
 			while (offset < length) {
-
 				// El buffer es de tipo array de char, o array de bytes. Esto es porque como los
 				// nombres pueden tener nombres mas cortos que 24 caracteres el tamaño va a ser menor
 				// a sizeof( struct inotify_event ) + 24.
 				struct inotify_event *event = (struct inotify_event *) &buffer[offset];
-
 				// El campo "len" nos indica la longitud del tamaño del nombre
 				if (event->len) {
 					// Dentro de "mask" tenemos el evento que ocurrio y sobre donde ocurrio
@@ -1249,9 +1239,7 @@ void operacionDummy(){
 								actualizarConfig();
 								for(int i = 0 ; i < list_size(listaCPU); i++){
 									clienteCPU *miCPU;
-
 									miCPU = list_get(listaCPU, i);
-
 									int modo = MODO_QyP;
 									myEnviarDatosFijos(miCPU->socketCPU,&modo, sizeof(int));
 								}
@@ -1979,6 +1967,5 @@ int main(void)
 
 		free(linea);
 	}
-
 	return EXIT_SUCCESS;
 }

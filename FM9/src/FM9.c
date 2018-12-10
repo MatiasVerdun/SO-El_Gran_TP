@@ -349,6 +349,7 @@ int agregarFilaTPI(int idDTB){
 	return -1;
 }
 
+
 void abrirArchivoSEG(int cantLineas){
 	int idDTB;
 	myPuts(BLUE "Obteniendo script");
@@ -367,6 +368,9 @@ void abrirArchivoSEG(int cantLineas){
 		miSegmento->base = primeraLineaLibreDelEspacioMaximo(lineasOcupadas,tamLinea);
 		miSegmento->limite = cantLineas;
 		miSegmento->ID_GDT = idDTB;
+
+		int limitePosta = miSegmento->base + miSegmento->limite;
+		myPuts(MAGENTA"Se le asigno la BASE: %d y el LIMITE: %d al DTB NRO: %d"COLOR_RESET"\n", miSegmento->base, limitePosta, idDTB);
 
 		list_add(tablaDeSegmentos,miSegmento);
 
@@ -435,6 +439,8 @@ void abrirArchivoTPI(int cantLineas){
 		int dirLogica = fila->pagina * tamPagina;
 		fila->cantPaginas = cantFrames;
 
+		myPuts(MAGENTA"Se le asigno el FRAME: %d y la PAGINA: %d al DTB NRO: %d"COLOR_RESET"\n", frame, fila->pagina, idDTB);
+
 		if(cantFrames == 1 && offsetUltimoFrame==0){
 			for(i = 0;  i < (tamPagina/tamLinea); i++){
 				memcpy(memoriaFM9+(((frame * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
@@ -451,6 +457,7 @@ void abrirArchivoTPI(int cantLineas){
 
 			for(j = 1;  j < cantFrames; j++){
 				frame =agregarFilaTPI(idDTB);
+				myPuts(MAGENTA"Se le asigno el FRAME: %d y la PAGINA: %d al DTB NRO: %d"COLOR_RESET"\n", frame, tablaDePaginasInvertidas[frame]->pagina, idDTB);
 				for(i = 0;  i < (tamPagina/tamLinea); i++){
 					memcpy(memoriaFM9+(((frame * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[j*tamPagina/tamLinea+i],strlen(vecStrings[j*tamPagina/tamLinea+i]));
 				}
@@ -462,12 +469,14 @@ void abrirArchivoTPI(int cantLineas){
 
 			for(j = 1;  j < cantFrames-1; j++){
 				frame =agregarFilaTPI(idDTB);
+				myPuts(MAGENTA"Se le asigno el FRAME: %d y la PAGINA: %d al DTB NRO: %d"COLOR_RESET"\n", frame, tablaDePaginasInvertidas[frame]->pagina, idDTB);
 				for(int i = 0;  i < (tamPagina/tamLinea); i++){
 					memcpy(memoriaFM9+(((frame * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[j*tamPagina/tamLinea+i],strlen(vecStrings[j*tamPagina/tamLinea+i]));
 				}
 			}
 
 			frame= agregarFilaTPI(idDTB);
+			myPuts(MAGENTA"Se le asigno el FRAME: %d y la PAGINA: %d al DTB NRO: %d"COLOR_RESET"\n", frame, tablaDePaginasInvertidas[frame]->pagina, idDTB);
 			for( int k  = 0;  k < offsetUltimoFrame; k++){
 				memcpy(memoriaFM9+(((frame * tamPagina)/tamLinea)+k)*tamLinea,vecStrings[(j-1)*tamPagina/tamLinea+i+k],strlen(vecStrings[(j-1)*tamPagina/tamLinea+i+k]));
 			}
@@ -532,6 +541,8 @@ void abrirArchivoSPA(int cantLineas){
 
 		list_add(proceso->tablaDeSegmentos, miSegmento);
 
+		myPuts(MAGENTA"Se le asigno el SEGMENTO: %d  al DTB NRO: %d"COLOR_RESET"\n", miSegmento->nroSegmento);
+
 		paginaDeTabla* miPagina;
 
 		for(int z = 0; z< cantFrames; z ++){
@@ -548,18 +559,27 @@ void abrirArchivoSPA(int cantLineas){
 		if(cantFrames == 1 && offsetUltimoFrame==0){
 				paginaActual = list_get(miSegmento->tablaDePaginas,0);
 				frameActual = paginaActual->nroFrame;
+
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+
 				for(i = 0;  i < (tamPagina/tamLinea); i++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
 				}
 			}else if(cantFrames == 1 ){
 				paginaActual = list_get(miSegmento->tablaDePaginas,0);
 				frameActual = paginaActual->nroFrame;
+
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+
 				for(i = 0;  i < offsetUltimoFrame; i++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
 				}
 			}	else if(offsetUltimoFrame == 0){
 				paginaActual = list_get(miSegmento->tablaDePaginas,0);
 				frameActual = paginaActual->nroFrame;
+
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+
 				for(i = 0;  i < tamPagina/tamLinea; i++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
 				}
@@ -567,6 +587,9 @@ void abrirArchivoSPA(int cantLineas){
 				for(j = 1;  j < cantFrames; j++){
 					paginaActual = list_get(miSegmento->tablaDePaginas,j);
 					frameActual = paginaActual->nroFrame;
+
+					myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+
 					for(i = 0;  i < (tamPagina/tamLinea); i++){
 						memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[j*tamPagina/tamLinea+i],strlen(vecStrings[j*tamPagina/tamLinea+i]));
 					}
@@ -575,6 +598,8 @@ void abrirArchivoSPA(int cantLineas){
 				paginaActual = list_get(miSegmento->tablaDePaginas,0);
 				frameActual = paginaActual->nroFrame;
 
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+
 				for(i = 0;  i < tamPagina/tamLinea; i++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[i],strlen(vecStrings[i]));
 				}
@@ -582,6 +607,9 @@ void abrirArchivoSPA(int cantLineas){
 				for(j = 1;  j < cantFrames-1; j++){
 					paginaActual = list_get(miSegmento->tablaDePaginas,j);
 					frameActual = paginaActual->nroFrame;
+
+					myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
+
 					for(int i = 0;  i < (tamPagina/tamLinea); i++){
 						memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+i)*tamLinea,vecStrings[j*tamPagina/tamLinea+i],strlen(vecStrings[j*tamPagina/tamLinea+i]));
 					}
@@ -589,6 +617,8 @@ void abrirArchivoSPA(int cantLineas){
 
 				paginaActual = list_get(miSegmento->tablaDePaginas,j);
 				frameActual = paginaActual->nroFrame;
+
+				myPuts(MAGENTA"--> FRAME: %d  PAGINA: %d"COLOR_RESET"\n",frameActual,paginaActual);
 
 				for( int k  = 0;  k < offsetUltimoFrame; k++){
 					memcpy(memoriaFM9+(((frameActual * tamPagina)/tamLinea)+k)*tamLinea,vecStrings[(j-1)*tamPagina/tamLinea+i+k],strlen(vecStrings[(j-1)*tamPagina/tamLinea+i+k]));
@@ -1206,19 +1236,78 @@ SegmentoDeTabla* buscarSegmentoPorIdDTB(int miID){
 	return NULL;
 }
 
-void dump(int id){
+int buscarFilaTPIPorIDDTB(int idDTB){
+	myPuts("Los datos administrativos almacenados en la Tabla de Segmentos son los siguientes \n");
+	for(int i = 0; i < (tamMemoria/tamPagina); i++){
+			if(tablaDePaginasInvertidas[i]->ID_GDT==idDTB){
+				return i;
+			}
+	}
+	return -1;
+}
+
+void dumpTPI(int idDTB){
+	int algunFrame;
+	algunFrame = buscarFilaTPIPorIDDTB(idDTB);
+
+	if(algunFrame != -1){
+		myPuts(BLUE"Los datos administrativos almacenados en la Tabla de Segmentos son los siguientes:"COLOR_RESET "\n");
+		for(int i = 0; i < (tamMemoria/tamPagina); i++){
+				if(tablaDePaginasInvertidas[i]->ID_GDT==idDTB){
+					myPuts(BLUE"Frame: %d Pagina: %d"COLOR_RESET"\n",i,tablaDePaginasInvertidas[i]->pagina);
+				}
+		}
+	}else{
+		myPuts(RED "No se encuentra informacion de ese DTB"COLOR_RESET "\n");
+	}
+
+}
+
+void dumpSPA(int idDTB){
+
+	procesoDeTabla* proceso = buscarProcesoPorIDDTB(idDTB);
+
+	if(proceso != NULL){
+		myPuts(BLUE "Los datos administrativos almacenados en la Tabla de Segmentos Paginados son los siguientes: "COLOR_RESET"\n");
+
+		for(int i = 0; i < list_size(proceso->tablaDeSegmentos); i ++){
+			SegmentoDeTablaSPA* segmento = list_get(proceso->tablaDeSegmentos,i);
+			myPuts(MAGENTA"Segmento: %d"COLOR_RESET"\n", segmento->nroSegmento );
+
+			for(int j = 0; j < list_size(segmento->tablaDePaginas); j ++){
+				paginaDeTabla* pagina = list_get(proceso->tablaDeSegmentos,j);
+
+				myPuts(BLUE"-->Frame: %d Pagina: %d"COLOR_RESET"\n", pagina->nroFrame, pagina->nroPagina );
+			}
+		}
+
+	}else{
+		myPuts(RED "No se encuentra informacion de ese DTB" COLOR_RESET "\n");
+	}
+
+}
+
+void dump(int idDTB){
 	if(modoEjecucion == SEG)
 		{
 			SegmentoDeTabla *miSegmento;
-			miSegmento = buscarSegmentoPorIdDTB(id);
+			miSegmento = buscarSegmentoPorIdDTB(idDTB);
+			if(miSegmento!= NULL){
+				myPuts(BLUE"Los datos administrativos almacenados en la Tabla de Segmentos son los siguientes \n FileID: %d Base: %d Limite: %d \n"COLOR_RESET"\n", miSegmento->fileID, miSegmento->base,miSegmento->limite);
+			}else{
+				myPuts(RED "No se encuentra informacion de ese DTB"COLOR_RESET "\n");
+			}
 
-			myPuts("Los datos administrativos para el DTB %d almacenados en la Tabla de Segmentos son los siguientes \n FileID: %d Base: %d Limite: %d \n",miSegmento->ID_GDT, miSegmento->fileID, miSegmento->base,miSegmento->limite);
 		} else if(modoEjecucion == TPI)
 		{
+
+			 dumpTPI(idDTB);
+
 
 		} else if(modoEjecucion == SPA)
 		{
 
+			dumpSPA(idDTB);
 		}
 }
 
@@ -1441,6 +1530,8 @@ void consola(){
 		if (linea)
 			add_history(linea);
 
+		add_history("dump ");
+
 		if(!strncmp(linea,"dump ",5)){
 			char** split;
 			char strID[3];
@@ -1458,7 +1549,7 @@ void consola(){
 			free(split[1]);
 			free(split);
 			free(linea);
-			break;
+
 		}
 
 		if(!strncmp(linea,"exit",4)){
@@ -1466,7 +1557,7 @@ void consola(){
 			free(memoriaFM9);
 			break;
 		}
-		free(linea);
+
 	}
 }
 

@@ -162,7 +162,7 @@ DTB* DTBString2Struct (char *miStringDTB){
 		int nInicioLista = miStringDTB + nTotDesplaza;
 
 		for(int indice = 0;indice < lenLista;indice++){
-			datosArchivo *misDatos;
+			datosArchivo *misDatos = NULL;
 			char path[256];
 			char fileID[10];
 			int id;

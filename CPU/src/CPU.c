@@ -543,13 +543,22 @@ void hardcodearSentencia(){
 
 }*/
 
-void limpiarVariables(sentencia* miSentencia){
+void limpiarVariables(){
 	instruccionesEjecutadas = 0;
 	motivoLiberacionCPU = -1;
 	codigoError = 0;
 	estaBloqueado = false;
+	//free(miSentencia->param1);
+	//free(miSentencia->param3);
+	//free(miSentencia);
+}
+
+void liberarSentencia(sentencia* miSentencia){
+
 	free(miSentencia->param1);
+
 	free(miSentencia->param3);
+
 	free(miSentencia);
 }
 
@@ -602,6 +611,7 @@ void ejecutarInstruccion(DTB* miDTB){
 
 		gestionDeSentencia(miDTB,miSentencia,instruccionesEjecutadas);
 
+		liberarSentencia(miSentencia);
 	}
 
 	if(hayError()){
@@ -621,7 +631,8 @@ void ejecutarInstruccion(DTB* miDTB){
 		enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 	}
 
-	limpiarVariables(miSentencia);
+	limpiarVariables();
+
 }
 
 
@@ -647,7 +658,8 @@ void gestionarConexionSAFA(){
 					ejecutarInstruccion(miDTB);
 				}
 
-				//list_destroy(miDTB->tablaArchivosAbiertos);
+				list_destroy_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
+
 				free(miDTB);
 			}
 
