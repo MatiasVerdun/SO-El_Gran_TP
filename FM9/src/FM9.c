@@ -223,7 +223,7 @@ SegmentoDeTablaSPA* buscarSegmento(t_list* tablaSegmentos,int segmento){
 }
 
 int buscarIndiceSegmento(t_list* tablaDeSegmentos,int segmento){
-	for(int i = 0; i < list_size(tablaDeProcesosSPA);i++){
+	for(int i = 0; i < list_size(tablaDeSegmentos);i++){
 			SegmentoDeTablaSPA* miSegmento  = list_get(tablaDeSegmentos,i);
 			if(miSegmento->nroSegmento == segmento){
 				return i;
@@ -681,7 +681,7 @@ int  asignarLineaSEG(int fileID, int linea, char* datos){
 
 			int tamMemset = strlen(memoriaFM9+(base+(linea-1))*tamLinea);
 
-			memset(memoriaFM9+(base+(linea-1))*tamLinea,'\0',tamMemset+1); //Capaz que se necesita cambiar
+			memset(memoriaFM9+(base+(linea-1))*tamLinea,'\0',tamMemset); //Capaz que se necesita cambiar
 
 			memcpy(memoriaFM9+(base+(linea-1))*tamLinea,datos,strlen(datos));
 
@@ -699,6 +699,8 @@ int  asignarLineaSEG(int fileID, int linea, char* datos){
 
 int asignarLineaTPI(int dirLogica,int linea,char*datos){
 
+	strcat(datos,"\n");
+
 	if(strlen(datos) > tamLinea){
 		return 2;
 	}
@@ -709,7 +711,7 @@ int asignarLineaTPI(int dirLogica,int linea,char*datos){
 
 	int frame = buscarFramePorPagina(pagina);
 
-	memset(memoriaFM9+(frame*tamPagina+offset),'\0',tamLinea+1);
+	memset(memoriaFM9+(frame*tamPagina+offset),'\0',tamLinea);
 
 	memcpy(memoriaFM9+(frame*tamPagina+offset),datos,strlen(datos));
 
@@ -719,15 +721,18 @@ int asignarLineaTPI(int dirLogica,int linea,char*datos){
 }
 
 int asignarLineaSPA(int dirLogica,int linea,char* datos,int idDTB){
+
+	strcat(datos,"\n");
+
 	if(strlen(datos) > tamLinea){
 		return 2;
 	}
 
-	int segmento =(dirLogica + linea -1) / tamPagina / 100;
+	int segmento =(dirLogica + (linea - 1) * tamLinea ) / tamPagina / 100;
 
-	int pagina = (dirLogica + linea -1 - (segmento*tamPagina*100)) / tamPagina;
+	int pagina = (dirLogica + (linea - 1) * tamLinea - (segmento*tamPagina*100)) / tamPagina;
 
-	int offset = (dirLogica + linea -1 - (segmento*tamPagina*100)) % tamPagina;
+	int offset = (dirLogica + (linea - 1) * tamLinea  - (segmento*tamPagina*100)) % tamPagina;
 
 	procesoDeTabla* proceso = buscarProcesoPorIDDTB(idDTB);
 
@@ -737,9 +742,9 @@ int asignarLineaSPA(int dirLogica,int linea,char* datos,int idDTB){
 
 	int frame = miPagina->nroFrame;
 
-	memset(memoriaFM9+(frame*tamPagina+offset),'\0',tamLinea+1);
+	memset(memoriaFM9+(frame*tamPagina+offset),'\0',tamLinea);
 
-	memcpy(memoriaFM9+(frame*tamPagina),datos,strlen(datos));
+	memcpy(memoriaFM9+(frame*tamPagina+offset),datos,strlen(datos));
 
 	myPuts(GREEN "Operacion Asignar correcta." COLOR_RESET "\n");
 
