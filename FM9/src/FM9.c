@@ -1040,6 +1040,7 @@ void cerrarVariosArchivosSPA(int idDTB){
 	}
 
 	int indice = buscarIndiceProceso(idDTB);
+	list_destroy(proceso->tablaDeSegmentos);
 	list_remove_and_destroy_element(tablaDeProcesosSPA,indice,(void *) free);
 
 }
@@ -1367,7 +1368,7 @@ int tamSplit(char** split){
 
 void gestionarConexionDAM(int *sock){
 	GsocketDAM = *(int*)sock;
-	int operacion,cantLineas;
+	int operacion,cantLineas, idDTB, fileID;
 
 	if(myRecibirDatosFijos(GsocketDAM,&maxTransfer,sizeof(int))==1)
 		myPuts(RED "Error al recibir el Max Transfer" COLOR_RESET "\n");
@@ -1392,9 +1393,19 @@ void gestionarConexionDAM(int *sock){
 					flush();
 				break;
 
-				case (OPERACION_CLOSE): //Si DAM envia esta operacion es porque termino un DTB
+				case (OPERACION_CLOSE_ALL): //Si DAM envia esta operacion es porque termino un DTB
 
 					cerrarVariosArchivos();
+				break;
+
+				case (OPERACION_CLOSE): //Si DAM envia esta operacion es porque termino un DTB
+						if(myRecibirDatosFijos(GsocketDAM,&idDTB,sizeof(int))==1)
+							myPuts(RED "Error al recibir el idDTB " COLOR_RESET "\n");
+
+						if(myRecibirDatosFijos(GsocketDAM,&fileID,sizeof(int))==1)
+							myPuts(RED "Error al recibir el fileID " COLOR_RESET "\n");
+
+					cerrarArchivo(fileID, idDTB);
 				break;
 
 			//sem_post(&semOperacion);

@@ -146,27 +146,58 @@ void mostrarConfig(){
 	free(myText);
 }
 
-void actualizarConfig(){
+void actualizarConfig(bool consola){
 	t_config *configAux= config_create(PATHCONFIGSAFA);
+	bool mostrar = false;
 
-	strcpy(configModificable.algoPlani,config_get_string_value(configAux,"ALGO_PLANI"));
-	configModificable.quantum=config_get_int_value(configAux,"Q");
-	configModificable.gradoMultiprogramacion=config_get_int_value(configAux,"GMP");
-	configModificable.retardoPlani=config_get_int_value(configAux,"RETARDO");
+	if(strcmp(configModificable.algoPlani,config_get_string_value(configAux,"ALGO_PLANI"))!=0){
+		strcpy(configModificable.algoPlani,config_get_string_value(configAux,"ALGO_PLANI"));
+		mostrar = true;
+	}
+
+	if(configModificable.quantum!=config_get_int_value(configAux,"Q")){
+		configModificable.quantum=config_get_int_value(configAux,"Q");
+		mostrar= true;
+	}
+
+	if(configModificable.gradoMultiprogramacion!=config_get_int_value(configAux,"GMP")){
+		configModificable.gradoMultiprogramacion=config_get_int_value(configAux,"GMP");
+		mostrar=true;
+	}
+
+	if(configModificable.retardoPlani!=config_get_int_value(configAux,"RETARDO")){
+		configModificable.retardoPlani=config_get_int_value(configAux,"RETARDO");
+		mostrar = true;
+	}
+
+	if(mostrar && !consola){
+		myPuts(MAGENTA"------ La configuracion cambio, la nueva configuracion es: ------ \n");
+		mostrarConfig();
+		printf("\n");
+	}
+
+	if(consola){
+		mostrarConfig();
+		printf("\n");
+	}
 
 	config_destroy(configAux);
+
 }
 
 void cargarConfig(){
 	t_config *configSAFA= config_create(PATHCONFIGSAFA);
 
 	strcpy(configModificable.IP_ESCUCHA,config_get_string_value(configSAFA,"IP_ESCUCHA"));
+	strcpy(configModificable.algoPlani,config_get_string_value(configSAFA,"ALGO_PLANI"));
 	configModificable.PUERTO_DAM=config_get_int_value(configSAFA,"DAM_PUERTO");
 	configModificable.PUERTO_CPU=config_get_int_value(configSAFA,"CPU_PUERTO");
+	configModificable.retardoPlani=config_get_int_value(configSAFA,"RETARDO");
+	configModificable.quantum=config_get_int_value(configSAFA,"Q");
+	configModificable.gradoMultiprogramacion=config_get_int_value(configSAFA,"GMP");
 
 	config_destroy(configSAFA);
 
-	actualizarConfig();
 
 }
 
@@ -428,6 +459,7 @@ void copiarDatosDTB(DTB *miDTB,DTB *DTBrecibido){
 
 	list_add_all(miDTB->tablaArchivosAbiertos, DTBrecibido->tablaArchivosAbiertos);
 	//miDTB->tablaArchivosAbiertos = DTBrecibido->tablaArchivosAbiertos;
+
 }
 
 bool hayPrioridad(){
@@ -650,7 +682,7 @@ void PLP(){
 
 	while(!queue_is_empty(colaNEW) ){
 
-		actualizarConfig();
+		actualizarConfig(false);
 
 		if (DTBenPCP <= configModificable.gradoMultiprogramacion && operacionDummyOK){
 
@@ -826,7 +858,8 @@ void recibirDTBeInstrucciones(int socketCPU,int motivoLiberacionCPU){
 		accionSegunPlanificacion(socketCPU,miDTBrecibido,motivoLiberacionCPU,instruccionesRealizadas);
 	}
 
-	free(miDTBrecibido->tablaArchivosAbiertos);
+
+	list_destroy(miDTBrecibido->tablaArchivosAbiertos);
 
 	free(miDTBrecibido);
 
@@ -988,7 +1021,7 @@ void PCP(){
 		int socketCPU = CPULibre->socketCPU;
 		CPULibre->libre = 0;                						//PONGO LA CPU COMO OCUPADA
 
-		actualizarConfig();
+		actualizarConfig(false);
 
 		DTB * miDTB;
 		miDTB = elegirProximoAEjecutarSegunPlanificacion(socketCPU,&remanenteVRR);
@@ -1085,6 +1118,10 @@ void liberarRecursosAsignados(DTB *miDTB){
 
 void liberarMemoriaFM9(DTB *miDTB){
 	int idDTB = miDTB->ID_GDT;
+	int accion= OPERACION_CLOSE_ALL;
+
+	myEnviarDatosFijos(GsocketDAM,&accion,sizeof(int));
+
 	myEnviarDatosFijos(GsocketDAM,&idDTB,sizeof(int));
 
 }
@@ -1118,7 +1155,7 @@ void finalizarDTB(bool post,int idDTB, t_list* miLista){
 
 		liberarMemoriaFM9(miDTB);
 
-		free(miDTB->tablaArchivosAbiertos);
+		list_clean_and_destroy_elements(miDTB->tablaArchivosAbiertos,(void*)free);
 
 		free(miDTB);
 
@@ -1207,7 +1244,7 @@ void operacionDummy(){
 		CPULibre->libre = 0; // Cpu ocupada
 		CPULibre->idDTB = miDTB->ID_GDT;
 
-		actualizarConfig();
+		actualizarConfig(false);
 
 		myEnviarDatosFijos(socketCPU,&ejecucion,sizeof(int));
 
@@ -1303,34 +1340,51 @@ int buscarIndicePorArchivo(char * pathArchivo,t_list* listaArchivos){
 	return -1;
 }
 
-void borrarArchivoDeLaTabla(int idDTB, char* pathArchivo){
+void borrarArchivoDeLaTabla(DTB* miDTB, char* pathArchivo){
 	int indice;
-	//datosArchivo* miArchivo; //TODO liberar la memoria del archivo
-
-	DTB * miDTB = buscarDTBPorID(colaBLOCK,idDTB);
+	int fileID;
+	int accion;
+	int idDTB = miDTB->ID_GDT;
+	datosArchivo* miArchivo;
 
 	indice = buscarIndicePorArchivo(pathArchivo,miDTB->tablaArchivosAbiertos);
 
 	if(indice != -1){
-		list_remove(miDTB->tablaArchivosAbiertos,indice);
+		miArchivo = list_get(miDTB->tablaArchivosAbiertos,indice);
+
+		accion = OPERACION_CLOSE;
+
+		myEnviarDatosFijos(GsocketDAM,&accion,sizeof(int));
+
+		myEnviarDatosFijos(GsocketDAM,&idDTB,sizeof(int));
+
+		fileID = miArchivo->fileID;
+		myEnviarDatosFijos(GsocketDAM,&fileID,sizeof(int));
+
+		list_remove_and_destroy_element(miDTB->tablaArchivosAbiertos,indice,(void *) free);
 	}
+
+
 
 }
 
-void verificarSiExisteArchivoEnAlgunaTabla(int idDTB,char *pathArchivo){
+void verificarSiExisteArchivoEnAlgunaTabla(char *pathArchivo){
 	for(int i = 0; i < queue_size(colaBLOCK); i ++){
 		DTB *miDTB = list_get(colaBLOCK->elements,i);
-		borrarArchivoDeLaTabla(miDTB->ID_GDT,pathArchivo);
+		borrarArchivoDeLaTabla(miDTB,pathArchivo);
 	}
 	for(int i = 0; i < queue_size(colaREADY); i ++){
 		DTB *miDTB = list_get(colaREADY->elements,i);
-		borrarArchivoDeLaTabla(miDTB->ID_GDT,pathArchivo);
+		borrarArchivoDeLaTabla(miDTB,pathArchivo);
 	}
 	for(int i = 0; i < queue_size(colaEXEC); i ++){
 		DTB *miDTB = list_get(colaEXEC->elements,i);
-		borrarArchivoDeLaTabla(miDTB->ID_GDT,pathArchivo);
+		borrarArchivoDeLaTabla(miDTB,pathArchivo);
 	}
-
+	for(int i = 0; i < queue_size(colaVRR); i ++){
+		DTBPrioridadVRR *miDTBVRR = list_get(colaVRR->elements,i);
+		borrarArchivoDeLaTabla(miDTBVRR->unDTB,pathArchivo);
+	}
 }
 
 	///FUNCIONES DE INICIALIZACION///
@@ -1537,7 +1591,7 @@ void gestionarConexionDAM(int *sock_cliente){
 
 					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION BORRAR correctamente" COLOR_RESET "\n",idDTB);
 
-					verificarSiExisteArchivoEnAlgunaTabla(idDTB,pathArchivo);
+					verificarSiExisteArchivoEnAlgunaTabla(pathArchivo);
 
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
 					miDTB = list_get(colaBLOCK->elements,indice);
@@ -1673,16 +1727,17 @@ void gestionarConexionDAM(int *sock_cliente){
 
 }
 
-void planificacion(){
+void* planificacion(){
 
 	while(1){
+
+		actualizarConfig(false);
 
 		sem_wait(&semPlani);
 
 		PCP();
 
 	}
-
 
 }
 
@@ -1754,7 +1809,10 @@ int main(void)
 	pthread_create(&hiloConnectionCPU,NULL,(void*)&connectionCPU,NULL);
 	pthread_create(&hiloPlanificacion,NULL,(void*)&planificacion,NULL);
 
+
 	while (1) {
+		actualizarConfig(false);
+
 		linea = readline(">");
 
 		if (linea)
@@ -1780,8 +1838,8 @@ int main(void)
 
 		if(!strncmp(linea,"config",6))
 		{
-			actualizarConfig();
-			mostrarConfig();
+			actualizarConfig(true);
+
 		}
 
 		if(!strncmp(linea,"get",3))

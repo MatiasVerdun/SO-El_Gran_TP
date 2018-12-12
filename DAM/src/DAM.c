@@ -527,15 +527,35 @@ void gestionarConexionSAFA(int socketSAFA){
 	socketGSAFA = socketSAFA;
 
 	int idDTB;
-	int operacion=OPERACION_CLOSE;
+	int operacion;
+	int fileID;
 
 	while(1){
-		if(myRecibirDatosFijos(socketGSAFA,&idDTB,sizeof(int))!=1){
+		if(myRecibirDatosFijos(socketGSAFA,&operacion,sizeof(int))!=1){
 			sem_wait(&semOperacion);
 
-			myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+			switch(operacion){
+			case OPERACION_CLOSE_ALL:
+				if(myRecibirDatosFijos(socketGSAFA,&idDTB,sizeof(int))==1)
+					myPuts(RED "Error al recibir el idDTB " COLOR_RESET "\n");
 
-			myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
+				myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+
+				myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
+				break;
+
+			case OPERACION_CLOSE:
+				if(myRecibirDatosFijos(socketGSAFA,&idDTB,sizeof(int))==1)
+					myPuts(RED "Error al recibir el idDTB " COLOR_RESET "\n");
+
+				myEnviarDatosFijos(socketGFM9,&operacion,sizeof(int));
+
+				myEnviarDatosFijos(socketGFM9,&idDTB,sizeof(int));
+
+				myEnviarDatosFijos(socketGFM9,&fileID,sizeof(int));
+
+				break;
+			}
 
 			sem_post(&semOperacion);
 		}else{

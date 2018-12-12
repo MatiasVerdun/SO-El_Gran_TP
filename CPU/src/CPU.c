@@ -494,16 +494,17 @@ void gestionDeSentencia(DTB *miDTB,sentencia *miSentencia, int instruccionesEjec
 		break;
 
 		case OPERACION_BORRAR:// AL DIEGO PARA MDJ PATH
-				estaBloqueado = true;
-				motivoLiberacionCPU = MOT_BLOQUEO;
-				enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
-				myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
-				myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
+			estaBloqueado = true;
+			motivoLiberacionCPU = MOT_BLOQUEO;
+			enviarMotivoyDatos(miDTB,motivoLiberacionCPU,instruccionesEjecutadas,NULL);
 
-				tamanio = strlen(miSentencia->param1);
-				myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
-				myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
+			myEnviarDatosFijos(socketGDAM,&operacion,sizeof(int)); 		//ENVIO OPERACION
+			myEnviarDatosFijos(socketGDAM,&idDTB,sizeof(int));			//ENVIO ID DTB
+
+			tamanio = strlen(miSentencia->param1);
+			myEnviarDatosFijos(socketGDAM,&tamanio,sizeof(int)); 		//ENVIO EL TAMAÑO
+			myEnviarDatosFijos(socketGDAM,miSentencia->param1,tamanio); //ENVIO EL PATH
 
 		break;
 	}
