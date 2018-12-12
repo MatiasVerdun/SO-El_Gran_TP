@@ -1,4 +1,8 @@
 cd ..
+git clone https://github.com/sisoputnfrba/so-commons-library
+cd so-commons-library
+sudo make install
+cd ..
 git clone https://github.com/sisoputnfrba/fifa-examples
 cd tp-2018-2c-smlc
 cd sharedlib/Debug
