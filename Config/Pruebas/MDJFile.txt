@@ -1,4 +1,0 @@
-IP_ESCUCHA=127.0.0.4
-DAM_PUERTO=8004
-PUNTO_MONTAJE=/home/utnso/fifa-examples/fifa-entrega/
-RETARDO=100
