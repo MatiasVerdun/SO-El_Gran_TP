@@ -1591,6 +1591,15 @@ void gestionarConexionDAM(int *sock_cliente){
 
 					myPuts(GREEN "EL DTB NRO: %d ejecuto la OPERACION BORRAR correctamente" COLOR_RESET "\n",idDTB);
 
+					if(myRecibirDatosFijos(GsocketDAM,&tamanio,sizeof(int))==1)
+						myPuts(RED"Error al recibir el tamaño del archivo"COLOR_RESET"\n");
+
+					pathArchivo = malloc(tamanio+1);
+					memset(pathArchivo,'\0',tamanio+1);
+
+					if(myRecibirDatosFijos(GsocketDAM,pathArchivo,tamanio)==1)
+					myPuts(RED"Error al recibir el path"COLOR_RESET"\n");
+
 					verificarSiExisteArchivoEnAlgunaTabla(pathArchivo);
 
 					indice = buscarIndicePorIdGDT(colaBLOCK->elements, idDTB);
