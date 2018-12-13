@@ -1,36 +1,8 @@
-cd Config
-echo "S-AFA_IP=$4" > CPU.txt
-echo "S-AFA_PUERTO=8000" >> CPU.txt
-echo "DAM_IP=$1" >> CPU.txt
-echo "DAM_PUERTO=8002" >> CPU.txt
-echo "FM9_IP=$2" >> CPU.txt
-echo "FM9_PUERTO=8004" >> CPU.txt
-echo "RETARDO=100" >> CPU.txt
-echo "IP_ESCUCHA=$4" > S-AFA.txt
-echo "CPU_PUERTO=8000" >> S-AFA.txt
-echo "DAM_PUERTO=8001" >> S-AFA.txt
-echo "ALGO_PLANI=RR" >> S-AFA.txt
-echo "Q=2" >> S-AFA.txt
-echo "GMP=3" >> S-AFA.txt
-echo "RETARDO=10" >> S-AFA.txt
-echo "IP_ESCUCHA=$1" > DAM.txt
-echo "CPU_PUERTO=8002" >> DAM.txt
-echo "S-AFA_IP=$4" >> DAM.txt
-echo "S-AFA_PUERTO=8001" >> DAM.txt
-echo "FM9_IP=$2" >> DAM.txt
-echo "FM9_PUERTO=8003" >> DAM.txt
-echo "MDJ_IP=$3" >> DAM.txt
-echo "MDJ_PUERTO=8004" >> DAM.txt
-echo "TSIZE=32" >> DAM.txt
-echo "IP_ESCUCHA=$3" > MDJ.txt
-echo "DAM_PUERTO=8004" >> MDJ.txt
-echo "PUNTO_MONTAJE=/home/utnso/fifa-examples/fifa-entrega/" >> MDJ.txt
-echo "RETARDO=1000" >> MDJ.txt
-echo "IP_ESCUCHA=$2" > FM9.txt
-echo "DAM_PUERTO=8003" >> FM9.txt
-echo "CPU_PUERTO=8004" >> FM9.txt
-echo "MODO_EJ=SEG" >> FM9.txt
-echo "TMM=8192" >> FM9.txt
-echo "TML=64" >> FM9.txt
-echo "TMP=128" >> FM9.txt
-cd ..
+bash clean.sh
+cd Config/Pruebas
+cp CPUMinima.txt ../CPU.txt
+cp S-AFAMinima.txt ../S-AFA.txt
+cp DAMMinima.txt ../DAM.txt
+cp MDJMinima.txt ../MDJ.txt
+cp FM9Minima.txt ../FM9.txt
+cd ../..
