@@ -191,7 +191,7 @@ void gestionarConexionDAM(int sock)
 
 		if(myRecibirDatosFijos(socketDAM,(u_int32_t*)&buffer,sizeof(u_int32_t))==0){
 			sem_wait(&semDAM);
-			usleep((int)getConfigR("RETARDO",1,configMDJ)/(float)1000);
+			sleep((int)getConfigR("RETARDO",1,configMDJ)/(float)1000);
 			operacion=ntohl(buffer);
 
 			switch(operacion){
